@@ -7,7 +7,10 @@ main :: proc(){
 
     bake_trig()
 
-    move(&p, 1, 1, false, true, false, false)
+    p.f = 45
+
+    move(&p, 1, 1, true, true, false, false)
+    move(&p, 1, 1, true, true, false, false)
 
     fmt.println("Hello vz =", p.vz, "!")
 }
