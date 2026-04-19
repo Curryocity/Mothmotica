@@ -3,6 +3,8 @@ package main
 import "core:fmt"
 import "core:math"
 
+
+
 Player :: struct {
     x: f64,
     z: f64,
@@ -46,17 +48,17 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
 
     accel: f64
     if airborne {
-        accel = 0.019999999552965164
+        accel = widenf32(0.02)
     } else {
-        accel = 0.10000000149011612
+        accel = widenf32(0.1)
 
-        if p.speed > 0 do accel *= 1 + 0.20000000298023224 * f64(p.speed)
-        if p.slow  > 0 do accel *= 1 + (-0.15000000596046448)  * f64(p.slow)
+        if p.speed > 0 do accel *= 1 + widenf32(0.2) * f64(p.speed)
+        if p.slow  > 0 do accel *= 1 + widenf32(-0.15)  * f64(p.slow)
         if accel < 0 do accel = 0
     }
 
     if (sprint && (!airborne || !p.sprint_delay)) || (p.prev_sprint && p.sprint_delay && airborne) {
-        accel *= 1.300000011920929 // f64(1 + f32(0.3)))
+        accel *= 1 + widenf32(0.3) // f64(1 + f32(0.3)))
     }
 
     accelf := f32(accel)
