@@ -15,6 +15,7 @@ TokenType :: enum{
     RParen,
     Op,
     Pipe,
+    DoublePipe,
 }
 
 Token :: struct{
@@ -142,8 +143,23 @@ updateNext :: proc(lex : ^Lexer) {
         tok_type = .RParen
     case '+', '-', '*', '/':
         tok_type = .Op
-    case '|':
-        tok_type = .Pipe
+    if c == '|' {
+        if lex.pos + 1 < n && lex.data[lex.pos + 1] == '|' {
+            lex.nextCache = Token{
+                type = .DoublePipe,
+                content = lex.data[lex.pos:lex.pos+2],
+            }
+            lex.pos += 2
+        } else {
+            lex.nextCache = Token{
+                type = .Pipe,
+                content = lex.data[lex.pos:lex.pos+1],
+            }
+            lex.pos += 1
+        }
+        lex.nextOk = true
+        return
+    }
     case:
         tok_type = .Invalid
     }
@@ -155,8 +171,43 @@ updateNext :: proc(lex : ^Lexer) {
     lex.nextOk = true
 }
 
+CmdType :: enum {
+    SetX, SetZ, SetVz, SetVx,
+    ResetPos, ResetPosVel,
 
-parseCommand :: proc(cmd: string) -> string {
+    OutXRaw, OutXBlock, OutXMM,
+    OutZRaw, OutZBlock, OutZMM,
+
+    SetF, OutF, SetTurn, OutTurn,
+    Move,
+
+    XInv, ZInv, XZInv,
+
+    EndVx, EndVz, EndVxVz,
+    InertiaX, InertiaZ,
+
+    SetSlip, SetSprintDelay, SetInertia,
+
+    Invalid,
+}
+
+Command :: struct {
+    type: CmdType,
+    args: [dynamic]Arg,
+}
+
+ArgType :: enum {
+    Number, Text, Call,
+}
+
+Arg :: struct {
+    type: ArgType,
+    value: f64,
+    text: string,
+    cmd: ^Command,
+}
+
+parseCommands :: proc(cmd: string) -> string {
     output: string = ""
 
     COMMAND_PREFIX :: ";s"
@@ -171,6 +222,7 @@ parseCommand :: proc(cmd: string) -> string {
         nextOk = false,
     }
 
+    // parse a command per iteration
     for {
         tok := lexerNext(&lex)
         fmt.println("token:", tok.type, "content:", tok.content)
