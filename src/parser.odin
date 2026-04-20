@@ -8,6 +8,7 @@ TokenType :: enum{
 
     Identifier,
     Number,
+    Text,
 
     Comma,
     LParen,
@@ -106,6 +107,29 @@ updateNext :: proc(lex : ^Lexer) {
         return
     }
 
+    if c == '"' {
+        lex.pos += 1
+        textStart := lex.pos
+
+        for lex.pos < n && lex.data[lex.pos] != '"' {
+            lex.pos += 1
+        }
+
+        if lex.pos >= n {
+            lex.nextCache = Token{type = .Invalid, content = "unterminated string"}
+            lex.nextOk = true
+            return
+        }
+
+        lex.nextCache = Token{
+            type = .Text,
+            content = lex.data[textStart:lex.pos],
+        }
+        lex.pos += 1
+        lex.nextOk = true
+        return
+    }
+
     lex.pos += 1
 
     tok_type: TokenType
@@ -135,11 +159,17 @@ updateNext :: proc(lex : ^Lexer) {
 parseCommand :: proc(cmd: string) -> string {
     output: string = ""
 
-    // must start with ";s"
-    n := len(cmd)
-    if n < 2 || !(cmd[0] == ';' && cmd[1] == 's') do return output
+    COMMAND_PREFIX :: ";s"
+    prefix := COMMAND_PREFIX
+    prefix_len := len(prefix)
 
-    lex := Lexer{data = cmd, pos = 2, nextOk = false}
+    if len(cmd) < prefix_len || cmd[:prefix_len] != prefix do return output
+
+    lex := Lexer{
+        data = cmd,
+        pos = prefix_len,
+        nextOk = false,
+    }
 
     for {
         tok := lexerNext(&lex)
