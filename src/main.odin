@@ -1,16 +1,30 @@
 package main
 
 import "core:fmt"
+import "core:os"
+import "core:strings"
 
 main :: proc(){
-    p := makePlayer()
+    bake_trig() // do not forget
 
-    bake_trig()
+    buf: [256]byte
+    for {
+        fmt.println("Chat:")
+        
+        n, err := os.read(os.stdin, buf[:])
+        if err != nil {
+            fmt.println("read failed:", err)
+            return
+        }
 
-    move(&p, 1, 1, false, true, false, false)
+        input := strings.trim_space(string(buf[:n]))
 
-    fmt.println("Hello vz =", p.vz, "!")
+        if input == "" do break
 
+        output := parseCommand(input)
 
-    fmt.printf("widen (f64)            = %.17f\n", widenf32(0.1))
+        fmt.println("Mothball:")
+        fmt.println(output)
+    }
+
 }
