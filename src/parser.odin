@@ -368,11 +368,11 @@ parseIdentifier :: proc(p: ^Parser, tok: Token) -> Arg {
                 }
                 if next.type == .RParen {
                     lexerNext(&p.lex)
-                    delete(call.args)
                     break
                 }
 
                 p.err = .MissingRParen
+                delete(call.args)
                 return Arg{}
             }
         }else{
