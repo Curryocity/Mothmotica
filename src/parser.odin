@@ -172,6 +172,9 @@ updateNext :: proc(lex : ^Lexer) {
 }
 
 CmdType :: enum {
+    Plus, Minus, Mul, Div, 
+    SetVar,
+
     SetX, SetZ, SetVz, SetVx,
     ResetPos, ResetPosVel,
 
@@ -197,14 +200,14 @@ Command :: struct {
 }
 
 ArgType :: enum {
-    Number, Text, Call,
+    Number, Text, Variable, Call,
 }
 
 Arg :: struct {
     type: ArgType,
     value: f64,
     text: string,
-    cmd: ^Command,
+    expr: Command,
 }
 
 parseCommands :: proc(cmd: string) -> string {
@@ -216,21 +219,139 @@ parseCommands :: proc(cmd: string) -> string {
 
     if len(cmd) < prefix_len || cmd[:prefix_len] != prefix do return output
 
-    lex := Lexer{
-        data = cmd,
-        pos = prefix_len,
-        nextOk = false,
+    p := Parser{
+        lex = Lexer{
+            data = cmd,
+            pos = prefix_len,
+            nextOk = false,
+        },
+        err = .None,
     }
 
-    // parse a command per iteration
-    for {
-        tok := lexerNext(&lex)
-        fmt.println("token:", tok.type, "content:", tok.content)
-        if tok.type == .EOF {
-            break
-        }
-    }
-    
+    if lexerPeek(&p.lex).type == .EOF do return output
+
+    // Start to recursively parseExpr
+
+    expr := parseArg(&p, 0)
 
     return output
+}
+
+ParseError :: enum {
+    None, 
+    MissingRParen,
+    UnexpectedToken,
+    InvalidPrefixToken,
+}
+
+Parser :: struct {
+    lex: Lexer,
+    err: ParseError,
+}
+
+parseArg :: proc(p: ^Parser, minBP: int) -> Arg{
+    if p.err != .None do return Arg{}
+    lhs: Arg
+
+    prefix := lexerNext(&p.lex)
+
+    #partial switch prefix.type {
+        case .Number:
+            lhs = parseNumber(p, prefix)
+            if p.err != .None do return Arg{}
+        case .Text:
+            lhs.type = .Text
+            lhs.text = prefix.content
+        case .Identifier:
+            // this one is versatile
+            lhs = parseIdentifier(p, prefix)
+            if p.err != .None do return Arg{}
+        case .Op:
+            if prefix.content == "-" {
+                unaryMinusBP :: 30
+                rhs := parseArg(p, unaryMinusBP)
+                if p.err != .None do return Arg{}
+                NEG_ONE :: Arg{type = .Number, value = -1}
+                MULT_TOKEN :: Token{type = .Op, content = "*"}
+                lhs = combine(p, NEG_ONE, rhs, MULT_TOKEN)
+            }else{
+                p.err = .InvalidPrefixToken
+                return Arg{}
+            }
+        case .LParen:
+            lhs = parseArg(p, 0)
+            if p.err != .None do return Arg{}
+            if lexerNext(&p.lex).type != .RParen {
+                p.err = .MissingRParen
+                return Arg{}
+            }
+        case:
+            p.err = .InvalidPrefixToken
+            return Arg{}
+    }
+
+    for {
+        op: Token = lexerPeek(&p.lex)
+
+        if op.type != .Op do break 
+        
+        baseBP := getBP(op)
+
+        if baseBP.left < minBP do break 
+        lexerNext(&p.lex)
+
+        rhs := parseArg(p, baseBP.right)
+        if p.err != .None do return Arg{}
+
+        lhs = combine(p, lhs, rhs, op)
+        if p.err != .None do return Arg{}
+    }
+
+    return lhs
+}
+
+parseNumber :: proc(p: ^Parser, tok: Token) -> Arg {
+    value: f64
+
+}
+
+parseIdentifier :: proc(p: ^Parser, tok: Token) -> Arg {
+
+}
+
+combine :: proc(p: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
+    reducible := (lhs.type == .Number && rhs.type == .Number)
+    switch(op.content){
+        case "+":
+            if reducible{
+                return Arg{type = .Number, value = lhs.value + rhs.value}
+            }else{
+                return Arg{
+                    type = .Call,
+                    expr = Command{
+                        type = .Plus,
+                        args = {lhs, rhs}
+                    }
+                }
+            }
+        case "-":
+        case "*":
+        case "/":
+    }
+
+}
+
+BP :: struct {
+    left:int, right:int,
+}
+
+getBP :: proc(op: Token) -> BP{
+    switch op.content{
+        case "+", "-":
+            return BP{10, 11}
+        case "*", "/":
+            return BP{20, 21}
+        case:
+            return BP{-1, -1}
+    }
 }

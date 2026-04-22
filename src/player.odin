@@ -4,7 +4,6 @@ import "core:fmt"
 import "core:math"
 
 
-
 Player :: struct {
     x: f64,
     z: f64,
