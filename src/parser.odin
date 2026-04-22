@@ -253,6 +253,7 @@ ParseError :: enum {
     InvalidPrefixToken,
     DivisionByZero,
     InvalidNumber,
+    InvalidCommand,
 }
 
 Parser :: struct {
@@ -322,6 +323,7 @@ parseArg :: proc(p: ^Parser, minBP: int) -> Arg{
 }
 
 parseNumber :: proc(p: ^Parser, tok: Token) -> Arg {
+    if p.err != .None do return Arg{}
     value, ok := strconv.parse_f64(tok.content)
     if !ok {
         p.err = .InvalidNumber
@@ -335,10 +337,77 @@ parseNumber :: proc(p: ^Parser, tok: Token) -> Arg {
 }
 
 parseIdentifier :: proc(p: ^Parser, tok: Token) -> Arg {
+    if p.err != .None do return Arg{}
+
+    // a command/function with parameters
+    if lexerPeek(&p.lex).type == .LParen{
+        lexerNext(&p.lex)
+
+        cmd_type := getCommandType(tok.content)
+        if cmd_type == .Invalid {
+            p.err = .InvalidCommand
+            return Arg{}
+        }
+
+        call := Command{type = cmd_type}
+
+        if lexerPeek(&p.lex).type != .RParen{
+            for {
+                arg := parseArg(p, 0)
+                if p.err != .None{
+                    delete(call.args)
+                    return Arg{}
+                }
+
+                append(&call.args, arg)
+
+                next := lexerPeek(&p.lex)
+                if next.type == .Comma {
+                    lexerNext(&p.lex)
+                    continue
+                }
+                if next.type == .RParen {
+                    lexerNext(&p.lex)
+                    delete(call.args)
+                    break
+                }
+
+                p.err = .MissingRParen
+                return Arg{}
+            }
+        }else{
+            lexerNext(&p.lex) // consume ')' immediately
+        }
+
+        return Arg{
+            type = .Call,
+            expr = call
+        }
+    }
+
+    // No parenthesis -> variable or parameterless call
+    cmd_type := getCommandType(tok.content)
+    if cmd_type != .Invalid {
+        return Arg{
+            type = .Call,
+            expr = Command{type = cmd_type}
+        }
+    }
+
+    // variable
+    return Arg{
+        type = .Variable,
+        text = tok.content
+    }
+
+}
+
+getCommandType :: proc(cmdName: string) -> CmdType {
 
 }
 
 combine :: proc(p: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
+    if p.err != .None do return Arg{}
     reducible := (lhs.type == .Number && rhs.type == .Number)
     switch op.content {
         case "+":
