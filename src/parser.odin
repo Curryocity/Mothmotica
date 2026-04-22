@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:strconv"
 
 TokenType :: enum{
     Invalid,
@@ -210,6 +211,14 @@ Arg :: struct {
     expr: Command,
 }
 
+makeCall :: proc(type: CmdType, entries: ..Arg) -> Command {
+    cmd := Command{
+        type = type,
+    }
+    append(&cmd.args, ..entries)
+    return cmd
+}
+
 parseCommands :: proc(cmd: string) -> string {
     output: string = ""
 
@@ -242,6 +251,8 @@ ParseError :: enum {
     MissingRParen,
     UnexpectedToken,
     InvalidPrefixToken,
+    DivisionByZero,
+    InvalidNumber,
 }
 
 Parser :: struct {
@@ -311,8 +322,16 @@ parseArg :: proc(p: ^Parser, minBP: int) -> Arg{
 }
 
 parseNumber :: proc(p: ^Parser, tok: Token) -> Arg {
-    value: f64
+    value, ok := strconv.parse_f64(tok.content)
+    if !ok {
+        p.err = .InvalidNumber
+        return Arg{}
+    }
 
+    return Arg{
+        type = .Number,
+        value = value,
+    }
 }
 
 parseIdentifier :: proc(p: ^Parser, tok: Token) -> Arg {
@@ -321,24 +340,55 @@ parseIdentifier :: proc(p: ^Parser, tok: Token) -> Arg {
 
 combine :: proc(p: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
     reducible := (lhs.type == .Number && rhs.type == .Number)
-    switch(op.content){
+    switch op.content {
         case "+":
             if reducible{
                 return Arg{type = .Number, value = lhs.value + rhs.value}
             }else{
                 return Arg{
                     type = .Call,
-                    expr = Command{
-                        type = .Plus,
-                        args = {lhs, rhs}
-                    }
+                    expr = makeCall(.Plus, lhs, rhs)
                 }
             }
         case "-":
-        case "*":
-        case "/":
-    }
+            if reducible {
+                return Arg{type = .Number, value = lhs.value - rhs.value}
+            } else {
+                return Arg{
+                    type = .Call,
+                    expr = makeCall(.Minus, lhs, rhs),
+                }
+            }
 
+        case "*":
+            if reducible {
+                return Arg{type = .Number, value = lhs.value * rhs.value}
+            } else {
+                return Arg{
+                    type = .Call,
+                    expr = makeCall(.Mul, lhs, rhs),
+                }
+            }
+
+        case "/":
+            if reducible {
+                if rhs.value == 0 {
+                    p.err = .DivisionByZero
+                    return Arg{}
+                }
+                return Arg{type = .Number, value = lhs.value / rhs.value}
+            } else {
+                return Arg{
+                    type = .Call,
+                    expr = makeCall(.Div, lhs, rhs),
+                }
+            }
+
+        case:
+            p.err = .UnexpectedToken
+            return Arg{}
+
+    }
 }
 
 BP :: struct {
