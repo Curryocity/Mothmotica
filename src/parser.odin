@@ -176,7 +176,7 @@ CmdType :: enum {
     Plus, Minus, Mul, Div, 
     SetVar,
 
-    SetX, SetZ, SetVz, SetVx,
+    SetX, SetZ, SetPos, SetVz, SetVx, SetVel,
     ResetPos, ResetPosVel,
 
     OutXRaw, OutXBlock, OutXMM,
@@ -201,7 +201,7 @@ Command :: struct {
 }
 
 ArgType :: enum {
-    Number, Text, Variable, Call,
+    Number, Text, Variable, Call
 }
 
 Arg :: struct {
@@ -297,10 +297,26 @@ parseArg :: proc(p: ^Parser, minBP: int) -> Arg{
                 p.err = .MissingRParen
                 return Arg{}
             }
+        case .Pipe:
+            lhs = Arg{
+                type = .Call,
+                expr = Command{
+                    type = .ResetPos
+                }
+            }
+        case .DoublePipe:
+            lhs = Arg{
+                type = .Call,
+                expr = Command{
+                    type = .ResetPosVel
+                }
+            }
         case:
             p.err = .InvalidPrefixToken
             return Arg{}
     }
+
+    if lhs.type != .Number && lhs.type != .Variable do return lhs
 
     for {
         op: Token = lexerPeek(&p.lex)
@@ -403,7 +419,43 @@ parseIdentifier :: proc(p: ^Parser, tok: Token) -> Arg {
 }
 
 getCommandType :: proc(cmdName: string) -> CmdType {
+    switch cmdName {
+        case "x":
+            return .SetX
+        case "z":
+            return .SetZ
+        case "pos":
+            return .SetPos
+        case "vz":
+            return .SetVz
+        case "vx":
+            return .SetVx
+        case "vel":
+            return .SetVel
+        case "xr":
+            return .OutXRaw
+        case "xb":
+            return .OutXBlock
+        case "xmm":
+            return .OutXMM
+        case "zr":
+            return .OutZRaw
+        case "zb":
+            return .OutZBlock
+        case "zmm":
+            return .OutZMM
+        case "f":
+            return .SetF
+        case "outf":
+            return .OutF
+        case "t":
+            return .SetTurn
+        case "outt":
+            return .OutTurn
 
+        case:
+            return .Invalid
+    }
 }
 
 combine :: proc(p: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
