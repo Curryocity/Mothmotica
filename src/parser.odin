@@ -132,18 +132,6 @@ updateNext :: proc(lex : ^Lexer) {
         return
     }
 
-    lex.pos += 1
-
-    tok_type: TokenType
-    switch c {
-    case ',':
-        tok_type = .Comma
-    case '(':
-        tok_type = .LParen
-    case ')':
-        tok_type = .RParen
-    case '+', '-', '*', '/':
-        tok_type = .Op
     if c == '|' {
         if lex.pos + 1 < n && lex.data[lex.pos + 1] == '|' {
             lex.nextCache = Token{
@@ -161,6 +149,19 @@ updateNext :: proc(lex : ^Lexer) {
         lex.nextOk = true
         return
     }
+
+    lex.pos += 1
+
+    tok_type: TokenType
+    switch c {
+    case ',':
+        tok_type = .Comma
+    case '(':
+        tok_type = .LParen
+    case ')':
+        tok_type = .RParen
+    case '+', '-', '*', '/':
+        tok_type = .Op
     case:
         tok_type = .Invalid
     }
@@ -208,42 +209,61 @@ Arg :: struct {
     type: ArgType,
     value: f64,
     text: string,
-    expr: Command,
+    expr: ^Command,
 }
 
-makeCall :: proc(type: CmdType, entries: ..Arg) -> Command {
-    cmd := Command{
-        type = type,
-    }
+makeCallPtr :: proc(type: CmdType, entries: ..Arg) -> ^Command {
+    cmd := new(Command)
+    cmd.type = type
     append(&cmd.args, ..entries)
     return cmd
 }
 
-parseCommands :: proc(cmd: string) -> string {
+// ENTRY !!!!!
+parseMothball :: proc(input: string) -> string {
     output: string = ""
 
     COMMAND_PREFIX :: ";s"
     prefix := COMMAND_PREFIX
     prefix_len := len(prefix)
 
-    if len(cmd) < prefix_len || cmd[:prefix_len] != prefix do return output
+    if len(input) < prefix_len || input[:prefix_len] != prefix do return output
 
-    p := Parser{
+    prs := Parser{
         lex = Lexer{
-            data = cmd,
+            data = input,
             pos = prefix_len,
             nextOk = false,
         },
         err = .None,
     }
 
-    if lexerPeek(&p.lex).type == .EOF do return output
+    p := makePlayer()
 
-    // Start to recursively parseExpr
+    for lexerPeek(&prs.lex).type != .EOF {
+        cmd := parseArg(&prs, 0)
 
-    expr := parseArg(&p, 0)
+        if(prs.err != .None){
+            // Output custom error message (todo)
+            return "Error"
+        }
+
+        if(cmd.type != .Call){
+            return "Error: Invalid statement"
+        }
+
+        // Execute command
+        pendingOutput, ok := executeCommand(&p, cmd.expr)
+    }
 
     return output
+}
+
+executeCommand :: proc(p: ^Player, cmd: ^Command) -> (string, bool){
+    output: string = ""
+    ok := true
+
+    return output, ok
 }
 
 ParseError :: enum {
@@ -261,88 +281,84 @@ Parser :: struct {
     err: ParseError,
 }
 
-parseArg :: proc(p: ^Parser, minBP: int) -> Arg{
-    if p.err != .None do return Arg{}
+parseArg :: proc(prs: ^Parser, minBP: int) -> Arg{
+    if prs.err != .None do return Arg{}
     lhs: Arg
 
-    prefix := lexerNext(&p.lex)
+    prefix := lexerNext(&prs.lex)
 
     #partial switch prefix.type {
         case .Number:
-            lhs = parseNumber(p, prefix)
-            if p.err != .None do return Arg{}
+            lhs = parseNumber(prs, prefix)
+            if prs.err != .None do return Arg{}
         case .Text:
             lhs.type = .Text
             lhs.text = prefix.content
         case .Identifier:
             // this one is versatile
-            lhs = parseIdentifier(p, prefix)
-            if p.err != .None do return Arg{}
+            lhs = parseIdentifier(prs, prefix)
+            if prs.err != .None do return Arg{}
         case .Op:
             if prefix.content == "-" {
                 unaryMinusBP :: 30
-                rhs := parseArg(p, unaryMinusBP)
-                if p.err != .None do return Arg{}
+                rhs := parseArg(prs, unaryMinusBP)
+                if prs.err != .None do return Arg{}
                 NEG_ONE :: Arg{type = .Number, value = -1}
                 MULT_TOKEN :: Token{type = .Op, content = "*"}
-                lhs = combine(p, NEG_ONE, rhs, MULT_TOKEN)
+                lhs = combine(prs, NEG_ONE, rhs, MULT_TOKEN)
             }else{
-                p.err = .InvalidPrefixToken
+                prs.err = .InvalidPrefixToken
                 return Arg{}
             }
         case .LParen:
-            lhs = parseArg(p, 0)
-            if p.err != .None do return Arg{}
-            if lexerNext(&p.lex).type != .RParen {
-                p.err = .MissingRParen
+            lhs = parseArg(prs, 0)
+            if prs.err != .None do return Arg{}
+            if lexerNext(&prs.lex).type != .RParen {
+                prs.err = .MissingRParen
                 return Arg{}
             }
         case .Pipe:
             lhs = Arg{
                 type = .Call,
-                expr = Command{
-                    type = .ResetPos
-                }
+                expr = makeCallPtr(.ResetPos)
             }
         case .DoublePipe:
             lhs = Arg{
                 type = .Call,
-                expr = Command{
-                    type = .ResetPosVel
-                }
+                expr = makeCallPtr(.ResetPosVel)
             }
         case:
-            p.err = .InvalidPrefixToken
+            prs.err = .InvalidPrefixToken
             return Arg{}
     }
 
     if lhs.type != .Number && lhs.type != .Variable do return lhs
 
     for {
-        op: Token = lexerPeek(&p.lex)
+        op: Token = lexerPeek(&prs.lex)
 
         if op.type != .Op do break 
         
         baseBP := getBP(op)
 
         if baseBP.left < minBP do break 
-        lexerNext(&p.lex)
+        lexerNext(&prs.lex)
 
-        rhs := parseArg(p, baseBP.right)
-        if p.err != .None do return Arg{}
+        rhs := parseArg(prs, baseBP.right)
+        if prs.err != .None do return Arg{}
 
-        lhs = combine(p, lhs, rhs, op)
-        if p.err != .None do return Arg{}
+        lhs = combine(prs, lhs, rhs, op)
+        if prs.err != .None do return Arg{}
     }
 
     return lhs
 }
 
-parseNumber :: proc(p: ^Parser, tok: Token) -> Arg {
-    if p.err != .None do return Arg{}
+parseNumber :: proc(prs: ^Parser, tok: Token) -> Arg {
+    if prs.err != .None do return Arg{}
     value, ok := strconv.parse_f64(tok.content)
     if !ok {
-        p.err = .InvalidNumber
+        prs.err = .InvalidNumber
         return Arg{}
     }
 
@@ -352,52 +368,54 @@ parseNumber :: proc(p: ^Parser, tok: Token) -> Arg {
     }
 }
 
-parseIdentifier :: proc(p: ^Parser, tok: Token) -> Arg {
-    if p.err != .None do return Arg{}
+parseIdentifier :: proc(prs: ^Parser, tok: Token) -> Arg {
+    if prs.err != .None do return Arg{}
 
     // a command/function with parameters
-    if lexerPeek(&p.lex).type == .LParen{
-        lexerNext(&p.lex)
+    if lexerPeek(&prs.lex).type == .LParen{
+        lexerNext(&prs.lex)
 
         cmd_type := getCommandType(tok.content)
         if cmd_type == .Invalid {
-            p.err = .InvalidCommand
+            prs.err = .InvalidCommand
             return Arg{}
         }
 
-        call := Command{type = cmd_type}
+        cmd := makeCallPtr(cmd_type)
 
-        if lexerPeek(&p.lex).type != .RParen{
+        if lexerPeek(&prs.lex).type != .RParen{
             for {
-                arg := parseArg(p, 0)
-                if p.err != .None{
-                    delete(call.args)
+                arg := parseArg(prs, 0)
+                if prs.err != .None{
+                    delete(cmd.args)
+                    free(cmd)
                     return Arg{}
                 }
 
-                append(&call.args, arg)
+                append(&cmd.args, arg)
 
-                next := lexerPeek(&p.lex)
+                next := lexerPeek(&prs.lex)
                 if next.type == .Comma {
-                    lexerNext(&p.lex)
+                    lexerNext(&prs.lex)
                     continue
                 }
                 if next.type == .RParen {
-                    lexerNext(&p.lex)
+                    lexerNext(&prs.lex)
                     break
                 }
 
-                p.err = .MissingRParen
-                delete(call.args)
+                prs.err = .MissingRParen
+                delete(cmd.args)
+                free(cmd)
                 return Arg{}
             }
         }else{
-            lexerNext(&p.lex) // consume ')' immediately
+            lexerNext(&prs.lex) // consume ')' immediately
         }
 
         return Arg{
             type = .Call,
-            expr = call
+            expr = cmd
         }
     }
 
@@ -406,7 +424,7 @@ parseIdentifier :: proc(p: ^Parser, tok: Token) -> Arg {
     if cmd_type != .Invalid {
         return Arg{
             type = .Call,
-            expr = Command{type = cmd_type}
+            expr = makeCallPtr(cmd_type)
         }
     }
 
@@ -452,14 +470,13 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetTurn
         case "outt":
             return .OutTurn
-
         case:
             return .Invalid
     }
 }
 
-combine :: proc(p: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
-    if p.err != .None do return Arg{}
+combine :: proc(prs: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
+    if prs.err != .None do return Arg{}
     reducible := (lhs.type == .Number && rhs.type == .Number)
     switch op.content {
         case "+":
@@ -468,7 +485,7 @@ combine :: proc(p: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
             }else{
                 return Arg{
                     type = .Call,
-                    expr = makeCall(.Plus, lhs, rhs)
+                    expr = makeCallPtr(.Plus, lhs, rhs)
                 }
             }
         case "-":
@@ -477,7 +494,7 @@ combine :: proc(p: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
             } else {
                 return Arg{
                     type = .Call,
-                    expr = makeCall(.Minus, lhs, rhs),
+                    expr = makeCallPtr(.Minus, lhs, rhs),
                 }
             }
 
@@ -487,26 +504,26 @@ combine :: proc(p: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
             } else {
                 return Arg{
                     type = .Call,
-                    expr = makeCall(.Mul, lhs, rhs),
+                    expr = makeCallPtr(.Mul, lhs, rhs),
                 }
             }
 
         case "/":
             if reducible {
                 if rhs.value == 0 {
-                    p.err = .DivisionByZero
+                    prs.err = .DivisionByZero
                     return Arg{}
                 }
                 return Arg{type = .Number, value = lhs.value / rhs.value}
             } else {
                 return Arg{
                     type = .Call,
-                    expr = makeCall(.Div, lhs, rhs),
+                    expr = makeCallPtr(.Div, lhs, rhs),
                 }
             }
 
         case:
-            p.err = .UnexpectedToken
+            prs.err = .UnexpectedToken
             return Arg{}
 
     }

@@ -21,7 +21,7 @@ main :: proc(){
 
         if input == "" do break
 
-        output := parseCommands(input)
+        output := parseMothball(input)
 
         fmt.println("Mothball:")
         fmt.println(output)
