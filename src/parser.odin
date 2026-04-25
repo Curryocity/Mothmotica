@@ -221,13 +221,14 @@ makeCallPtr :: proc(type: CmdType, entries: ..Arg) -> ^Command {
 
 // ENTRY !!!!!
 parseMothball :: proc(input: string) -> string {
-    output: string = ""
+    buf: [dynamic]u8
+    defer delete(buf)
 
     COMMAND_PREFIX :: ";s"
     prefix := COMMAND_PREFIX
     prefix_len := len(prefix)
 
-    if len(input) < prefix_len || input[:prefix_len] != prefix do return output
+    if len(input) < prefix_len || input[:prefix_len] != prefix do return ""
 
     prs := Parser{
         lex = Lexer{
@@ -253,18 +254,285 @@ parseMothball :: proc(input: string) -> string {
         }
 
         // Execute command
-        pendingOutput, ok := executeCommand(&p, cmd.expr)
+        pendingOutput, ok := executeCommand(&prs, &p, cmd.expr)
+        if !ok {
+            return "Error"
+        }
+        append(&buf, pendingOutput)
     }
 
-    return output
+    return string(buf[:])
 }
 
-executeCommand :: proc(p: ^Player, cmd: ^Command) -> (string, bool){
-    output: string = ""
-    ok := true
+executeCommand :: proc(prs: ^Parser, p: ^Player, cmd: ^Command) -> (string, bool) {
+    if cmd == nil do return "Error: null command", false
 
-    return output, ok
+    switch cmd.type {
+    case .SetVar:
+        if len(cmd.args) != 2 {
+            return "Error: set(...) expects 2 arguments", false
+        }
+
+        target := cmd.args[0]
+        if target.type != .Variable {
+            return "Error: first argument of set(...) must be a variable", false
+        }
+
+        switch target.text {
+        case "getx", "getz", "getvx", "getvz", "getf":
+            return "Error: cannot assign to pseudo variable", false
+        }
+
+        value, ok := eval(prs, p, cmd.args[1])
+        if !ok {
+            return "Error: second argument of set(...) is not a valid number", false
+        }
+
+        prs.vars[target.text] = value
+        return "", true
+
+    case .SetX:
+        if len(cmd.args) != 1 {
+            return "Error: x(...) expects 1 argument", false
+        }
+
+        x, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: x(...) argument is not a valid number", false
+        setX(p, x)
+        return "", true
+
+    case .SetZ:
+        if len(cmd.args) != 1 {
+            return "Error: z(...) expects 1 argument", false
+        }
+
+        z, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: z(...) argument is not a valid number", false
+        setZ(p, z)
+        return "", true
+
+    case .SetPos:
+        if len(cmd.args) != 2 {
+            return "Error: pos(...) expects 2 arguments", false
+        }
+
+        x, ok1 := eval(prs, p, cmd.args[0])
+        if !ok1 do return "Error: first argument of pos(...) is not a valid number", false
+
+        z, ok2 := eval(prs, p, cmd.args[1])
+        if !ok2 do return "Error: second argument of pos(...) is not a valid number", false
+
+        setX(p, x)
+        setZ(p, z)
+        return "", true
+
+    case .SetVx:
+        if len(cmd.args) != 1 {
+            return "Error: vx(...) expects 1 argument", false
+        }
+
+        vx, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: vx(...) argument is not a valid number", false
+        setVx(p, vx, false)
+        return "", true
+
+    case .SetVz:
+        if len(cmd.args) != 1 {
+            return "Error: vz(...) expects 1 argument", false
+        }
+
+        vz, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: vz(...) argument is not a valid number", false
+        setVz(p, vz, false)
+        return "", true
+
+    case .SetVel:
+        if len(cmd.args) != 2 {
+            return "Error: vel(...) expects 2 arguments", false
+        }
+
+        vx, ok1 := eval(prs, p, cmd.args[0])
+        if !ok1 do return "Error: first argument of vel(...) is not a valid number", false
+
+        vz, ok2 := eval(prs, p, cmd.args[1])
+        if !ok2 do return "Error: second argument of vel(...) is not a valid number", false
+
+        setVel(p, vx, vz, false)
+        return "", true
+
+    case .ResetPos:
+        p.x = 0
+        p.z = 0
+        return "", true
+
+    case .ResetPosVel:
+        p.x = 0
+        p.z = 0
+        p.vx = 0
+        p.vz = 0
+        return "", true
+
+    case .OutXRaw:
+        return fmt.tprintf("%v", p.x), true
+    case .OutXBlock:
+        return fmt.tprintf("%v", p.x + 0.6), true
+    case .OutXMM:
+        return fmt.tprintf("%v", p.x - 0.6), true
+
+    case .OutZRaw:
+        return fmt.tprintf("%v", p.z), true
+    case .OutZBlock:
+        return fmt.tprintf("%v", p.z + 0.6), true
+    case .OutZMM:
+        return fmt.tprintf("%v", p.z - 0.6), true
+
+    case .SetF:
+        if len(cmd.args) != 1 {
+            return "Error: f(...) expects 1 argument", false
+        }
+
+        f, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: f(...) argument is not a valid number", false
+        setF(p, f32(f))
+        return "", true
+
+    case .OutF:
+        return fmt.tprintf("%v", p.f), true
+
+    case .SetTurn:
+        if len(cmd.args) != 1 {
+            return "Error: t(...) expects 1 argument", false
+        }
+
+        t, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: t(...) argument is not a valid number", false
+        p.f += f32(t)
+        return "", true
+
+    case .OutTurn:
+        return fmt.tprintf("%v", p.f), true
+
+    case .SetSlip:
+        if len(cmd.args) != 1 {
+            return "Error: slip(...) expects 1 argument", false
+        }
+
+        slip, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: slip(...) argument is not a valid number", false
+        p.ground_slip = f32(slip)
+        return "", true
+
+    case .SetSprintDelay:
+        if len(cmd.args) != 1 {
+            return "Error: sprintdelay(...) expects 1 argument", false
+        }
+
+        v, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: sprintdelay(...) argument is not a valid number", false
+        p.sprint_delay = v != 0
+        return "", true
+
+    case .SetInertia:
+        if len(cmd.args) != 1 {
+            return "Error: inertia(...) expects 1 argument", false
+        }
+
+        inertia, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: inertia(...) argument is not a valid number", false
+        p.inertia_threshold = inertia
+        return "", true
+
+    case .Move:
+        return "Error: move(...) not implemented yet", false
+
+    case .XInv:
+        return "Error: xinv(...) not implemented yet", false
+    case .ZInv:
+        return "Error: zinv(...) not implemented yet", false
+    case .XZInv:
+        return "Error: xzinv(...) not implemented yet", false
+
+    case .EndVx:
+        return "Error: endvx(...) not implemented yet", false
+    case .EndVz:
+        return "Error: endvz(...) not implemented yet", false
+    case .EndVxVz:
+        return "Error: endvxvz(...) not implemented yet", false
+
+    case .InertiaX:
+        return "Error: inertiax(...) not implemented yet", false
+    case .InertiaZ:
+        return "Error: inertiaz(...) not implemented yet", false
+
+    case .Plus, .Minus, .Mul, .Div:
+        return "Error: operator call cannot be executed as a top-level statement", false
+
+    case .Invalid:
+        return "Error: invalid command", false
+
+    case:
+        return "Error: unhandled command", false
+    }
 }
+
+eval :: proc(prs: ^Parser, p: ^Player, expr: Arg) -> (f64, bool) {
+    switch expr.type {
+    case .Number:
+        return expr.value, true
+
+    case .Text:
+        return 0, false
+
+    case .Variable:
+        switch expr.text {
+        case "getx":
+            return p.x, true
+        case "getz":
+            return p.z, true
+        case "getvx":
+            return p.vx, true
+        case "getvz":
+            return p.vz, true
+        case "getf":
+            return f64(p.f), true
+        case:
+            value, ok := prs.vars[expr.text]
+            if !ok do return 0, false
+            return value, true
+        }
+
+    case .Call:
+        if expr.expr == nil do return 0, false
+
+        cmd := expr.expr
+
+        if len(cmd.args) != 2 do return 0, false
+
+        lhs, ok1 := eval(prs, p, cmd.args[0])
+        if !ok1 do return 0, false
+
+        rhs, ok2 := eval(prs, p, cmd.args[1])
+        if !ok2 do return 0, false
+
+        #partial switch cmd.type {
+        case .Plus:
+            return lhs + rhs, true
+        case .Minus:
+            return lhs - rhs, true
+        case .Mul:
+            return lhs * rhs, true
+        case .Div:
+            if rhs == 0 do return 0, false
+            return lhs / rhs, true
+        case:
+            return 0, false
+        }
+
+    case:
+        return 0, false
+    }
+}
+
 
 ParseError :: enum {
     None, 
@@ -279,6 +547,7 @@ ParseError :: enum {
 Parser :: struct {
     lex: Lexer,
     err: ParseError,
+    vars: map[string]f64,
 }
 
 parseArg :: proc(prs: ^Parser, minBP: int) -> Arg{
