@@ -177,7 +177,9 @@ CmdType :: enum {
     Plus, Minus, Mul, Div, 
     SetVar,
 
-    SetX, SetZ, SetPos, SetVz, SetVx, SetVel,
+    SetX, SetZ, SetPos, 
+    SetVz, SetVx, SetVel,
+    SetVzAir, SetVxAir, SetVelAir,
     ResetPos, ResetPosVel,
 
     OutXRaw, OutXBlock, OutXMM,
@@ -326,39 +328,44 @@ executeCommand :: proc(prs: ^Parser, p: ^Player, cmd: ^Command) -> (string, bool
         setZ(p, z)
         return "", true
 
-    case .SetVx:
-        if len(cmd.args) != 1 {
-            return "Error: vx(...) expects 1 argument", false
-        }
+case .SetVx, .SetVxAir:
+    if len(cmd.args) != 1 {
+        return "Error: vx(...) expects 1 argument", false
+    }
 
-        vx, ok := eval(prs, p, cmd.args[0])
-        if !ok do return "Error: vx(...) argument is not a valid number", false
-        setVx(p, vx, false)
-        return "", true
+    vx, ok := eval(prs, p, cmd.args[0])
+    if !ok do return "Error: vx(...) argument is not a valid number", false
 
-    case .SetVz:
-        if len(cmd.args) != 1 {
-            return "Error: vz(...) expects 1 argument", false
-        }
+    airborne := (cmd.type == .SetVxAir)
+    setVx(p, vx, airborne)
+    return "", true
 
-        vz, ok := eval(prs, p, cmd.args[0])
-        if !ok do return "Error: vz(...) argument is not a valid number", false
-        setVz(p, vz, false)
-        return "", true
+case .SetVz, .SetVzAir:
+    if len(cmd.args) != 1 {
+        return "Error: vz(...) expects 1 argument", false
+    }
 
-    case .SetVel:
-        if len(cmd.args) != 2 {
-            return "Error: vel(...) expects 2 arguments", false
-        }
+    vz, ok := eval(prs, p, cmd.args[0])
+    if !ok do return "Error: vz(...) argument is not a valid number", false
 
-        vx, ok1 := eval(prs, p, cmd.args[0])
-        if !ok1 do return "Error: first argument of vel(...) is not a valid number", false
+    airborne := (cmd.type == .SetVzAir)
+    setVz(p, vz, airborne)
+    return "", true
 
-        vz, ok2 := eval(prs, p, cmd.args[1])
-        if !ok2 do return "Error: second argument of vel(...) is not a valid number", false
+case .SetVel, .SetVelAir:
+    if len(cmd.args) != 2 {
+        return "Error: vel(...) expects 2 arguments", false
+    }
 
-        setVel(p, vx, vz, false)
-        return "", true
+    vx, ok1 := eval(prs, p, cmd.args[0])
+    if !ok1 do return "Error: first argument of vel(...) is not a valid number", false
+
+    vz, ok2 := eval(prs, p, cmd.args[1])
+    if !ok2 do return "Error: second argument of vel(...) is not a valid number", false
+
+    airborne := (cmd.type == .SetVelAir)
+    setVel(p, vx, vz, airborne)
+    return "", true
 
     case .ResetPos:
         p.x = 0
@@ -719,6 +726,12 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetVx
         case "vel":
             return .SetVel
+        case "vza":
+            return .SetVzAir
+        case "vxa":
+            return .SetVxAir
+        case "vela":
+            return .SetVelAir
         case "xr":
             return .OutXRaw
         case "xb":
