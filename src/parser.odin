@@ -2,6 +2,8 @@ package main
 
 import "core:fmt"
 import "core:strconv"
+import "core:strings"
+import "core:math"
 
 TokenType :: enum{
     Invalid,
@@ -175,7 +177,7 @@ updateNext :: proc(lex : ^Lexer) {
 
 CmdType :: enum {
     Plus, Minus, Mul, Div, 
-    SetVar,
+    SetVar, SetPrecision,
 
     SetX, SetZ, SetPos, 
     SetVz, SetVx, SetVel,
@@ -184,6 +186,8 @@ CmdType :: enum {
 
     OutXRaw, OutXBlock, OutXMM,
     OutZRaw, OutZBlock, OutZMM,
+
+    OutVx, OutVz,
 
     SetF, OutF, SetTurn, OutTurn,
     Move,
@@ -232,13 +236,14 @@ parseMothball :: proc(input: string) -> string {
 
     if len(input) < prefix_len || input[:prefix_len] != prefix do return ""
 
-    prs := Parser{
+    prs := ParserState{
         lex = Lexer{
             data = input,
             pos = prefix_len,
             nextOk = false,
         },
         err = .None,
+        precision = 6,
     }
 
     p := makePlayer()
@@ -260,13 +265,24 @@ parseMothball :: proc(input: string) -> string {
         if !ok {
             return "Error"
         }
-        append(&buf, pendingOutput)
+        // fmt.println("PendingOutput:" , pendingOutput)
+
+        if(pendingOutput != ""){
+            append(&buf, pendingOutput)
+            append(&buf, "\n")
+        }
     }
 
-    return string(buf[:])
+    result := strings.clone(string(buf[:]))
+
+    return result
 }
 
-executeCommand :: proc(prs: ^Parser, p: ^Player, cmd: ^Command) -> (string, bool) {
+formatNum :: proc(prs: ^ParserState, x: f64) -> string {
+    return fmt.tprintf("%.*f", int(prs.precision), x)
+}
+
+executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, bool) {
     if cmd == nil do return "Error: null command", false
 
     switch cmd.type {
@@ -291,6 +307,25 @@ executeCommand :: proc(prs: ^Parser, p: ^Player, cmd: ^Command) -> (string, bool
         }
 
         prs.vars[target.text] = value
+        return "", true
+
+    case .SetPrecision:
+        if len(cmd.args) != 1 {
+            return "Error: pre(...) expects 1 argument", false
+        }
+
+        pre, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: pre(...) argument is not a valid number", false
+        if pre < 0 || pre > 255 {
+            return "Error: pre(...) argument should be an integer between 0 and 255", false
+        }
+
+        rounded := math.round(pre)
+        if math.abs(pre - rounded) > 1e-15 {
+            return "Error: pre(...) argument should be an integer between 0 and 255", false
+        }
+
+        prs.precision = u8(rounded)
         return "", true
 
     case .SetX:
@@ -328,44 +363,44 @@ executeCommand :: proc(prs: ^Parser, p: ^Player, cmd: ^Command) -> (string, bool
         setZ(p, z)
         return "", true
 
-case .SetVx, .SetVxAir:
-    if len(cmd.args) != 1 {
-        return "Error: vx(...) expects 1 argument", false
-    }
+    case .SetVx, .SetVxAir:
+        if len(cmd.args) != 1 {
+            return "Error: vx(...) expects 1 argument", false
+        }
 
-    vx, ok := eval(prs, p, cmd.args[0])
-    if !ok do return "Error: vx(...) argument is not a valid number", false
+        vx, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: vx(...) argument is not a valid number", false
 
-    airborne := (cmd.type == .SetVxAir)
-    setVx(p, vx, airborne)
-    return "", true
+        airborne := (cmd.type == .SetVxAir)
+        setVx(p, vx, airborne)
+        return "", true
 
-case .SetVz, .SetVzAir:
-    if len(cmd.args) != 1 {
-        return "Error: vz(...) expects 1 argument", false
-    }
+    case .SetVz, .SetVzAir:
+        if len(cmd.args) != 1 {
+            return "Error: vz(...) expects 1 argument", false
+        }
 
-    vz, ok := eval(prs, p, cmd.args[0])
-    if !ok do return "Error: vz(...) argument is not a valid number", false
+        vz, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: vz(...) argument is not a valid number", false
 
-    airborne := (cmd.type == .SetVzAir)
-    setVz(p, vz, airborne)
-    return "", true
+        airborne := (cmd.type == .SetVzAir)
+        setVz(p, vz, airborne)
+        return "", true
 
-case .SetVel, .SetVelAir:
-    if len(cmd.args) != 2 {
-        return "Error: vel(...) expects 2 arguments", false
-    }
+    case .SetVel, .SetVelAir:
+        if len(cmd.args) != 2 {
+            return "Error: vel(...) expects 2 arguments", false
+        }
 
-    vx, ok1 := eval(prs, p, cmd.args[0])
-    if !ok1 do return "Error: first argument of vel(...) is not a valid number", false
+        vx, ok1 := eval(prs, p, cmd.args[0])
+        if !ok1 do return "Error: first argument of vel(...) is not a valid number", false
 
-    vz, ok2 := eval(prs, p, cmd.args[1])
-    if !ok2 do return "Error: second argument of vel(...) is not a valid number", false
+        vz, ok2 := eval(prs, p, cmd.args[1])
+        if !ok2 do return "Error: second argument of vel(...) is not a valid number", false
 
-    airborne := (cmd.type == .SetVelAir)
-    setVel(p, vx, vz, airborne)
-    return "", true
+        airborne := (cmd.type == .SetVelAir)
+        setVel(p, vx, vz, airborne)
+        return "", true
 
     case .ResetPos:
         p.x = 0
@@ -380,18 +415,23 @@ case .SetVel, .SetVelAir:
         return "", true
 
     case .OutXRaw:
-        return fmt.tprintf("%v", p.x), true
+        return fmt.tprintf("X: %s", formatNum(prs, p.x)), true
     case .OutXBlock:
-        return fmt.tprintf("%v", p.x + 0.6), true
+        return fmt.tprintf("Xb: %s", formatNum(prs, p.x + 0.6)), true
     case .OutXMM:
-        return fmt.tprintf("%v", p.x - 0.6), true
+        return fmt.tprintf("Xmm: %s", formatNum(prs, p.x - 0.6)), true
 
     case .OutZRaw:
-        return fmt.tprintf("%v", p.z), true
+        return fmt.tprintf("Z: %s", formatNum(prs, p.z)), true
     case .OutZBlock:
-        return fmt.tprintf("%v", p.z + 0.6), true
+        return fmt.tprintf("Zb: %s", formatNum(prs, p.z + 0.6)), true
     case .OutZMM:
-        return fmt.tprintf("%v", p.z - 0.6), true
+        return fmt.tprintf("Zmm: %s", formatNum(prs, p.z - 0.6)), true
+
+    case .OutVx:
+        return fmt.tprintf("Vx: %s", formatNum(prs, p.vx)), true
+    case .OutVz:
+        return fmt.tprintf("Vz: %s", formatNum(prs, p.vz)), true
 
     case .SetF:
         if len(cmd.args) != 1 {
@@ -404,7 +444,7 @@ case .SetVel, .SetVelAir:
         return "", true
 
     case .OutF:
-        return fmt.tprintf("%v", p.f), true
+        return fmt.tprintf("F: %s", formatNum(prs, f64(p.f))), true
 
     case .SetTurn:
         if len(cmd.args) != 1 {
@@ -417,7 +457,7 @@ case .SetVel, .SetVelAir:
         return "", true
 
     case .OutTurn:
-        return fmt.tprintf("%v", p.f), true
+        return fmt.tprintf("T: %s", formatNum(prs, f64(p.f))), true
 
     case .SetSlip:
         if len(cmd.args) != 1 {
@@ -482,7 +522,8 @@ case .SetVel, .SetVelAir:
     }
 }
 
-eval :: proc(prs: ^Parser, p: ^Player, expr: Arg) -> (f64, bool) {
+
+eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
     switch expr.type {
     case .Number:
         return expr.value, true
@@ -551,13 +592,14 @@ ParseError :: enum {
     InvalidCommand,
 }
 
-Parser :: struct {
+ParserState :: struct {
     lex: Lexer,
     err: ParseError,
     vars: map[string]f64,
+    precision: u8,
 }
 
-parseArg :: proc(prs: ^Parser, minBP: int) -> Arg{
+parseArg :: proc(prs: ^ParserState, minBP: int) -> Arg{
     if prs.err != .None do return Arg{}
     lhs: Arg
 
@@ -630,7 +672,7 @@ parseArg :: proc(prs: ^Parser, minBP: int) -> Arg{
     return lhs
 }
 
-parseNumber :: proc(prs: ^Parser, tok: Token) -> Arg {
+parseNumber :: proc(prs: ^ParserState, tok: Token) -> Arg {
     if prs.err != .None do return Arg{}
     value, ok := strconv.parse_f64(tok.content)
     if !ok {
@@ -644,7 +686,7 @@ parseNumber :: proc(prs: ^Parser, tok: Token) -> Arg {
     }
 }
 
-parseIdentifier :: proc(prs: ^Parser, tok: Token) -> Arg {
+parseIdentifier :: proc(prs: ^ParserState, tok: Token) -> Arg {
     if prs.err != .None do return Arg{}
 
     // a command/function with parameters
@@ -714,6 +756,10 @@ parseIdentifier :: proc(prs: ^Parser, tok: Token) -> Arg {
 
 getCommandType :: proc(cmdName: string) -> CmdType {
     switch cmdName {
+        case "set":
+            return .SetVar
+        case "pre", "precision":
+            return .SetPrecision
         case "x":
             return .SetX
         case "z":
@@ -732,18 +778,22 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetVxAir
         case "vela":
             return .SetVelAir
-        case "xr":
+        case "xr", "outx":
             return .OutXRaw
         case "xb":
             return .OutXBlock
         case "xmm":
             return .OutXMM
-        case "zr":
+        case "zr", "outz":
             return .OutZRaw
         case "zb":
             return .OutZBlock
         case "zmm":
             return .OutZMM
+        case "outvx":
+            return .OutVx
+        case "outvz":
+            return .OutVz
         case "f":
             return .SetF
         case "outf":
@@ -757,7 +807,7 @@ getCommandType :: proc(cmdName: string) -> CmdType {
     }
 }
 
-combine :: proc(prs: ^Parser, lhs: Arg, rhs: Arg, op: Token) -> Arg {
+combine :: proc(prs: ^ParserState, lhs: Arg, rhs: Arg, op: Token) -> Arg {
     if prs.err != .None do return Arg{}
     reducible := (lhs.type == .Number && rhs.type == .Number)
     switch op.content {
@@ -824,4 +874,10 @@ getBP :: proc(op: Token) -> BP{
         case:
             return BP{-1, -1}
     }
+}
+
+MoveFunc :: struct {
+    sprint: bool,
+    sneak: bool,
+    f45: bool,
 }

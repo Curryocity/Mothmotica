@@ -23,8 +23,12 @@ main :: proc(){
 
         output := parseMothball(input)
 
-        fmt.println("Mothball:")
-        fmt.println(output)
+        fmt.println()
+        if(output != ""){
+            fmt.println("Mothball:")
+            fmt.println(output)
+        }
+
     }
 
 }
