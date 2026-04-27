@@ -600,10 +600,9 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
 exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
 
     originalF := p.f
+    localF := mf.rotUsed? mf.rot : originalF
 
-    if mf.rotUsed {
-        p.f = mf.rot
-    }
+    p.f = localF
 
     if mf.strafe45 {
         if mf.jump {
@@ -611,17 +610,17 @@ exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
             if mf.sprint { // sprint jump at f0
                 move(p, 1, 0, false, mf.sprint, mf.sneak, true)
             }else {
-                p.f = originalF + 45
+                p.f = localF + 45
                 move(p, 1, 1, false, mf.sprint, mf.sneak, true)
             } // add support for snsj45 angle
             
-            p.f = originalF + 45
+            p.f = localF + 45
             for _ in 0..<(mf.t - 1) {
                 // air ticks
                 move(p, 1, 1, true, mf.sprint, mf.sneak, false)
             }
         }else {
-            p.f = originalF + 45
+            p.f = localF + 45
             for _ in 0..<mf.t {
                 move(p, 1, 1, mf.airborne, mf.sprint, mf.sneak, false)
             }
