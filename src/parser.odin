@@ -13,6 +13,7 @@ TokenType :: enum{
     Number,
     Text,
 
+    Dot,
     Comma,
     LParen,
     RParen,
@@ -590,6 +591,8 @@ ParseError :: enum {
     DivisionByZero,
     InvalidNumber,
     InvalidCommand,
+    nonEmptyStop,
+    BadInput,
 }
 
 ParserState :: struct {
@@ -689,6 +692,33 @@ parseNumber :: proc(prs: ^ParserState, tok: Token) -> Arg {
 parseIdentifier :: proc(prs: ^ParserState, tok: Token) -> Arg {
     if prs.err != .None do return Arg{}
 
+
+    mf, isMf := parseMoveFunc(tok.content)
+
+    if isMf {
+        if lexerPeek(&prs.lex).type == .Dot{
+            if mf.stop {
+                prs.err = .nonEmptyStop
+                return Arg{}
+            }
+            lexerNext(&prs.lex)
+
+            inputTok := lexerNext(&prs.lex)
+
+            if inputTok.type != .Identifier {
+                prs.err = .BadInput
+                return Arg{}
+            }
+
+            s := inputTok.content
+
+            if(len(s) > 0)
+
+
+
+        }
+    }
+
     // a command/function with parameters
     if lexerPeek(&prs.lex).type == .LParen{
         lexerNext(&prs.lex)
@@ -752,6 +782,53 @@ parseIdentifier :: proc(prs: ^ParserState, tok: Token) -> Arg {
         text = tok.content
     }
 
+}
+
+MoveFunc :: struct {
+    sprint: bool,
+    sneak: bool,
+    strafe45: bool,
+    jump: bool,
+    airborne: bool,
+    stop: bool,
+}
+
+parseMoveFunc :: proc(name: string) -> (MoveFunc, bool){
+    mf := MoveFunc{}
+    s := name
+
+    if len(s) >= 2 && s[len(s)-2:] == "45" {
+        mf.strafe45 = true
+        s = s[:len(s)-2]
+    }
+
+    if len(s) > 0 && s[len(s)-1] == 'a' {
+        mf.airborne = true
+        s = s[:len(s)-1]
+    } else if len(s) > 0 && s[len(s)-1] == 'j' {
+        mf.jump = true
+        s = s[:len(s)-1]
+    }
+
+    switch s {
+        case "w":
+        case "s":
+            mf.sprint = true
+        case "sn":
+            mf.sneak = true
+        case "sns":
+            mf.sneak = true
+            mf.sprint = true
+        case "st":
+            mf.stop = true
+            if mf.strafe45{
+                return mf, false
+            }
+        case:
+            return mf, false
+    }
+
+    return mf, true
 }
 
 getCommandType :: proc(cmdName: string) -> CmdType {
@@ -874,10 +951,4 @@ getBP :: proc(op: Token) -> BP{
         case:
             return BP{-1, -1}
     }
-}
-
-MoveFunc :: struct {
-    sprint: bool,
-    sneak: bool,
-    f45: bool,
 }
