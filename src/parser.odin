@@ -157,6 +157,8 @@ updateNext :: proc(lex : ^Lexer) {
 
     tok_type: TokenType
     switch c {
+    case '.':
+        tok_type = .Dot
     case ',':
         tok_type = .Comma
     case '(':
@@ -209,7 +211,7 @@ Command :: struct {
 }
 
 ArgType :: enum {
-    Number, Text, Variable, Call
+    Number, Text, Variable, Call, MoveCall
 }
 
 Arg :: struct {
@@ -217,6 +219,7 @@ Arg :: struct {
     value: f64,
     text: string,
     expr: ^Command,
+    mvfunc: MoveFunc,
 }
 
 makeCallPtr :: proc(type: CmdType, entries: ..Arg) -> ^Command {
@@ -244,28 +247,37 @@ parseMothball :: proc(input: string) -> string {
             nextOk = false,
         },
         err = .None,
+        vars = make(map[string]f64),
         precision = 6,
     }
 
     p := makePlayer()
 
     for lexerPeek(&prs.lex).type != .EOF {
-        cmd := parseArg(&prs, 0)
+        cmd := parseArg(&prs, &p, 0)
 
         if(prs.err != .None){
-            // Output custom error message (todo)
+            // Todo: Output custom error message
             return "Error"
         }
 
-        if(cmd.type != .Call){
-            return "Error: Invalid statement"
-        }
-
+        pendingOutput: string
+        ok: bool
         // Execute command
-        pendingOutput, ok := executeCommand(&prs, &p, cmd.expr)
-        if !ok {
-            return "Error"
+        if cmd.type == .Call{
+            pendingOutput, ok = executeCommand(&prs, &p, cmd.expr)
+            if !ok {
+                return "Error"
+            }
+        }else if cmd.type == .MoveCall{
+            if cmd.mvfunc.t <= 0 {
+                return "Error: Duration must be positive"
+            }
+            exeMoveFunc(&p, cmd.mvfunc)
+        }else{
+            return "Error: Expected a command"
         }
+        
         // fmt.println("PendingOutput:" , pendingOutput)
 
         if(pendingOutput != ""){
@@ -532,6 +544,9 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
     case .Text:
         return 0, false
 
+    case .MoveCall:
+        return 0, false
+
     case .Variable:
         switch expr.text {
         case "getx":
@@ -582,6 +597,32 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
     }
 }
 
+exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
+
+    curRot := p.f
+
+    if mf.rotUsed {
+        p.f = mf.rot
+    }
+
+    if mf.jump {
+        // jump tick
+        move(p, mf.w, mf.a, false, mf.sprint, mf.sneak, true)
+        for _ in 0..<(mf.t - 1) {
+            // air ticks
+            move(p, mf.w, mf.a, true, mf.sprint, mf.sneak, false)
+        }
+    }else {
+        for _ in 0..<mf.t {
+            move(p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false)
+        }
+    }
+
+    if mf.rotUsed {
+        p.f = curRot
+    }
+}
+
 
 ParseError :: enum {
     None, 
@@ -602,7 +643,7 @@ ParserState :: struct {
     precision: u8,
 }
 
-parseArg :: proc(prs: ^ParserState, minBP: int) -> Arg{
+parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
     if prs.err != .None do return Arg{}
     lhs: Arg
 
@@ -617,12 +658,12 @@ parseArg :: proc(prs: ^ParserState, minBP: int) -> Arg{
             lhs.text = prefix.content
         case .Identifier:
             // this one is versatile
-            lhs = parseIdentifier(prs, prefix)
+            lhs = parseIdentifier(prs, p, prefix)
             if prs.err != .None do return Arg{}
         case .Op:
             if prefix.content == "-" {
                 unaryMinusBP :: 30
-                rhs := parseArg(prs, unaryMinusBP)
+                rhs := parseArg(prs, p, unaryMinusBP)
                 if prs.err != .None do return Arg{}
                 NEG_ONE :: Arg{type = .Number, value = -1}
                 MULT_TOKEN :: Token{type = .Op, content = "*"}
@@ -632,7 +673,7 @@ parseArg :: proc(prs: ^ParserState, minBP: int) -> Arg{
                 return Arg{}
             }
         case .LParen:
-            lhs = parseArg(prs, 0)
+            lhs = parseArg(prs, p, 0)
             if prs.err != .None do return Arg{}
             if lexerNext(&prs.lex).type != .RParen {
                 prs.err = .MissingRParen
@@ -665,7 +706,7 @@ parseArg :: proc(prs: ^ParserState, minBP: int) -> Arg{
         if baseBP.left < minBP do break 
         lexerNext(&prs.lex)
 
-        rhs := parseArg(prs, baseBP.right)
+        rhs := parseArg(prs, p, baseBP.right)
         if prs.err != .None do return Arg{}
 
         lhs = combine(prs, lhs, rhs, op)
@@ -689,7 +730,7 @@ parseNumber :: proc(prs: ^ParserState, tok: Token) -> Arg {
     }
 }
 
-parseIdentifier :: proc(prs: ^ParserState, tok: Token) -> Arg {
+parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
     if prs.err != .None do return Arg{}
 
 
@@ -712,10 +753,85 @@ parseIdentifier :: proc(prs: ^ParserState, tok: Token) -> Arg {
 
             s := inputTok.content
 
-            if(len(s) > 0)
+            if len(s) == 0 {
+                prs.err = .BadInput
+                return Arg{}
+            }
 
+            if len(s) > 0 && (s[0] == 'w' || s[0] == 's'){
+                mf.w = (s[0] == 'w')? 1 : -1
+                s = s[1:]
+            }
 
+            if len(s) > 0 && (s[0] == 'a' || s[0] == 'd'){
+                mf.a = (s[0] == 'a')? 1 : -1
+                s = s[1:]
+            }
 
+            if len(s) > 0 {
+                prs.err = .BadInput
+                return Arg{}
+            }
+        } else if !mf.stop{
+            mf.w = 1
+        }
+
+        paren: if lexerPeek(&prs.lex).type == .LParen{
+            lexerNext(&prs.lex)
+            targ := parseArg(prs, p, 0)
+            t, ok1 := eval(prs, p, targ)
+
+            if !ok1 {
+                prs.err = .InvalidNumber
+                return Arg{}
+            }
+
+            roundt := math.round(t)
+
+            if(abs(t - roundt) < 1e-15){
+                mf.t = int(roundt)
+            }else{
+                prs.err = .InvalidNumber
+                return Arg{}
+            }
+
+            next := lexerPeek(&prs.lex)
+            if next.type == .RParen {
+                lexerNext(&prs.lex)
+                break paren
+            }else if next.type == .Comma {
+                lexerNext(&prs.lex)
+            }else {
+                prs.err = .MissingRParen
+                return Arg{}
+            }
+
+            rotarg := parseArg(prs, p, 0)
+            rot64, ok2 := eval(prs, p, rotarg)
+
+            if !ok2 {
+                prs.err = .InvalidNumber
+                return Arg{}
+            }
+
+            mf.rot = f32(rot64)
+            mf.rotUsed = true
+
+            next = lexerPeek(&prs.lex)
+            if next.type != .RParen {
+                prs.err = .MissingRParen
+                return Arg{}
+            }else {
+                lexerNext(&prs.lex)
+            }
+
+        }else{
+            mf.t = 1
+        }
+
+        return Arg{
+            type = .MoveCall,
+            mvfunc = mf
         }
     }
 
@@ -733,7 +849,7 @@ parseIdentifier :: proc(prs: ^ParserState, tok: Token) -> Arg {
 
         if lexerPeek(&prs.lex).type != .RParen{
             for {
-                arg := parseArg(prs, 0)
+                arg := parseArg(prs, p, 0)
                 if prs.err != .None{
                     delete(cmd.args)
                     free(cmd)
@@ -791,6 +907,11 @@ MoveFunc :: struct {
     jump: bool,
     airborne: bool,
     stop: bool,
+    w: f32,
+    a: f32,
+    t: int,
+    rot: f32,
+    rotUsed: bool,
 }
 
 parseMoveFunc :: proc(name: string) -> (MoveFunc, bool){
