@@ -599,28 +599,49 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
 
 exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
 
-    curRot := p.f
+    originalF := p.f
 
     if mf.rotUsed {
         p.f = mf.rot
     }
 
-    if mf.jump {
-        // jump tick
-        move(p, mf.w, mf.a, false, mf.sprint, mf.sneak, true)
-        for _ in 0..<(mf.t - 1) {
-            // air ticks
-            move(p, mf.w, mf.a, true, mf.sprint, mf.sneak, false)
+    if mf.strafe45 {
+        if mf.jump {
+            // jump tick
+            if mf.sprint { // sprint jump at f0
+                move(p, 1, 0, false, mf.sprint, mf.sneak, true)
+            }else {
+                p.f = originalF + 45
+                move(p, 1, 1, false, mf.sprint, mf.sneak, true)
+            } // add support for snsj45 angle
+            
+            p.f = originalF + 45
+            for _ in 0..<(mf.t - 1) {
+                // air ticks
+                move(p, 1, 1, true, mf.sprint, mf.sneak, false)
+            }
+        }else {
+            p.f = originalF + 45
+            for _ in 0..<mf.t {
+                move(p, 1, 1, mf.airborne, mf.sprint, mf.sneak, false)
+            }
         }
     }else {
-        for _ in 0..<mf.t {
-            move(p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false)
+        if mf.jump {
+            // jump tick
+            move(p, mf.w, mf.a, false, mf.sprint, mf.sneak, true)
+            for _ in 0..<(mf.t - 1) {
+                // air ticks
+                move(p, mf.w, mf.a, true, mf.sprint, mf.sneak, false)
+            }
+        }else {
+            for _ in 0..<mf.t {
+                move(p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false)
+            }
         }
     }
 
-    if mf.rotUsed {
-        p.f = curRot
-    }
+    p.f = originalF
 }
 
 
@@ -634,6 +655,7 @@ ParseError :: enum {
     InvalidCommand,
     nonEmptyStop,
     BadInput,
+    nonEmpty45Input,
 }
 
 ParserState :: struct {
@@ -740,6 +762,10 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
         if lexerPeek(&prs.lex).type == .Dot{
             if mf.stop {
                 prs.err = .nonEmptyStop
+                return Arg{}
+            }
+            if mf.strafe45 {
+                prs.err = .nonEmpty45Input
                 return Arg{}
             }
             lexerNext(&prs.lex)
