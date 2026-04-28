@@ -180,7 +180,8 @@ updateNext :: proc(lex : ^Lexer) {
 
 CmdType :: enum {
     Plus, Minus, Mul, Div, 
-    SetVar, SetPrecision,
+    Sqrt, Sin, Cos, Tan, Atan,
+
 
     SetX, SetZ, SetPos, 
     SetVz, SetVx, SetVel,
@@ -197,10 +198,14 @@ CmdType :: enum {
 
     XInv, ZInv, XZInv,
 
-    EndVx, EndVz, EndVxVz,
-    InertiaX, InertiaZ,
+    VxInv, VzInv, VxzInv,
+    ForceInertiaX, ForceInertiaZ,
 
-    SetSlip, SetSprintDelay, SetInertia,
+    SetPrecision, SetSlip, SetSprintDelay, SetInertia,
+
+    AngleQueue, TurnQueue,
+
+    Loop, SetVar, Define, Save, Load, Macro,
 
     Invalid,
 }
@@ -574,24 +579,50 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
     case .Move:
         return "Error: move(...) not implemented yet", false
 
+    case .Sqrt:
+        return "Error: sqrt(...) not implemented yet", false
+    case .Sin:
+        return "Error: sin(...) not implemented yet", false
+    case .Cos:
+        return "Error: cos(...) not implemented yet", false
+    case .Tan:
+        return "Error: tan(...) not implemented yet", false
+    case .Atan:
+        return "Error: atan(...) not implemented yet", false
+
     case .XInv:
         return "Error: xinv(...) not implemented yet", false
     case .ZInv:
         return "Error: zinv(...) not implemented yet", false
     case .XZInv:
         return "Error: xzinv(...) not implemented yet", false
+    case .VxInv:
+        return "Error: vxinv(...) not implemented yet", false
+    case .VzInv:
+        return "Error: vzinv(...) not implemented yet", false
+    case .VxzInv:
+        return "Error: vxzinv(...) not implemented yet", false
 
-    case .EndVx:
-        return "Error: endvx(...) not implemented yet", false
-    case .EndVz:
-        return "Error: endvz(...) not implemented yet", false
-    case .EndVxVz:
-        return "Error: endvxz(...) not implemented yet", false
-
-    case .InertiaX:
+    case .ForceInertiaX:
         return "Error: ix not implemented yet", false
-    case .InertiaZ:
+    case .ForceInertiaZ:
         return "Error: iz not implemented yet", false
+
+    case .AngleQueue:
+        return "Error: anglequeue(...) not implemented yet", false
+    case .TurnQueue:
+        return "Error: turnqueue(...) not implemented yet", false
+
+    case .Loop:
+        return "Error: loop(...) not implemented yet", false
+    case .Define:
+        return "Error: define(...) not implemented yet", false
+    case .Save:
+        return "Error: save(...) not implemented yet", false
+    case .Load:
+        return "Error: load(...) not implemented yet", false
+    case .Macro:
+        return "Error: macro(...) not implemented yet", false
 
     case .Plus, .Minus, .Mul, .Div:
         return "Error: operator call cannot be executed as a top-level statement", false
@@ -1135,6 +1166,52 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetTurn
         case "outt":
             return .OutTurn
+        case "slip":
+            return .SetSlip
+        case "inertia":
+            return .SetInertia
+        case "sdel":
+            return .SetSprintDelay
+        case "inv", "zinv":
+            return .ZInv
+        case "xinv":
+            return .XInv
+        case "xzinv":
+            return .XZInv
+        case "vxinv":
+            return .VxInv
+        case "vzinv":
+            return .VzInv
+        case "vxzinv":
+            return .VxzInv
+        case "ix":
+            return .ForceInertiaX
+        case "iz":
+            return .ForceInertiaZ
+        case "sqrt":
+            return .Sqrt
+        case "sin":
+            return .Sin
+        case "cos":
+            return .Cos
+        case "tan":
+            return .Tan
+        case "atan":
+            return .Atan
+        case "aq", "anglequeue":
+            return .AngleQueue
+        case "tq", "turnqueue":
+            return .TurnQueue
+        case "r", "loop", "repeat":
+            return .Loop
+        case "def", "define":
+            return .Define
+        case "save":
+            return .Save
+        case "load":
+            return .Load
+        case "macro":
+            return .Macro
         case:
             return .Invalid
     }
