@@ -180,7 +180,7 @@ updateNext :: proc(lex : ^Lexer) {
 
 CmdType :: enum {
     Plus, Minus, Mul, Div, 
-    Sqrt, Sin, Cos, Tan, Atan,
+    Abs, Sqrt, Sin, Cos, Tan, Atan,
 
 
     SetX, SetZ, SetPos, 
@@ -579,17 +579,6 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
     case .Move:
         return "Error: move(...) not implemented yet", false
 
-    case .Sqrt:
-        return "Error: sqrt(...) not implemented yet", false
-    case .Sin:
-        return "Error: sin(...) not implemented yet", false
-    case .Cos:
-        return "Error: cos(...) not implemented yet", false
-    case .Tan:
-        return "Error: tan(...) not implemented yet", false
-    case .Atan:
-        return "Error: atan(...) not implemented yet", false
-
     case .XInv:
         return "Error: xinv(...) not implemented yet", false
     case .ZInv:
@@ -624,7 +613,7 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
     case .Macro:
         return "Error: macro(...) not implemented yet", false
 
-    case .Plus, .Minus, .Mul, .Div:
+    case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan:
         return "Error: operator call cannot be executed as a top-level statement", false
 
     case .Invalid:
@@ -678,39 +667,79 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
 
         cmd := expr.expr
 
-        if len(cmd.args) != 2 {
-            failParse(prs, "Error: expression operator is missing an operand")
-            return 0, false
-        }
-
-        lhs, ok1 := eval(prs, p, cmd.args[0])
-        if !ok1 do return 0, false
-
-        rhs, ok2 := eval(prs, p, cmd.args[1])
-        if !ok2 do return 0, false
-
-        #partial switch cmd.type {
-        case .Plus:
-            return lhs + rhs, true
-        case .Minus:
-            return lhs - rhs, true
-        case .Mul:
-            return lhs * rhs, true
-        case .Div:
-            if rhs == 0 {
-                failParse(prs, "Error: division by zero")
+        if cmd.type == .Plus || cmd.type == .Plus || cmd.type == .Plus || cmd.type == .Plus{
+            if len(cmd.args) != 2 {
+                failParse(prs, "Error: expression operator is missing an operand")
                 return 0, false
             }
-            return lhs / rhs, true
-        case:
-            failParse(prs, "Error: expression cannot be evaluated as a number")
-            return 0, false
+
+            lhs, ok1 := eval(prs, p, cmd.args[0])
+            if !ok1 do return 0, false
+
+            rhs, ok2 := eval(prs, p, cmd.args[1])
+            if !ok2 do return 0, false
+
+            #partial switch cmd.type {
+            case .Plus:
+                return lhs + rhs, true
+            case .Minus:
+                return lhs - rhs, true
+            case .Mul:
+                return lhs * rhs, true
+            case .Div:
+                if rhs == 0 {
+                    failParse(prs, "Error: division by zero")
+                    return 0, false
+                }
+                return lhs / rhs, true
+            case:
+                failParse(prs, "Error: expression cannot be evaluated as a number")
+                return 0, false
+            }
+        }else if cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
+            if len(cmd.args) != 1 {
+                failParse(prs, "Error: computing function should have exactly one parameter")
+                return 0, false
+            }
+
+            arg, ok := eval(prs, p, cmd.args[0])
+            if !ok do return 0, false
+
+            #partial switch cmd.type {
+                case .Sqrt:
+                    if arg >= 0 {
+                        return math.sqrt(arg), true
+                    } else {
+                        failParse(prs, "Error: Sqrt(...) cannot take in a negative number.")
+                        return 0, false
+                    }
+                case .Sin:
+                    rad := arg * PId/180
+                    return math.sin(rad), true
+                case .Cos:
+                    rad := arg * PId/180
+                    return math.cos(rad), true
+                case .Tan:
+                    rad := arg * PId/180
+                    return math.tan(rad), true
+                case .Atan:
+                    rad := math.atan(arg)
+                    return rad * 180/PId, true
+                case .Abs:
+                    return abs(arg), true
+                case:
+                    failParse(prs, "Error: expression cannot be evaluated as a number")
+                    return 0, false
+            }
+
         }
 
     case:
         failParse(prs, "Error: expression cannot be evaluated as a number")
         return 0, false
     }
+    
+    return 0, false
 }
 
 exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
