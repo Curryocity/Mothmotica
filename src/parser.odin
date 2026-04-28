@@ -251,6 +251,9 @@ parseMothball :: proc(input: string) -> string {
         precision = 6,
     }
 
+    map_insert(&prs.vars, "bx", widenf32(0.6))
+    map_insert(&prs.vars, "px", 0.0625)
+
     p := makePlayer()
 
     for lexerPeek(&prs.lex).type != .EOF {
@@ -291,12 +294,56 @@ parseMothball :: proc(input: string) -> string {
     return result
 }
 
+trimTrailingZeros :: proc(s: string) -> string {
+    dot := -1
+    for i in 0..<len(s){
+        if s[i] == '.' {
+            dot = i
+            break
+        }
+    }
+
+    if dot == -1 do return s
+
+    end := len(s)
+    for end > dot+1 && s[end-1] == '0' {
+        end -= 1
+    }
+    if end == dot + 1 do end = dot
+
+    return s[:end]
+}
+
 formatNum :: proc(prs: ^ParserState, x: f64) -> string {
-    return fmt.tprintf("%.*f", int(prs.precision), x)
+    s := fmt.tprintf("%.*f", int(prs.precision), x)
+    return trimTrailingZeros(s)
+}
+
+formatOutValue :: proc(prs: ^ParserState, p: ^Player, label: string, value: f64, args: []Arg, argName: string) -> (string, bool) {
+    switch len(args) {
+    case 0:
+        return fmt.tprintf("%s: %s", label, formatNum(prs, value)), true
+    case 1:
+        base, ok := eval(prs, p, args[0])
+        if !ok do return fmt.tprintf("Error: %s(...) parameter cannot be evaluated", argName), false
+
+        remain := value - base
+        return fmt.tprintf(
+            "%s: %s %s %s",
+            label,
+            formatNum(prs, base),
+            remain >= 0 ? "+" : "-",
+            formatNum(prs, abs(remain)),
+        ), true
+    case:
+        return fmt.tprintf("Error: too many parameters in %s(...)", argName), false
+    }
 }
 
 executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, bool) {
     if cmd == nil do return "Error: null command", false
+
+    hitbox := widenf32(0.6)
 
     switch cmd.type {
     case .SetVar:
@@ -415,6 +462,25 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         setVel(p, vx, vz, airborne)
         return "", true
 
+    case .SetF:
+        if len(cmd.args) != 1 {
+            return "Error: f(...) expects 1 argument", false
+        }
+
+        f, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: f(...) argument is not a valid number", false
+        setF(p, f32(f))
+        return "", true
+    case .SetTurn:
+        if len(cmd.args) != 1 {
+            return "Error: t(...) expects 1 argument", false
+        }
+
+        t, ok := eval(prs, p, cmd.args[0])
+        if !ok do return "Error: t(...) argument is not a valid number", false
+        p.f += f32(t)
+        return "", true
+
     case .ResetPos:
         p.x = 0
         p.z = 0
@@ -428,49 +494,44 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .OutXRaw:
-        return fmt.tprintf("X: %s", formatNum(prs, p.x)), true
+        return formatOutValue(prs, p, "X", p.x, cmd.args[:], "xr")
+
     case .OutXBlock:
-        return fmt.tprintf("Xb: %s", formatNum(prs, p.x + 0.6)), true
+        xb := (p.x >= 0) ? p.x + hitbox : p.x - hitbox
+        return formatOutValue(prs, p, "Xb", xb, cmd.args[:], "xb")
+
     case .OutXMM:
-        return fmt.tprintf("Xmm: %s", formatNum(prs, p.x - 0.6)), true
+        if abs(p.x) < hitbox {
+            return fmt.tprintf("Xmm? (X: %s)", formatNum(prs, p.x)), true
+        }
+        xmm := (p.x >= 0) ? p.x - hitbox : p.x + hitbox
+        return formatOutValue(prs, p, "Xmm", xmm, cmd.args[:], "xmm")
 
     case .OutZRaw:
-        return fmt.tprintf("Z: %s", formatNum(prs, p.z)), true
+        return formatOutValue(prs, p, "Z", p.z, cmd.args[:], "zr")
+
     case .OutZBlock:
-        return fmt.tprintf("Zb: %s", formatNum(prs, p.z + 0.6)), true
+        zb := (p.z >= 0) ? p.z + hitbox : p.z - hitbox
+        return formatOutValue(prs, p, "Zb", zb, cmd.args[:], "zb")
+
     case .OutZMM:
-        return fmt.tprintf("Zmm: %s", formatNum(prs, p.z - 0.6)), true
+        if abs(p.z) < hitbox {
+            return fmt.tprintf("Zmm? (Z: %s)", formatNum(prs, p.z)), true
+        }
+        zmm := (p.z >= 0) ? p.z - hitbox : p.z + hitbox
+        return formatOutValue(prs, p, "Zmm", zmm, cmd.args[:], "zmm")
 
     case .OutVx:
-        return fmt.tprintf("Vx: %s", formatNum(prs, p.vx)), true
+        return formatOutValue(prs, p, "Vx", p.vx, cmd.args[:], "outvx")
+
     case .OutVz:
-        return fmt.tprintf("Vz: %s", formatNum(prs, p.vz)), true
-
-    case .SetF:
-        if len(cmd.args) != 1 {
-            return "Error: f(...) expects 1 argument", false
-        }
-
-        f, ok := eval(prs, p, cmd.args[0])
-        if !ok do return "Error: f(...) argument is not a valid number", false
-        setF(p, f32(f))
-        return "", true
+        return formatOutValue(prs, p, "Vz", p.vz, cmd.args[:], "outvz")
 
     case .OutF:
-        return fmt.tprintf("F: %s", formatNum(prs, f64(p.f))), true
-
-    case .SetTurn:
-        if len(cmd.args) != 1 {
-            return "Error: t(...) expects 1 argument", false
-        }
-
-        t, ok := eval(prs, p, cmd.args[0])
-        if !ok do return "Error: t(...) argument is not a valid number", false
-        p.f += f32(t)
-        return "", true
+        return formatOutValue(prs, p, "F", f64(p.f), cmd.args[:], "outf")
 
     case .OutTurn:
-        return fmt.tprintf("T: %s", formatNum(prs, f64(p.f))), true
+        return formatOutValue(prs, p, "T", f64(p.f), cmd.args[:], "outt")
 
     case .SetSlip:
         if len(cmd.args) != 1 {
@@ -517,12 +578,12 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
     case .EndVz:
         return "Error: endvz(...) not implemented yet", false
     case .EndVxVz:
-        return "Error: endvxvz(...) not implemented yet", false
+        return "Error: endvxz(...) not implemented yet", false
 
     case .InertiaX:
-        return "Error: inertiax(...) not implemented yet", false
+        return "Error: ix not implemented yet", false
     case .InertiaZ:
-        return "Error: inertiaz(...) not implemented yet", false
+        return "Error: iz not implemented yet", false
 
     case .Plus, .Minus, .Mul, .Div:
         return "Error: operator call cannot be executed as a top-level statement", false
