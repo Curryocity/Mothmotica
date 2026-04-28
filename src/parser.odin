@@ -667,7 +667,7 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
 
         cmd := expr.expr
 
-        if cmd.type == .Plus || cmd.type == .Plus || cmd.type == .Plus || cmd.type == .Plus{
+        if cmd.type == .Plus || cmd.type == .Minus || cmd.type == .Mul || cmd.type == .Div{
             if len(cmd.args) != 2 {
                 failParse(prs, "Error: expression operator is missing an operand")
                 return 0, false
@@ -696,7 +696,7 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
                 failParse(prs, "Error: expression cannot be evaluated as a number")
                 return 0, false
             }
-        }else if cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
+        }else if cmd.type == .Abs ||cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
             if len(cmd.args) != 1 {
                 failParse(prs, "Error: computing function should have exactly one parameter")
                 return 0, false
