@@ -1217,6 +1217,8 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .ForceInertiaX
         case "iz":
             return .ForceInertiaZ
+        case "abs":
+            return .Abs
         case "sqrt":
             return .Sqrt
         case "sin":
