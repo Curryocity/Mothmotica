@@ -211,6 +211,7 @@ CmdType :: enum {
     ForceInertiaX, ForceInertiaZ,
 
     SetPrecision, SetSlip, SetSprintDelay, SetInertia,
+    SetSlow, SetSpeed,
 
     AngleQueue, TurnQueue,
 
@@ -689,6 +690,46 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         inertia, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: inertia(...) argument is not a valid number"), false
         p.inertia_threshold = inertia
+        return "", true
+
+    case .SetSlow:
+        msg, argsOK := expectArgsRange(cmd, "slow(...)", 1, 1)
+        if !argsOK do return msg, false
+        codeMsg, codeOK := expectNoCode(cmd, "slow(...)")
+        if !codeOK do return codeMsg, false
+
+        slow, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: slow(...) argument is not a valid number"), false
+        if slow < 0 || slow > 255 {
+            return "Error: slow(...) argument should be an integer between 0 and 255", false
+        }
+
+        rounded := math.round(slow)
+        if math.abs(slow - rounded) > 1e-15 {
+            return "Error: slow(...) argument should be an integer between 0 and 255", false
+        }
+
+        p.slow = u8(rounded)
+        return "", true
+
+    case .SetSpeed:
+        msg, argsOK := expectArgsRange(cmd, "speed(...)", 1, 1)
+        if !argsOK do return msg, false
+        codeMsg, codeOK := expectNoCode(cmd, "speed(...)")
+        if !codeOK do return codeMsg, false
+
+        speed, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: speed(...) argument is not a valid number"), false
+        if speed < 0 || speed > 255 {
+            return "Error: speed(...) argument should be an integer between 0 and 255", false
+        }
+
+        rounded := math.round(speed)
+        if math.abs(speed - rounded) > 1e-15 {
+            return "Error: speed(...) argument should be an integer between 0 and 255", false
+        }
+
+        p.speed = u8(rounded)
         return "", true
 
     case .Move:
