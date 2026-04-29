@@ -17,6 +17,8 @@ TokenType :: enum{
     Comma,
     LParen,
     RParen,
+    LBrace,
+    RBrace,
     Op,
     Pipe,
     DoublePipe,
@@ -165,6 +167,10 @@ updateNext :: proc(lex : ^Lexer) {
         tok_type = .LParen
     case ')':
         tok_type = .RParen
+    case '{':
+        tok_type = .LBrace
+    case '}':
+        tok_type = .RBrace
     case '+', '-', '*', '/':
         tok_type = .Op
     case:
@@ -196,16 +202,18 @@ CmdType :: enum {
     SetF, OutF, SetTurn, OutTurn,
     Move,
 
-    XInv, ZInv, XZInv,
+    XPoss, ZPoss,
 
+    XInv, ZInv, XZInv,
     VxInv, VzInv, VxzInv,
+
     ForceInertiaX, ForceInertiaZ,
 
     SetPrecision, SetSlip, SetSprintDelay, SetInertia,
 
     AngleQueue, TurnQueue,
 
-    Loop, SetVar, Define, Save, Load, Macro,
+    Loop, SetVar, Define, Save, Load,
 
     Invalid,
 }
@@ -213,10 +221,17 @@ CmdType :: enum {
 Command :: struct {
     type: CmdType,
     args: [dynamic]Arg,
+    code: [dynamic] CodeItem,
 }
 
 ArgType :: enum {
     Number, Text, Variable, Call, MoveCall
+}
+
+CodeItem :: struct {
+    type: ArgType, // only .Call or .MoveCall
+    expr: ^Command,
+    mvfunc: MoveFunc,
 }
 
 Arg :: struct {
@@ -610,8 +625,10 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "Error: save(...) not implemented yet", false
     case .Load:
         return "Error: load(...) not implemented yet", false
-    case .Macro:
-        return "Error: macro(...) not implemented yet", false
+    case .XPoss:
+        return "Error: xposs(...) not implemented yet", false
+    case .ZPoss:
+        return "Error: zposs(...) not implemented yet", false
 
     case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan:
         return "Error: operator call cannot be executed as a top-level statement", false
@@ -808,7 +825,7 @@ parserErrorOr :: proc(prs: ^ParserState, fallback: string) -> string {
     return fallback
 }
 
-tokenForMessage :: proc(tok: Token) -> string {
+tokenToMessage :: proc(tok: Token) -> string {
     #partial switch tok.type {
     case .EOF:
         return "end of input"
@@ -846,7 +863,7 @@ parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
                 MULT_TOKEN :: Token{type = .Op, content = "*"}
                 lhs = combine(prs, NEG_ONE, rhs, MULT_TOKEN)
             }else{
-                failParse(prs, fmt.tprintf("Error: unexpected operator %s", tokenForMessage(prefix)))
+                failParse(prs, fmt.tprintf("Error: unexpected operator %s", tokenToMessage(prefix)))
                 return Arg{}
             }
         case .LParen:
@@ -870,11 +887,11 @@ parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
             if prefix.content == "unterminated string" {
                 failParse(prs, "Error: unterminated string literal")
             } else {
-                failParse(prs, fmt.tprintf("Error: unexpected character %s", tokenForMessage(prefix)))
+                failParse(prs, fmt.tprintf("Error: unexpected character %s", tokenToMessage(prefix)))
             }
             return Arg{}
         case:
-            failParse(prs, fmt.tprintf("Error: unexpected token %s", tokenForMessage(prefix)))
+            failParse(prs, fmt.tprintf("Error: unexpected token %s", tokenToMessage(prefix)))
             return Arg{}
     }
 
@@ -904,7 +921,7 @@ parseNumber :: proc(prs: ^ParserState, tok: Token) -> Arg {
     if !prs.ok do return Arg{}
     value, ok := strconv.parse_f64(tok.content)
     if !ok {
-        failParse(prs, fmt.tprintf("Error: invalid number %s", tokenForMessage(tok)))
+        failParse(prs, fmt.tprintf("Error: invalid number %s", tokenToMessage(tok)))
         return Arg{}
     }
 
@@ -918,116 +935,10 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
     if !prs.ok do return Arg{}
 
 
-    mf, isMf := parseMoveFunc(tok.content)
+    mf, isMf := checkMoveFunc(tok.content)
 
     if isMf {
-        if lexerPeek(&prs.lex).type == .Dot{
-            if mf.stop {
-                failParse(prs, "Error: stop movement functions cannot have appended inputs")
-                return Arg{}
-            }
-            if mf.strafe45 {
-                failParse(prs, "Error: 45 movement functions cannot have appended inputs")
-                return Arg{}
-            }
-            lexerNext(&prs.lex)
-
-            inputTok := lexerNext(&prs.lex)
-
-            if inputTok.type != .Identifier {
-                failParse(prs, fmt.tprintf("Error: expected a movement input after '.', got %s", tokenForMessage(inputTok)))
-                return Arg{}
-            }
-
-            s := inputTok.content
-
-            if len(s) == 0 {
-                failParse(prs, "Error: movement input cannot be empty")
-                return Arg{}
-            }
-
-            if len(s) > 0 && (s[0] == 'w' || s[0] == 's'){
-                mf.w = (s[0] == 'w')? 1 : -1
-                s = s[1:]
-            }
-
-            if len(s) > 0 && (s[0] == 'a' || s[0] == 'd'){
-                mf.a = (s[0] == 'a')? 1 : -1
-                s = s[1:]
-            }
-
-            if len(s) > 0 {
-                failParse(prs, fmt.tprintf("Error: invalid movement input '%s'", inputTok.content))
-                return Arg{}
-            }
-        } else if !mf.stop{
-            mf.w = 1
-        }
-
-        paren: if lexerPeek(&prs.lex).type == .LParen{
-            lexerNext(&prs.lex)
-            targ := parseArg(prs, p, 0)
-            t, ok1 := eval(prs, p, targ)
-
-            if !ok1 {
-                if !prs.ok do return Arg{}
-                failParse(prs, fmt.tprintf("Error: duration in %s(...) must be a whole number", tok.content))
-                return Arg{}
-            }
-
-            roundt := math.round(t)
-
-            if(abs(t - roundt) < 1e-15){
-                mf.t = int(roundt)
-            }else{
-                failParse(prs, fmt.tprintf("Error: duration in %s(...) must be a whole number", tok.content))
-                return Arg{}
-            }
-
-            if mf.t <= 0 {
-                failParse(prs, fmt.tprintf("Error: duration in %s(...) must be positive", tok.content))
-                return Arg{}
-            }
-
-            next := lexerPeek(&prs.lex)
-            if next.type == .RParen {
-                lexerNext(&prs.lex)
-                break paren
-            }else if next.type == .Comma {
-                lexerNext(&prs.lex)
-            }else {
-                failParse(prs, fmt.tprintf("Error: expected ',' or ')' after duration in %s(...), got %s", tok.content, tokenForMessage(next)))
-                return Arg{}
-            }
-
-            rotarg := parseArg(prs, p, 0)
-            rot64, ok2 := eval(prs, p, rotarg)
-
-            if !ok2 {
-                if !prs.ok do return Arg{}
-                failParse(prs, fmt.tprintf("Error: rotation in %s(..., rotation) must be a number", tok.content))
-                return Arg{}
-            }
-
-            mf.rot = f32(rot64)
-            mf.rotUsed = true
-
-            next = lexerPeek(&prs.lex)
-            if next.type != .RParen {
-                failParse(prs, fmt.tprintf("Error: expected ')' after %s(..., rotation), got %s", tok.content, tokenForMessage(next)))
-                return Arg{}
-            }else {
-                lexerNext(&prs.lex)
-            }
-
-        }else{
-            mf.t = 1
-        }
-
-        return Arg{
-            type = .MoveCall,
-            mvfunc = mf
-        }
+        return parseMoveFunc(prs, p, &mf, tok)
     }
 
     // a command/function with parameters
@@ -1063,7 +974,7 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
                     break
                 }
 
-                failParse(prs, fmt.tprintf("Error: expected ',' or ')' in %s(...), got %s", tok.content, tokenForMessage(next)))
+                failParse(prs, fmt.tprintf("Error: expected ',' or ')' in %s(...), got %s", tok.content, tokenToMessage(next)))
                 delete(cmd.args)
                 free(cmd)
                 return Arg{}
@@ -1109,7 +1020,7 @@ MoveFunc :: struct {
     rotUsed: bool,
 }
 
-parseMoveFunc :: proc(name: string) -> (MoveFunc, bool){
+checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){
     mf := MoveFunc{}
     s := name
 
@@ -1145,6 +1056,116 @@ parseMoveFunc :: proc(name: string) -> (MoveFunc, bool){
     }
 
     return mf, true
+}
+
+parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) -> Arg {
+        if lexerPeek(&prs.lex).type == .Dot{
+        if mf.stop {
+            failParse(prs, "Error: stop movement functions cannot have appended inputs")
+            return Arg{}
+        }
+        if mf.strafe45 {
+            failParse(prs, "Error: 45 movement functions cannot have appended inputs")
+            return Arg{}
+        }
+        lexerNext(&prs.lex)
+
+        inputTok := lexerNext(&prs.lex)
+
+        if inputTok.type != .Identifier {
+            failParse(prs, fmt.tprintf("Error: expected a movement input after '.', got %s", tokenToMessage(inputTok)))
+            return Arg{}
+        }
+
+        s := inputTok.content
+
+        if len(s) == 0 {
+            failParse(prs, "Error: movement input cannot be empty")
+            return Arg{}
+        }
+
+        if len(s) > 0 && (s[0] == 'w' || s[0] == 's'){
+            mf.w = (s[0] == 'w')? 1 : -1
+            s = s[1:]
+        }
+
+        if len(s) > 0 && (s[0] == 'a' || s[0] == 'd'){
+            mf.a = (s[0] == 'a')? 1 : -1
+            s = s[1:]
+        }
+
+        if len(s) > 0 {
+            failParse(prs, fmt.tprintf("Error: invalid movement input '%s'", inputTok.content))
+            return Arg{}
+        }
+    } else if !mf.stop{
+        mf.w = 1
+    }
+
+    paren: if lexerPeek(&prs.lex).type == .LParen{
+        lexerNext(&prs.lex)
+        targ := parseArg(prs, p, 0)
+        t, ok1 := eval(prs, p, targ)
+
+        if !ok1 {
+            if !prs.ok do return Arg{}
+            failParse(prs, fmt.tprintf("Error: duration in %s(...) must be a whole number", tok.content))
+            return Arg{}
+        }
+
+        roundt := math.round(t)
+
+        if(abs(t - roundt) < 1e-15){
+            mf.t = int(roundt)
+        }else{
+            failParse(prs, fmt.tprintf("Error: duration in %s(...) must be a whole number", tok.content))
+            return Arg{}
+        }
+
+        if mf.t <= 0 {
+            failParse(prs, fmt.tprintf("Error: duration in %s(...) must be positive", tok.content))
+            return Arg{}
+        }
+
+        next := lexerPeek(&prs.lex)
+        if next.type == .RParen {
+            lexerNext(&prs.lex)
+            break paren
+        }else if next.type == .Comma {
+            lexerNext(&prs.lex)
+        }else {
+            failParse(prs, fmt.tprintf("Error: expected ',' or ')' after duration in %s(...), got %s", tok.content, tokenToMessage(next)))
+            return Arg{}
+        }
+
+        rotarg := parseArg(prs, p, 0)
+        rot64, ok2 := eval(prs, p, rotarg)
+
+        if !ok2 {
+            if !prs.ok do return Arg{}
+            failParse(prs, fmt.tprintf("Error: rotation in %s(..., rotation) must be a number", tok.content))
+            return Arg{}
+        }
+
+        mf.rot = f32(rot64)
+        mf.rotUsed = true
+
+        next = lexerPeek(&prs.lex)
+        if next.type != .RParen {
+            failParse(prs, fmt.tprintf("Error: expected ')' after %s(..., rotation), got %s", tok.content, tokenToMessage(next)))
+            return Arg{}
+        }else {
+            lexerNext(&prs.lex)
+        }
+
+    }else{
+        mf.t = 1
+    }
+
+    return Arg{
+        type = .MoveCall,
+        mvfunc = mf^
+    }
 }
 
 getCommandType :: proc(cmdName: string) -> CmdType {
@@ -1201,6 +1222,10 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetInertia
         case "sdel":
             return .SetSprintDelay
+        case "poss", "zposs":
+            return .ZPoss
+        case "xposs":
+            return .XPoss
         case "inv", "zinv":
             return .ZInv
         case "xinv":
@@ -1241,8 +1266,6 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .Save
         case "load":
             return .Load
-        case "macro":
-            return .Macro
         case:
             return .Invalid
     }
@@ -1296,7 +1319,7 @@ combine :: proc(prs: ^ParserState, lhs: Arg, rhs: Arg, op: Token) -> Arg {
             }
 
         case:
-            failParse(prs, fmt.tprintf("Error: unsupported operator %s", tokenForMessage(op)))
+            failParse(prs, fmt.tprintf("Error: unsupported operator %s", tokenToMessage(op)))
             return Arg{}
 
     }
