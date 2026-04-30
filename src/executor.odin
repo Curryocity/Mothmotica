@@ -415,6 +415,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // Original Mothball doesn't reset x, but I think it is less confusing that way
         p.x = 0
         ss := saveState(p^)
+        prs_ss := cloneParserState(prs)
+        defer delete(prs_ss.vars)
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -424,6 +426,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         x0 := p.x
 
         loadState(p, ss)
+        loadParserState(prs, prs_ss)
         p.inertia_on = false
         p.vx = 1
         output, simOk = exeCode(prs, p, cmd.code[:], true)
@@ -431,6 +434,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         x1 := p.x
 
         if abs(x1 - x0) < 1e-15 {
+            loadParserState(prs, prs_ss)
             return "Cannot interpolate xinv because the two simulated samples are identical.", false
         }
 
@@ -439,6 +443,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
+        loadParserState(prs, prs_ss)
         p.vx = tarVx
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
@@ -460,6 +465,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // Original Mothball doesn't reset z, but I think it is less confusing that way
         p.z = 0
         ss := saveState(p^)
+        prs_ss := cloneParserState(prs)
+        defer delete(prs_ss.vars)
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -469,6 +476,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         z0 := p.z
 
         loadState(p, ss)
+        loadParserState(prs, prs_ss)
         p.inertia_on = false
         p.vz = 1
         output, simOk = exeCode(prs, p, cmd.code[:], true)
@@ -476,6 +484,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         z1 := p.z
 
         if abs(z1 - z0) < 1e-15 {
+            loadParserState(prs, prs_ss)
             return "Cannot interpolate zinv because the two simulated samples are identical.", false
         }
 
@@ -484,6 +493,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
+        loadParserState(prs, prs_ss)
         p.vz = tarVz
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
@@ -509,6 +519,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // Original Mothball doesn't reset position, but I think it is less confusing that way
         p.x, p.z = 0, 0
         ss := saveState(p^)
+        prs_ss := cloneParserState(prs)
+        defer delete(prs_ss.vars)
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -518,6 +530,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         x0, z0 := p.x, p.z
 
         loadState(p, ss)
+        loadParserState(prs, prs_ss)
         p.inertia_on = false
         p.vx, p.vz = 1, 1
         output, simOk = exeCode(prs, p, cmd.code[:], true)
@@ -525,9 +538,11 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         x1, z1 := p.x, p.z
 
         if abs(x1 - x0) < 1e-15 {
+            loadParserState(prs, prs_ss)
             return "Cannot interpolate xzinv because the two simulated samples are identical on X.", false
         }
         if abs(z1 - z0) < 1e-15 {
+            loadParserState(prs, prs_ss)
             return "Cannot interpolate xzinv because the two simulated samples are identical on Z.", false
         }
 
@@ -536,6 +551,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
+        loadParserState(prs, prs_ss)
         p.vx, p.vz = tarVx, tarVz
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false

@@ -9,6 +9,27 @@ makeCallPtr :: proc(type: CmdType, entries: ..Arg) -> ^Command {
     return cmd
 }
 
+cloneVars :: proc(vars: map[string]f64) -> map[string]f64 {
+    cloned := make(map[string]f64)
+    for key, value in vars {
+        cloned[key] = value
+    }
+    return cloned
+}
+
+cloneParserState :: proc(prs: ^ParserState) -> ParserState {
+    cloned := prs^
+    cloned.vars = cloneVars(prs.vars)
+    return cloned
+}
+
+loadParserState :: proc(dst: ^ParserState, src: ParserState) {
+    oldVars := dst.vars
+    dst^ = src
+    dst.vars = cloneVars(src.vars)
+    delete(oldVars)
+}
+
 trimTrailingZeros :: proc(s: string) -> string {
     dot := -1
     for i in 0..<len(s){
@@ -150,4 +171,3 @@ argToString :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
         return "Error: print(...) argument cannot be printed", false
     }
 }
-
