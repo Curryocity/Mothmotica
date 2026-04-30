@@ -112,28 +112,10 @@ parseMothball :: proc(input: string) -> string {
     for lexerPeek(&prs.lex).type != .EOF {
         cmd := parseArg(&prs, &p, 0)
 
-        if !prs.ok {
-            return fmt.tprintf("%s\n", prs.errMsg)
-        }
+        if !prs.ok do return fmt.tprintf("%s\n", prs.errMsg)
 
-        pendingOutput: string
-        ok: bool
-        // Execute command
-        switch cmd.type {
-            case .Number:
-                return "Error: expected a command, got a number expression\n"
-            case .Text:
-                return "Error: expected a command, got a text value\n"
-            case .Variable:
-                return fmt.tprintf("Error: expected a command, got variable '%s'\n", cmd.text)
-            case .Call:
-                pendingOutput, ok = executeCommand(&prs, &p, cmd.expr)
-                if !ok do return fmt.tprintf("%s\n", pendingOutput)
-            case .MoveCall:
-                exeMoveFunc(&p, cmd.mvfunc)
-            case:
-                return "Error: expected a command\n"
-        }
+        pendingOutput, ok := exeArg(&prs, &p, cmd)
+        if !ok do return fmt.tprintf("%s\n", pendingOutput)
 
         if(pendingOutput != ""){
             append(&buf, pendingOutput)
@@ -321,7 +303,7 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
             }
 
             if !isCall(&inner_cmd) {
-                failParse(prs, "Invalid codes in {...}")
+                failParse(prs, "Error: code block {} can only contain commands")
                 delete(cmd.args)
                 delete(cmd.code)
                 free(cmd)
@@ -349,7 +331,27 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
     }
 }
 
-executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, bool) {
+exeArg :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
+    switch arg.type {
+    case .Call:
+        return exeCommand(prs, p, arg.expr)
+
+    case .MoveCall:
+        exeMoveFunc(p, arg.mvfunc)
+        return "", true
+
+    case .Number:
+        return "Error: expected a command, got number", false
+    case .Text:
+        return "Error: expected a command, got text", false
+    case .Variable:
+        return fmt.tprintf("Error: expected a command, got variable '%s'", arg.text), false
+    case:
+        return "Error: expected a command", false
+    }
+}
+
+exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, bool) {
     if cmd == nil do return "Error: null command", false
 
     hitbox := widenf32(0.6)
