@@ -5,183 +5,26 @@ import "core:strconv"
 import "core:strings"
 import "core:math"
 
-TokenType :: enum{
-    Invalid,
-    EOF,
-
-    Identifier,
-    Number,
-    Text,
-
-    Dot,
-    Comma,
-    LParen,
-    RParen,
-    LBrace,
-    RBrace,
-    Op,
-    Pipe,
-    DoublePipe,
+ParserState :: struct {
+    lex: Lexer,
+    ok: bool,
+    errMsg: string,
+    vars: map[string]f64,
+    precision: u8,
 }
 
-Token :: struct{
-    content : string,
-    type : TokenType,
-}
-
-Lexer :: struct {
-    data : string,
-    pos: int,
-    nextCache: Token,
-    nextOk: bool,
-}
-
-lexerNext :: proc(lex : ^Lexer) -> Token {
-    if !lex.nextOk do updateNext(lex)
-    lex.nextOk = false
-    return lex.nextCache
-}
-
-lexerPeek :: proc(lex : ^Lexer) -> Token {
-    if !lex.nextOk do updateNext(lex)
-    return lex.nextCache
-}
-
-skipSpace :: proc(lex : ^Lexer){
-    n := len(lex.data)
-    for lex.pos < n && isSpace(lex.data[lex.pos]) do lex.pos += 1
-}
-
-isSpace :: proc(ch: byte) -> bool {
-    return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
-}
-
-updateNext :: proc(lex : ^Lexer) {
-    skipSpace(lex)
-
-    n := len(lex.data)
-
-    if lex.pos >= n {
-        lex.nextCache = Token{type = .EOF, content = ""}
-        lex.nextOk = true
-        return
-    }
-
-    c := lex.data[lex.pos]
-
-    if c >= '0' && c <= '9' {
-        start := lex.pos
-
-        for lex.pos < n && lex.data[lex.pos] >= '0' && lex.data[lex.pos] <= '9' {
-            lex.pos += 1
-        }
-
-        if lex.pos < n && lex.data[lex.pos] == '.' {
-            lex.pos += 1
-            for lex.pos < n && lex.data[lex.pos] >= '0' && lex.data[lex.pos] <= '9' {
-                lex.pos += 1
-            }
-        }
-
-        lex.nextCache = Token{
-            type = .Number,
-            content = lex.data[start:lex.pos],
-        }
-        lex.nextOk = true
-        return
-    }
-
-    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' {
-        start := lex.pos
-
-        for lex.pos < n {
-            ch := lex.data[lex.pos]
-            if (ch >= 'a' && ch <= 'z') ||
-               (ch >= 'A' && ch <= 'Z') ||
-               (ch >= '0' && ch <= '9') ||
-               ch == '_' {
-                lex.pos += 1
-            } else {
-                break
-            }
-        }
-
-        lex.nextCache = Token{
-            type = .Identifier,
-            content = lex.data[start:lex.pos],
-        }
-        lex.nextOk = true
-        return
-    }
-
-    if c == '"' {
-        lex.pos += 1
-        textStart := lex.pos
-
-        for lex.pos < n && lex.data[lex.pos] != '"' {
-            lex.pos += 1
-        }
-
-        if lex.pos >= n {
-            lex.nextCache = Token{type = .Invalid, content = "unterminated string"}
-            lex.nextOk = true
-            return
-        }
-
-        lex.nextCache = Token{
-            type = .Text,
-            content = lex.data[textStart:lex.pos],
-        }
-        lex.pos += 1
-        lex.nextOk = true
-        return
-    }
-
-    if c == '|' {
-        if lex.pos + 1 < n && lex.data[lex.pos + 1] == '|' {
-            lex.nextCache = Token{
-                type = .DoublePipe,
-                content = lex.data[lex.pos:lex.pos+2],
-            }
-            lex.pos += 2
-        } else {
-            lex.nextCache = Token{
-                type = .Pipe,
-                content = lex.data[lex.pos:lex.pos+1],
-            }
-            lex.pos += 1
-        }
-        lex.nextOk = true
-        return
-    }
-
-    lex.pos += 1
-
-    tok_type: TokenType
-    switch c {
-    case '.':
-        tok_type = .Dot
-    case ',':
-        tok_type = .Comma
-    case '(':
-        tok_type = .LParen
-    case ')':
-        tok_type = .RParen
-    case '{':
-        tok_type = .LBrace
-    case '}':
-        tok_type = .RBrace
-    case '+', '-', '*', '/':
-        tok_type = .Op
-    case:
-        tok_type = .Invalid
-    }
-
-    lex.nextCache = Token{
-        type = tok_type,
-        content = lex.data[lex.pos-1:lex.pos],
-    }
-    lex.nextOk = true
+MoveFunc :: struct {
+    sprint: bool,
+    sneak: bool,
+    strafe45: bool,
+    jump: bool,
+    airborne: bool,
+    stop: bool,
+    w: f32,
+    a: f32,
+    t: int,
+    rot: f32,
+    rotUsed: bool,
 }
 
 CmdType :: enum {
@@ -242,13 +85,6 @@ Arg :: struct {
     text: string,
     expr: ^Command,
     mvfunc: MoveFunc,
-}
-
-makeCallPtr :: proc(type: CmdType, entries: ..Arg) -> ^Command {
-    cmd := new(Command)
-    cmd.type = type
-    append(&cmd.args, ..entries)
-    return cmd
 }
 
 // ENTRY !!!!!
@@ -317,101 +153,173 @@ parseMothball :: proc(input: string) -> string {
     return result
 }
 
-trimTrailingZeros :: proc(s: string) -> string {
-    dot := -1
-    for i in 0..<len(s){
-        if s[i] == '.' {
-            dot = i
-            break
+parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
+    if !prs.ok do return Arg{}
+    lhs: Arg
+
+    prefix := lexerNext(&prs.lex)
+
+    #partial switch prefix.type {
+        case .Number:
+            lhs = parseNumber(prs, prefix)
+            if !prs.ok do return Arg{}
+        case .Text:
+            lhs.type = .Text
+            lhs.text = prefix.content
+        case .Identifier:
+            // this one is versatile
+            lhs = parseIdentifier(prs, p, prefix)
+            if !prs.ok do return Arg{}
+        case .Op:
+            if prefix.content == "-" {
+                unaryMinusBP :: 30
+                rhs := parseArg(prs, p, unaryMinusBP)
+                if !prs.ok do return Arg{}
+                NEG_ONE :: Arg{type = .Number, value = -1}
+                MULT_TOKEN :: Token{type = .Op, content = "*"}
+                lhs = combine(prs, NEG_ONE, rhs, MULT_TOKEN)
+            }else{
+                failParse(prs, fmt.tprintf("Error: unexpected operator %s", tokenToMessage(prefix)))
+                return Arg{}
+            }
+        case .LParen:
+            lhs = parseArg(prs, p, 0)
+            if !prs.ok do return Arg{}
+            if lexerNext(&prs.lex).type != .RParen {
+                failParse(prs, "Error: missing ')' to close grouped expression")
+                return Arg{}
+            }
+        case .Pipe:
+            lhs = Arg{
+                type = .Call,
+                expr = makeCallPtr(.ResetPos)
+            }
+        case .DoublePipe:
+            lhs = Arg{
+                type = .Call,
+                expr = makeCallPtr(.ResetPosVel)
+            }
+        case .Invalid:
+            if prefix.content == "unterminated string" {
+                failParse(prs, "Error: unterminated string literal")
+            } else {
+                failParse(prs, fmt.tprintf("Error: unexpected character %s", tokenToMessage(prefix)))
+            }
+            return Arg{}
+        case:
+            failParse(prs, fmt.tprintf("Error: unexpected token %s", tokenToMessage(prefix)))
+            return Arg{}
+    }
+
+    if lhs.type != .Number && lhs.type != .Variable do return lhs
+
+    for {
+        op: Token = lexerPeek(&prs.lex)
+
+        if op.type != .Op do break 
+        
+        baseBP := getBP(op)
+
+        if baseBP.left < minBP do break 
+        lexerNext(&prs.lex)
+
+        rhs := parseArg(prs, p, baseBP.right)
+        if !prs.ok do return Arg{}
+
+        lhs = combine(prs, lhs, rhs, op)
+        if !prs.ok do return Arg{}
+    }
+
+    return lhs
+}
+
+parseNumber :: proc(prs: ^ParserState, tok: Token) -> Arg {
+    if !prs.ok do return Arg{}
+    value, ok := strconv.parse_f64(tok.content)
+    if !ok {
+        failParse(prs, fmt.tprintf("Error: invalid number %s", tokenToMessage(tok)))
+        return Arg{}
+    }
+
+    return Arg{
+        type = .Number,
+        value = value,
+    }
+}
+
+parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
+    if !prs.ok do return Arg{}
+
+
+    mf, isMf := checkMoveFunc(tok.content)
+
+    if isMf {
+        return parseMoveFunc(prs, p, &mf, tok)
+    }
+
+    // a command/function with parameters
+    if lexerPeek(&prs.lex).type == .LParen{
+        lexerNext(&prs.lex)
+
+        cmd_type := getCommandType(tok.content)
+        if cmd_type == .Invalid {
+            failParse(prs, fmt.tprintf("Error: unknown command '%s'", tok.content))
+            return Arg{}
+        }
+
+        cmd := makeCallPtr(cmd_type)
+
+        if lexerPeek(&prs.lex).type != .RParen{
+            for {
+                arg := parseArg(prs, p, 0)
+                if !prs.ok{
+                    delete(cmd.args)
+                    free(cmd)
+                    return Arg{}
+                }
+
+                append(&cmd.args, arg)
+
+                next := lexerPeek(&prs.lex)
+                if next.type == .Comma {
+                    lexerNext(&prs.lex)
+                    continue
+                }
+                if next.type == .RParen {
+                    lexerNext(&prs.lex)
+                    break
+                }
+
+                failParse(prs, fmt.tprintf("Error: expected ',' or ')' in %s(...), got %s", tok.content, tokenToMessage(next)))
+                delete(cmd.args)
+                free(cmd)
+                return Arg{}
+            }
+        }else{
+            lexerNext(&prs.lex) // consume ')' immediately
+        }
+
+        return Arg{
+            type = .Call,
+            expr = cmd
         }
     }
 
-    if dot == -1 do return s
-
-    end := len(s)
-    for end > dot+1 && s[end-1] == '0' {
-        end -= 1
-    }
-    if end == dot + 1 do end = dot
-
-    return s[:end]
-}
-
-formatNum :: proc(prs: ^ParserState, x: f64) -> string {
-    s := fmt.tprintf("%.*f", int(prs.precision), x)
-    return trimTrailingZeros(s)
-}
-
-formatOutValue :: proc(prs: ^ParserState, p: ^Player, label: string, value: f64, args: []Arg, argName: string) -> (string, bool) {
-    switch len(args) {
-    case 0:
-        return fmt.tprintf("%s: %s", label, formatNum(prs, value)), true
-    case 1:
-        base, ok := eval(prs, p, args[0])
-        if !ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) parameter cannot be evaluated", argName)), false
-
-        remain := value - base
-        return fmt.tprintf(
-            "%s: %s %s %s",
-            label,
-            formatNum(prs, base),
-            remain >= 0 ? "+" : "-",
-            formatNum(prs, abs(remain)),
-        ), true
-    case:
-        return fmt.tprintf("Error: too many parameters in %s(...)", argName), false
-    }
-}
-
-expectArgsRange :: proc(cmd: ^Command, name: string, minCount, maxCount: int) -> (string, bool) {
-    n := len(cmd.args)
-
-    if n < minCount || n > maxCount {
-        if minCount == maxCount {
-            return fmt.tprintf("Error: %s expects %d argument(s)", name, minCount), false
+    // No parenthesis -> variable or parameterless call
+    cmd_type := getCommandType(tok.content)
+    if cmd_type != .Invalid {
+        return Arg{
+            type = .Call,
+            expr = makeCallPtr(cmd_type)
         }
-
-        return fmt.tprintf(
-            "Error: %s expects between %d and %d argument(s)",
-            name,
-            minCount,
-            maxCount,
-        ), false
     }
 
-    return "", true
-}
-
-expectNoCode :: proc(cmd: ^Command, name: string) -> (string, bool) {
-    if len(cmd.code) != 0 {
-        return fmt.tprintf("Error: %s does not accept a code block", name), false
+    // variable
+    return Arg{
+        type = .Variable,
+        text = tok.content
     }
-    return "", true
-}
 
-expectCode :: proc(cmd: ^Command, name: string) -> (string, bool) {
-    if len(cmd.code) == 0 {
-        return fmt.tprintf("Error: %s requires a code block", name), false
-    }
-    return "", true
-}
-
-expectPlainArgs :: proc(cmd: ^Command, name: string, minCount: int, maxCount: int) -> (string, bool) {
-    argsMsg, argsOK := expectArgsRange(cmd, name, minCount, maxCount)
-    if !argsOK do return argsMsg, false
-    codeMsg, codeOK := expectNoCode(cmd, name)
-    if !codeOK do return codeMsg, false
-
-    return "", true
-}
-
-expectCodeArgs :: proc(cmd: ^Command, name: string, minCount: int, maxCount: int) -> (string, bool) {
-    argsMsg, argsOK := expectArgsRange(cmd, name, minCount, maxCount)
-    if !argsOK do return argsMsg, false
-    codeMsg, codeOK := expectCode(cmd, name)
-    if !codeOK do return codeMsg, false
-
-    return "", true
 }
 
 executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, bool) {
@@ -710,7 +618,7 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         if !argsOK do return msg, false
         p.forceInertiaX = true
         return "", true
-        
+
     case .ForceInertiaZ:
         msg, argsOK := expectPlainArgs(cmd, "iz", 0, 0)
         if !argsOK do return msg, false
@@ -968,267 +876,6 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
     return 0, false
 }
 
-exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
-
-    originalF := p.f
-    localF := mf.rotUsed? mf.rot : originalF
-
-    p.f = localF
-
-    if mf.strafe45 {
-        if mf.jump {
-            // jump tick
-            if mf.sprint { // sprint jump at f0
-                move(p, 1, 0, false, mf.sprint, mf.sneak, true)
-            }else {
-                p.f = localF + 45
-                move(p, 1, 1, false, mf.sprint, mf.sneak, true)
-            } // add support for snsj45 angle
-            
-            p.f = localF + 45
-            for _ in 0..<(mf.t - 1) {
-                // air ticks
-                move(p, 1, 1, true, mf.sprint, mf.sneak, false)
-            }
-        }else {
-            p.f = localF + 45
-            for _ in 0..<mf.t {
-                move(p, 1, 1, mf.airborne, mf.sprint, mf.sneak, false)
-            }
-        }
-    }else {
-        if mf.jump {
-            // jump tick
-            move(p, mf.w, mf.a, false, mf.sprint, mf.sneak, true)
-            for _ in 0..<(mf.t - 1) {
-                // air ticks
-                move(p, mf.w, mf.a, true, mf.sprint, mf.sneak, false)
-            }
-        }else {
-            for _ in 0..<mf.t {
-                move(p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false)
-            }
-        }
-    }
-
-    p.f = originalF
-}
-
-
-ParserState :: struct {
-    lex: Lexer,
-    ok: bool,
-    errMsg: string,
-    vars: map[string]f64,
-    precision: u8,
-}
-
-failParse :: proc(prs: ^ParserState, msg: string) {
-    if !prs.ok do return
-    prs.ok = false
-    prs.errMsg = msg
-}
-
-parserErrorOr :: proc(prs: ^ParserState, fallback: string) -> string {
-    if !prs.ok && prs.errMsg != "" do return prs.errMsg
-    return fallback
-}
-
-tokenToMessage :: proc(tok: Token) -> string {
-    #partial switch tok.type {
-    case .EOF:
-        return "end of input"
-    case .Text:
-        return fmt.tprintf("\"%s\"", tok.content)
-    case:
-        if tok.content == "" do return "token"
-        return fmt.tprintf("'%s'", tok.content)
-    }
-}
-
-parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
-    if !prs.ok do return Arg{}
-    lhs: Arg
-
-    prefix := lexerNext(&prs.lex)
-
-    #partial switch prefix.type {
-        case .Number:
-            lhs = parseNumber(prs, prefix)
-            if !prs.ok do return Arg{}
-        case .Text:
-            lhs.type = .Text
-            lhs.text = prefix.content
-        case .Identifier:
-            // this one is versatile
-            lhs = parseIdentifier(prs, p, prefix)
-            if !prs.ok do return Arg{}
-        case .Op:
-            if prefix.content == "-" {
-                unaryMinusBP :: 30
-                rhs := parseArg(prs, p, unaryMinusBP)
-                if !prs.ok do return Arg{}
-                NEG_ONE :: Arg{type = .Number, value = -1}
-                MULT_TOKEN :: Token{type = .Op, content = "*"}
-                lhs = combine(prs, NEG_ONE, rhs, MULT_TOKEN)
-            }else{
-                failParse(prs, fmt.tprintf("Error: unexpected operator %s", tokenToMessage(prefix)))
-                return Arg{}
-            }
-        case .LParen:
-            lhs = parseArg(prs, p, 0)
-            if !prs.ok do return Arg{}
-            if lexerNext(&prs.lex).type != .RParen {
-                failParse(prs, "Error: missing ')' to close grouped expression")
-                return Arg{}
-            }
-        case .Pipe:
-            lhs = Arg{
-                type = .Call,
-                expr = makeCallPtr(.ResetPos)
-            }
-        case .DoublePipe:
-            lhs = Arg{
-                type = .Call,
-                expr = makeCallPtr(.ResetPosVel)
-            }
-        case .Invalid:
-            if prefix.content == "unterminated string" {
-                failParse(prs, "Error: unterminated string literal")
-            } else {
-                failParse(prs, fmt.tprintf("Error: unexpected character %s", tokenToMessage(prefix)))
-            }
-            return Arg{}
-        case:
-            failParse(prs, fmt.tprintf("Error: unexpected token %s", tokenToMessage(prefix)))
-            return Arg{}
-    }
-
-    if lhs.type != .Number && lhs.type != .Variable do return lhs
-
-    for {
-        op: Token = lexerPeek(&prs.lex)
-
-        if op.type != .Op do break 
-        
-        baseBP := getBP(op)
-
-        if baseBP.left < minBP do break 
-        lexerNext(&prs.lex)
-
-        rhs := parseArg(prs, p, baseBP.right)
-        if !prs.ok do return Arg{}
-
-        lhs = combine(prs, lhs, rhs, op)
-        if !prs.ok do return Arg{}
-    }
-
-    return lhs
-}
-
-parseNumber :: proc(prs: ^ParserState, tok: Token) -> Arg {
-    if !prs.ok do return Arg{}
-    value, ok := strconv.parse_f64(tok.content)
-    if !ok {
-        failParse(prs, fmt.tprintf("Error: invalid number %s", tokenToMessage(tok)))
-        return Arg{}
-    }
-
-    return Arg{
-        type = .Number,
-        value = value,
-    }
-}
-
-parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
-    if !prs.ok do return Arg{}
-
-
-    mf, isMf := checkMoveFunc(tok.content)
-
-    if isMf {
-        return parseMoveFunc(prs, p, &mf, tok)
-    }
-
-    // a command/function with parameters
-    if lexerPeek(&prs.lex).type == .LParen{
-        lexerNext(&prs.lex)
-
-        cmd_type := getCommandType(tok.content)
-        if cmd_type == .Invalid {
-            failParse(prs, fmt.tprintf("Error: unknown command '%s'", tok.content))
-            return Arg{}
-        }
-
-        cmd := makeCallPtr(cmd_type)
-
-        if lexerPeek(&prs.lex).type != .RParen{
-            for {
-                arg := parseArg(prs, p, 0)
-                if !prs.ok{
-                    delete(cmd.args)
-                    free(cmd)
-                    return Arg{}
-                }
-
-                append(&cmd.args, arg)
-
-                next := lexerPeek(&prs.lex)
-                if next.type == .Comma {
-                    lexerNext(&prs.lex)
-                    continue
-                }
-                if next.type == .RParen {
-                    lexerNext(&prs.lex)
-                    break
-                }
-
-                failParse(prs, fmt.tprintf("Error: expected ',' or ')' in %s(...), got %s", tok.content, tokenToMessage(next)))
-                delete(cmd.args)
-                free(cmd)
-                return Arg{}
-            }
-        }else{
-            lexerNext(&prs.lex) // consume ')' immediately
-        }
-
-        return Arg{
-            type = .Call,
-            expr = cmd
-        }
-    }
-
-    // No parenthesis -> variable or parameterless call
-    cmd_type := getCommandType(tok.content)
-    if cmd_type != .Invalid {
-        return Arg{
-            type = .Call,
-            expr = makeCallPtr(cmd_type)
-        }
-    }
-
-    // variable
-    return Arg{
-        type = .Variable,
-        text = tok.content
-    }
-
-}
-
-MoveFunc :: struct {
-    sprint: bool,
-    sneak: bool,
-    strafe45: bool,
-    jump: bool,
-    airborne: bool,
-    stop: bool,
-    w: f32,
-    a: f32,
-    t: int,
-    rot: f32,
-    rotUsed: bool,
-}
-
 checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){
     mf := MoveFunc{}
     s := name
@@ -1375,6 +1022,52 @@ parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) 
         type = .MoveCall,
         mvfunc = mf^
     }
+}
+
+exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
+
+    originalF := p.f
+    localF := mf.rotUsed? mf.rot : originalF
+
+    p.f = localF
+
+    if mf.strafe45 {
+        if mf.jump {
+            // jump tick
+            if mf.sprint { // sprint jump at f0
+                move(p, 1, 0, false, mf.sprint, mf.sneak, true)
+            }else {
+                p.f = localF + 45
+                move(p, 1, 1, false, mf.sprint, mf.sneak, true)
+            } // add support for snsj45 angle
+            
+            p.f = localF + 45
+            for _ in 0..<(mf.t - 1) {
+                // air ticks
+                move(p, 1, 1, true, mf.sprint, mf.sneak, false)
+            }
+        }else {
+            p.f = localF + 45
+            for _ in 0..<mf.t {
+                move(p, 1, 1, mf.airborne, mf.sprint, mf.sneak, false)
+            }
+        }
+    }else {
+        if mf.jump {
+            // jump tick
+            move(p, mf.w, mf.a, false, mf.sprint, mf.sneak, true)
+            for _ in 0..<(mf.t - 1) {
+                // air ticks
+                move(p, mf.w, mf.a, true, mf.sprint, mf.sneak, false)
+            }
+        }else {
+            for _ in 0..<mf.t {
+                move(p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false)
+            }
+        }
+    }
+
+    p.f = originalF
 }
 
 combine :: proc(prs: ^ParserState, lhs: Arg, rhs: Arg, op: Token) -> Arg {
