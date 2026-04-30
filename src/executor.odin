@@ -298,8 +298,65 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         p.speed = u8(rounded)
         return "", true
 
-    case .Move:
-        return "Error: move(...) not implemented yet", false
+    case .Move: // slip, accel, t, facing
+        msg, argsOK := expectPlainArgs(cmd, "move(...)", 2, 4)
+        if !argsOK do return msg, false
+
+        slip, accel, facing: f64
+        t: int
+        ok: bool
+
+        argCounts := len(cmd.args)
+
+        slip, ok = eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: move(...)'s argument is not a valid number"), false
+
+        accel, ok = eval(prs, p, cmd.args[1])
+        if !ok do return parserErrorOr(prs, "Error: move(...)'s argument is not a valid number"), false
+
+        if(argCounts >= 3){
+            t_f64: f64
+            t_f64, ok = eval(prs, p, cmd.args[2])
+            if !ok do return parserErrorOr(prs, "Error: move(...)'s argument is not a valid number"), false
+
+            rounded := math.round(t_f64)
+            if math.abs(t_f64 - rounded) > 1e-15 {
+                return "Error: slow(...) argument should be an integer between 0 and 255", false
+            }
+            t = int(rounded)
+        }else{
+            t = 1
+        }
+
+        if(argCounts == 4){
+            facing, ok = eval(prs, p, cmd.args[3])
+            if !ok do return parserErrorOr(prs, "Error: move(...)'s argument is not a valid number"), false
+        }else{
+            facing = 0
+        }
+
+        sin_val := f64(sin(f32(facing)))
+        cos_val := f64(cos(f32(facing)))
+
+        for _ in 0..<t{
+            p.x += p.vx
+            p.z += p.vz
+
+            p.vx *= slip
+            p.vz *= slip
+
+            if abs(p.vx) < p.inertia_threshold || p.forceInertiaX do p.vx = 0
+            if abs(p.vz) < p.inertia_threshold || p.forceInertiaZ do p.vz = 0
+
+            // only force for one tick
+            p.forceInertiaX = false
+            p.forceInertiaZ = false
+
+            p.vx -= accel * sin_val
+            p.vz += accel * cos_val
+        }
+        
+        return "", true
 
     case .XInv:
         return "Error: xinv(...) not implemented yet", false
