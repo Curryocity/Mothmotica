@@ -289,27 +289,21 @@ parseMothball :: proc(input: string) -> string {
         pendingOutput: string
         ok: bool
         // Execute command
-        if cmd.type == .Call{
-            pendingOutput, ok = executeCommand(&prs, &p, cmd.expr)
-            if !ok {
-                return fmt.tprintf("%s\n", pendingOutput)
-            }
-        }else if cmd.type == .MoveCall{
-            exeMoveFunc(&p, cmd.mvfunc)
-        }else{
-            #partial switch cmd.type {
+        switch cmd.type {
             case .Number:
                 return "Error: expected a command, got a number expression\n"
             case .Text:
                 return "Error: expected a command, got a text value\n"
             case .Variable:
                 return fmt.tprintf("Error: expected a command, got variable '%s'\n", cmd.text)
+            case .Call:
+                pendingOutput, ok = executeCommand(&prs, &p, cmd.expr)
+                if !ok do return fmt.tprintf("%s\n", pendingOutput)
+            case .MoveCall:
+                exeMoveFunc(&p, cmd.mvfunc)
             case:
                 return "Error: expected a command\n"
-            }
         }
-        
-        // fmt.println("PendingOutput:" , pendingOutput)
 
         if(pendingOutput != ""){
             append(&buf, pendingOutput)
@@ -318,7 +312,6 @@ parseMothball :: proc(input: string) -> string {
     }
 
     result := strings.clone(string(buf[:]))
-
     if result == "" do result = "ok\n"
 
     return result
