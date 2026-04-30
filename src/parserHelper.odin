@@ -129,3 +129,7 @@ tokenToMessage :: proc(tok: Token) -> string {
     }
 }
 
+isCall :: proc(arg: ^Arg) -> bool {
+    return arg.type == .Call || arg.type == .MoveCall
+}
+

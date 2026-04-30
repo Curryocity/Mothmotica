@@ -66,17 +66,11 @@ CmdType :: enum {
 Command :: struct {
     type: CmdType,
     args: [dynamic]Arg,
-    code: [dynamic] CodeItem,
+    code: [dynamic]Arg,
 }
 
 ArgType :: enum {
     Number, Text, Variable, Call, MoveCall
-}
-
-CodeItem :: struct {
-    type: ArgType, // only .Call or .MoveCall
-    expr: ^Command,
-    mvfunc: MoveFunc,
 }
 
 Arg :: struct {
@@ -250,76 +244,109 @@ parseNumber :: proc(prs: ^ParserState, tok: Token) -> Arg {
 parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
     if !prs.ok do return Arg{}
 
-
     mf, isMf := checkMoveFunc(tok.content)
+    if isMf do return parseMoveFunc(prs, p, &mf, tok)
 
-    if isMf {
-        return parseMoveFunc(prs, p, &mf, tok)
-    }
-
-    // a command/function with parameters
-    if lexerPeek(&prs.lex).type == .LParen{
-        lexerNext(&prs.lex)
-
-        cmd_type := getCommandType(tok.content)
-        if cmd_type == .Invalid {
+    cmd_type := getCommandType(tok.content)
+    if cmd_type == .Invalid {
+        if lexerPeek(&prs.lex).type == .LParen || lexerPeek(&prs.lex).type == .LBrace {
             failParse(prs, fmt.tprintf("Error: unknown command '%s'", tok.content))
             return Arg{}
         }
 
-        cmd := makeCallPtr(cmd_type)
+        return Arg{
+            type = .Variable,
+            text = tok.content,
+        }
+    }
 
-        if lexerPeek(&prs.lex).type != .RParen{
-            for {
-                arg := parseArg(prs, p, 0)
-                if !prs.ok{
-                    delete(cmd.args)
-                    free(cmd)
-                    return Arg{}
-                }
+    cmd := makeCallPtr(cmd_type)
+    // Note: f is treated the same as f()
 
-                append(&cmd.args, arg)
+    // f(...), arguments separated by commas
+    paren: if lexerPeek(&prs.lex).type == .LParen{
+        lexerNext(&prs.lex)
 
-                next := lexerPeek(&prs.lex)
-                if next.type == .Comma {
-                    lexerNext(&prs.lex)
-                    continue
-                }
-                if next.type == .RParen {
-                    lexerNext(&prs.lex)
-                    break
-                }
+        // No Arguments, consume ')' immediately and break
+        if lexerPeek(&prs.lex).type == .RParen{
+            lexerNext(&prs.lex)
+            break paren
+        }
 
+        for {
+            arg := parseArg(prs, p, 0)
+            if !prs.ok{
+                delete(cmd.args)
+                free(cmd)
+                return Arg{}
+            }
+
+            append(&cmd.args, arg)
+
+            next := lexerPeek(&prs.lex)
+            if next.type == .Comma {
+                lexerNext(&prs.lex)
+            } else if next.type == .RParen {
+                lexerNext(&prs.lex)
+                break
+            }else {
                 failParse(prs, fmt.tprintf("Error: expected ',' or ')' in %s(...), got %s", tok.content, tokenToMessage(next)))
                 delete(cmd.args)
                 free(cmd)
                 return Arg{}
             }
-        }else{
-            lexerNext(&prs.lex) // consume ')' immediately
-        }
-
-        return Arg{
-            type = .Call,
-            expr = cmd
         }
     }
 
-    // No parenthesis -> variable or parameterless call
-    cmd_type := getCommandType(tok.content)
-    if cmd_type != .Invalid {
-        return Arg{
-            type = .Call,
-            expr = makeCallPtr(cmd_type)
+    // f(){...} or f{...} arguments is a code block, i.e. list of commands seperated by space
+    brace: if lexerPeek(&prs.lex).type == .LBrace{
+        lexerNext(&prs.lex)
+
+        // No code in braces are invalid (For now)
+        if lexerPeek(&prs.lex).type == .RBrace{
+            failParse(prs, "Error: {...} cannot be empty")
+            delete(cmd.args)
+            free(cmd)
+            return Arg{}
+        }
+
+        for {
+            inner_cmd := parseArg(prs, p, 0)
+
+            if !prs.ok{
+                delete(cmd.args)
+                delete(cmd.code)
+                free(cmd)
+                return Arg{}
+            }
+
+            if !isCall(&inner_cmd) {
+                failParse(prs, "Invalid codes in {...}")
+                delete(cmd.args)
+                delete(cmd.code)
+                free(cmd)
+                return Arg{}
+            }
+
+            append(&cmd.code, inner_cmd)
+
+            if lexerPeek(&prs.lex).type == .RBrace {
+                lexerNext(&prs.lex)
+                break
+            }else if lexerPeek(&prs.lex).type == .EOF {
+                failParse(prs, "Error: missing '}' to close code block")
+                delete(cmd.args)
+                delete(cmd.code)
+                free(cmd)
+                return Arg{}
+            }
         }
     }
 
-    // variable
     return Arg{
-        type = .Variable,
-        text = tok.content
+        type = .Call,
+        expr = cmd,
     }
-
 }
 
 executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, bool) {
