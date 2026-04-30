@@ -1,6 +1,6 @@
 # Mothballn't
 
-An Odin version of Mothball with improved syntax.
+An Odin version of Mothball with improved syntax and more powerful stratfinding features. While maintaining simplicity and joy of Mothballing :) 
 
 ## Example:
 
