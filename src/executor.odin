@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:math"
+import "core:strings"
 
 exeArg :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
     switch arg.type {
@@ -388,8 +389,33 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     case .TurnQueue:
         return "Error: turnqueue(...) not implemented yet", false
 
+    // r(x) repeats while x > 0, decrementing x by 1 each loop.
+    // Non-integer x is intentionally allowed.
     case .Loop:
-        return "Error: loop(...) not implemented yet", false
+        msg, argsOK := expectCodeArgs(cmd, "r(...){...}", 1, 1)
+        if !argsOK do return msg, false
+
+        times, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: r(...) argument is not a valid number"), false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        for times > 0 {
+            for arg in cmd.code {
+                pendingOutput, itemOK := exeArg(prs, p, arg)
+                if !itemOK do return pendingOutput, false
+
+                if pendingOutput != "" {
+                    append(&buf, pendingOutput)
+                    append(&buf, "\n")
+                }
+            }
+            times -= 1
+        }
+
+        return strings.clone(string(buf[:])), true
+
     case .Define:
         return "Error: define(...) not implemented yet", false
     case .Save:
