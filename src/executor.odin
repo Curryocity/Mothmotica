@@ -406,7 +406,50 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return "", true
 
     case .XInv:
-        return "Error: xinv(...) not implemented yet", false
+        msg, argsOK := expectCodeArgs(cmd, "xinv(...){}", 1, 1)
+        if !argsOK do return msg, false
+
+        tarX, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: xinv(...){} argument is not a valid number"), false
+
+        // Original Mothball doesn't reset x, but I think it is less confusing that way
+        p.x = 0
+        ss := saveState(p^)
+
+        // inertia is off for successful lerping
+        p.inertia_on = false
+        p.vx = 0
+        output, simOk := exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        x0 := p.x
+
+        loadState(p, ss)
+        p.inertia_on = false
+        p.vx = 1
+        output, simOk = exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        x1 := p.x
+
+        if abs(x1 - x0) < 1e-15 {
+            return "Cannot interpolate xinv because the two simulated samples are identical.", false
+        }
+
+        // tarX = tarVx * (x1 - x0) + x0
+        tarVx := (tarX - x0)/(x1 - x0) 
+
+        // doesn't disable inertia in the final real simulation
+        loadState(p, ss)
+        p.vx = tarVx
+        output, simOk = exeCode(prs, p, cmd.code[:], false)
+        if !simOk do return output, false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        append(&buf, fmt.tprintf("Lerped Vx: %s\n", formatNum(prs, tarVx)))
+        append(&buf, output)
+
+        return strings.clone(string(buf[:])), true
     case .ZInv:
         msg, argsOK := expectCodeArgs(cmd, "zinv(...){}", 1, 1)
         if !argsOK do return msg, false
@@ -452,9 +495,60 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         append(&buf, output)
 
         return strings.clone(string(buf[:])), true
-        
+
     case .XZInv:
-        return "Error: xzinv(...) not implemented yet", false
+        msg, argsOK := expectCodeArgs(cmd, "xzinv(...){}", 2, 2)
+        if !argsOK do return msg, false
+
+        tarX, ok1 := eval(prs, p, cmd.args[0])
+        if !ok1 do return parserErrorOr(prs, "Error: xzinv(...){} argument is not a valid number"), false
+
+        tarZ, ok2 := eval(prs, p, cmd.args[1])
+        if !ok2 do return parserErrorOr(prs, "Error: xzinv(...){} argument is not a valid number"), false
+
+        // Original Mothball doesn't reset position, but I think it is less confusing that way
+        p.x, p.z = 0, 0
+        ss := saveState(p^)
+
+        // inertia is off for successful lerping
+        p.inertia_on = false
+        p.vx, p.vz = 0, 0
+        output, simOk := exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        x0, z0 := p.x, p.z
+
+        loadState(p, ss)
+        p.inertia_on = false
+        p.vx, p.vz = 1, 1
+        output, simOk = exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        x1, z1 := p.x, p.z
+
+        if abs(x1 - x0) < 1e-15 {
+            return "Cannot interpolate xzinv because the two simulated samples are identical on X.", false
+        }
+        if abs(z1 - z0) < 1e-15 {
+            return "Cannot interpolate xzinv because the two simulated samples are identical on Z.", false
+        }
+
+        tarVx := (tarX - x0)/(x1 - x0) 
+        tarVz := (tarZ - z0)/(z1 - z0) 
+
+        // doesn't disable inertia in the final real simulation
+        loadState(p, ss)
+        p.vx, p.vz = tarVx, tarVz
+        output, simOk = exeCode(prs, p, cmd.code[:], false)
+        if !simOk do return output, false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        append(&buf, fmt.tprintf("Lerped Vx: %s\n", formatNum(prs, tarVx)))
+        append(&buf, fmt.tprintf("Lerped Vz: %s\n", formatNum(prs, tarVz)))
+        append(&buf, output)
+
+        return strings.clone(string(buf[:])), true
+
     case .VxInv:
         return "Error: vxinv(...) not implemented yet", false
     case .VzInv:
