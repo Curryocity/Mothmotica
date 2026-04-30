@@ -403,6 +403,24 @@ expectCode :: proc(cmd: ^Command, name: string) -> (string, bool) {
     return "", true
 }
 
+expectPlainArgs :: proc(cmd: ^Command, name: string, minCount: int, maxCount: int) -> (string, bool) {
+    argsMsg, argsOK := expectArgsRange(cmd, name, minCount, maxCount)
+    if !argsOK do return argsMsg, false
+    codeMsg, codeOK := expectNoCode(cmd, name)
+    if !codeOK do return codeMsg, false
+
+    return "", true
+}
+
+expectCodeArgs :: proc(cmd: ^Command, name: string, minCount: int, maxCount: int) -> (string, bool) {
+    argsMsg, argsOK := expectArgsRange(cmd, name, minCount, maxCount)
+    if !argsOK do return argsMsg, false
+    codeMsg, codeOK := expectCode(cmd, name)
+    if !codeOK do return codeMsg, false
+
+    return "", true
+}
+
 executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, bool) {
     if cmd == nil do return "Error: null command", false
 
@@ -412,10 +430,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
     case .Print:
         return "Error: print(...) not implemented yet", false
     case .SetVar:
-        msg, argsOK := expectArgsRange(cmd, "set(...)", 2, 2)
+        msg, argsOK := expectPlainArgs(cmd, "set(...)", 2, 2)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "set(...)")
-        if !codeOK do return codeMsg, false
 
         target := cmd.args[0]
         if target.type != .Variable {
@@ -436,10 +452,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetPrecision:
-        msg, argsOK := expectArgsRange(cmd, "pre(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "pre(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "pre(...)")
-        if !codeOK do return codeMsg, false
 
         pre, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: pre(...) argument is not a valid number"), false
@@ -456,10 +470,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetX:
-        msg, argsOK := expectArgsRange(cmd, "x(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "x(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "x(...)")
-        if !codeOK do return codeMsg, false
 
         x, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: x(...) argument is not a valid number"), false
@@ -467,10 +479,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetZ:
-        msg, argsOK := expectArgsRange(cmd, "z(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "z(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "z(...)")
-        if !codeOK do return codeMsg, false
 
         z, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: z(...) argument is not a valid number"), false
@@ -478,10 +488,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetPos:
-        msg, argsOK := expectArgsRange(cmd, "pos(...)", 2, 2)
+        msg, argsOK := expectPlainArgs(cmd, "pos(...)", 2, 2)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "pos(...)")
-        if !codeOK do return codeMsg, false
 
         x, ok1 := eval(prs, p, cmd.args[0])
         if !ok1 do return parserErrorOr(prs, "Error: first argument of pos(...) is not a valid number"), false
@@ -495,10 +503,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
 
     case .SetVx, .SetVxAir:
         name := (cmd.type == .SetVxAir) ? "vxa(...)" : "vx(...)"
-        msg, argsOK := expectArgsRange(cmd, name, 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, name, 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, name)
-        if !codeOK do return codeMsg, false
 
         vx, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: vx(...) argument is not a valid number"), false
@@ -509,10 +515,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
 
     case .SetVz, .SetVzAir:
         name := (cmd.type == .SetVzAir) ? "vza(...)" : "vz(...)"
-        msg, argsOK := expectArgsRange(cmd, name, 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, name, 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, name)
-        if !codeOK do return codeMsg, false
 
         vz, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: vz(...) argument is not a valid number"), false
@@ -523,10 +527,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
 
     case .SetVel, .SetVelAir:
         name := (cmd.type == .SetVelAir) ? "vela(...)" : "vel(...)"
-        msg, argsOK := expectArgsRange(cmd, name, 2, 2)
+        msg, argsOK := expectPlainArgs(cmd, name, 2, 2)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, name)
-        if !codeOK do return codeMsg, false
 
         vx, ok1 := eval(prs, p, cmd.args[0])
         if !ok1 do return parserErrorOr(prs, "Error: first argument of vel(...) is not a valid number"), false
@@ -539,20 +541,16 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetF:
-        msg, argsOK := expectArgsRange(cmd, "f(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "f(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "f(...)")
-        if !codeOK do return codeMsg, false
 
         f, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: f(...) argument is not a valid number"), false
         setF(p, f32(f))
         return "", true
     case .SetTurn:
-        msg, argsOK := expectArgsRange(cmd, "t(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "t(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "t(...)")
-        if !codeOK do return codeMsg, false
 
         t, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: t(...) argument is not a valid number"), false
@@ -560,19 +558,15 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .ResetPos:
-        msg, argsOK := expectArgsRange(cmd, "|", 0, 0)
+        msg, argsOK := expectPlainArgs(cmd, "|", 0, 0)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "|")
-        if !codeOK do return codeMsg, false
         p.x = 0
         p.z = 0
         return "", true
 
     case .ResetPosVel:
-        msg, argsOK := expectArgsRange(cmd, "||", 0, 0)
+        msg, argsOK := expectPlainArgs(cmd, "||", 0, 0)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "||")
-        if !codeOK do return codeMsg, false
         p.x = 0
         p.z = 0
         p.vx = 0
@@ -580,25 +574,19 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .OutXRaw:
-        msg, argsOK := expectArgsRange(cmd, "xr(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "xr(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "xr(...)")
-        if !codeOK do return codeMsg, false
         return formatOutValue(prs, p, "X", p.x, cmd.args[:], "xr")
 
     case .OutXBlock:
-        msg, argsOK := expectArgsRange(cmd, "xb(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "xb(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "xb(...)")
-        if !codeOK do return codeMsg, false
         xb := (p.x >= 0) ? p.x + hitbox : p.x - hitbox
         return formatOutValue(prs, p, "Xb", xb, cmd.args[:], "xb")
 
     case .OutXMM:
-        msg, argsOK := expectArgsRange(cmd, "xmm(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "xmm(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "xmm(...)")
-        if !codeOK do return codeMsg, false
         if abs(p.x) < hitbox {
             return fmt.tprintf("Xmm? (X: %s)", formatNum(prs, p.x)), true
         }
@@ -606,25 +594,19 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return formatOutValue(prs, p, "Xmm", xmm, cmd.args[:], "xmm")
 
     case .OutZRaw:
-        msg, argsOK := expectArgsRange(cmd, "zr(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "zr(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "zr(...)")
-        if !codeOK do return codeMsg, false
         return formatOutValue(prs, p, "Z", p.z, cmd.args[:], "zr")
 
     case .OutZBlock:
-        msg, argsOK := expectArgsRange(cmd, "zb(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "zb(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "zb(...)")
-        if !codeOK do return codeMsg, false
         zb := (p.z >= 0) ? p.z + hitbox : p.z - hitbox
         return formatOutValue(prs, p, "Zb", zb, cmd.args[:], "zb")
 
     case .OutZMM:
-        msg, argsOK := expectArgsRange(cmd, "zmm(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "zmm(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "zmm(...)")
-        if !codeOK do return codeMsg, false
         if abs(p.z) < hitbox {
             return fmt.tprintf("Zmm? (Z: %s)", formatNum(prs, p.z)), true
         }
@@ -632,38 +614,28 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return formatOutValue(prs, p, "Zmm", zmm, cmd.args[:], "zmm")
 
     case .OutVx:
-        msg, argsOK := expectArgsRange(cmd, "outvx(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "outvx(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "outvx(...)")
-        if !codeOK do return codeMsg, false
         return formatOutValue(prs, p, "Vx", p.vx, cmd.args[:], "outvx")
 
     case .OutVz:
-        msg, argsOK := expectArgsRange(cmd, "outvz(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "outvz(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "outvz(...)")
-        if !codeOK do return codeMsg, false
         return formatOutValue(prs, p, "Vz", p.vz, cmd.args[:], "outvz")
 
     case .OutF:
-        msg, argsOK := expectArgsRange(cmd, "outf(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "outf(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "outf(...)")
-        if !codeOK do return codeMsg, false
         return formatOutValue(prs, p, "F", f64(p.f), cmd.args[:], "outf")
 
     case .OutTurn:
-        msg, argsOK := expectArgsRange(cmd, "outt(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "outt(...)", 0, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "outt(...)")
-        if !codeOK do return codeMsg, false
         return formatOutValue(prs, p, "T", f64(p.f), cmd.args[:], "outt")
 
     case .SetSlip:
-        msg, argsOK := expectArgsRange(cmd, "slip(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "slip(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "slip(...)")
-        if !codeOK do return codeMsg, false
 
         slip, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: slip(...) argument is not a valid number"), false
@@ -671,10 +643,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetSprintDelay:
-        msg, argsOK := expectArgsRange(cmd, "sprintdelay(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "sprintdelay(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "sprintdelay(...)")
-        if !codeOK do return codeMsg, false
 
         v, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: sprintdelay(...) argument is not a valid number"), false
@@ -682,10 +652,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetInertia:
-        msg, argsOK := expectArgsRange(cmd, "inertia(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "inertia(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "inertia(...)")
-        if !codeOK do return codeMsg, false
 
         inertia, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: inertia(...) argument is not a valid number"), false
@@ -693,10 +661,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetSlow:
-        msg, argsOK := expectArgsRange(cmd, "slow(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "slow(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "slow(...)")
-        if !codeOK do return codeMsg, false
 
         slow, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: slow(...) argument is not a valid number"), false
@@ -713,10 +679,8 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "", true
 
     case .SetSpeed:
-        msg, argsOK := expectArgsRange(cmd, "speed(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "speed(...)", 1, 1)
         if !argsOK do return msg, false
-        codeMsg, codeOK := expectNoCode(cmd, "speed(...)")
-        if !codeOK do return codeMsg, false
 
         speed, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: speed(...) argument is not a valid number"), false
