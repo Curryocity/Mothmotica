@@ -14,6 +14,7 @@ ParserState :: struct {
 }
 
 MoveFunc :: struct {
+    name: string,
     sprint: bool,
     sneak: bool,
     strafe45: bool,
@@ -31,7 +32,7 @@ CmdType :: enum {
     Plus, Minus, Mul, Div, 
     Abs, Sqrt, Sin, Cos, Tan, Atan,
 
-    Print, Printn,
+    Print, Printn, Measure,
 
     SetX, SetZ, SetPos, 
     SetVz, SetVx, SetVel,
@@ -65,6 +66,7 @@ CmdType :: enum {
 
 Command :: struct {
     type: CmdType,
+    name: string,
     args: [dynamic]Arg,
     code: [dynamic]Arg,
 }
@@ -166,14 +168,18 @@ parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
                 return Arg{}
             }
         case .Pipe:
+            cmd := makeCallPtr(.ResetPos)
+            cmd.name = "|"
             lhs = Arg{
                 type = .Call,
-                expr = makeCallPtr(.ResetPos)
+                expr = cmd,
             }
         case .DoublePipe:
+            cmd := makeCallPtr(.ResetPosVel)
+            cmd.name = "||"
             lhs = Arg{
                 type = .Call,
-                expr = makeCallPtr(.ResetPosVel)
+                expr = cmd,
             }
         case .Invalid:
             if prefix.content == "unterminated string" {
@@ -243,6 +249,7 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
     }
 
     cmd := makeCallPtr(cmd_type)
+    cmd.name = tok.content
     // Note: f is treated the same as f()
 
     // f(...), arguments separated by commas
@@ -337,6 +344,8 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .Print
         case "printn":
             return .Printn
+        case "mes", "measure":
+            return .Measure
         case "set":
             return .SetVar
         case "pre", "precision":
@@ -441,7 +450,7 @@ getCommandType :: proc(cmdName: string) -> CmdType {
 }
 
 checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){
-    mf := MoveFunc{}
+    mf := MoveFunc{name = name}
     s := name
 
     if len(s) >= 2 && s[len(s)-2:] == "45" {
@@ -596,18 +605,22 @@ combine :: proc(prs: ^ParserState, lhs: Arg, rhs: Arg, op: Token) -> Arg {
             if reducible{
                 return Arg{type = .Number, value = lhs.value + rhs.value}
             }else{
+                cmd := makeCallPtr(.Plus, lhs, rhs)
+                cmd.name = "+"
                 return Arg{
                     type = .Call,
-                    expr = makeCallPtr(.Plus, lhs, rhs)
+                    expr = cmd,
                 }
             }
         case "-":
             if reducible {
                 return Arg{type = .Number, value = lhs.value - rhs.value}
             } else {
+                cmd := makeCallPtr(.Minus, lhs, rhs)
+                cmd.name = "-"
                 return Arg{
                     type = .Call,
-                    expr = makeCallPtr(.Minus, lhs, rhs),
+                    expr = cmd,
                 }
             }
 
@@ -615,9 +628,11 @@ combine :: proc(prs: ^ParserState, lhs: Arg, rhs: Arg, op: Token) -> Arg {
             if reducible {
                 return Arg{type = .Number, value = lhs.value * rhs.value}
             } else {
+                cmd := makeCallPtr(.Mul, lhs, rhs)
+                cmd.name = "*"
                 return Arg{
                     type = .Call,
-                    expr = makeCallPtr(.Mul, lhs, rhs),
+                    expr = cmd,
                 }
             }
 
@@ -629,9 +644,11 @@ combine :: proc(prs: ^ParserState, lhs: Arg, rhs: Arg, op: Token) -> Arg {
                 }
                 return Arg{type = .Number, value = lhs.value / rhs.value}
             } else {
+                cmd := makeCallPtr(.Div, lhs, rhs)
+                cmd.name = "/"
                 return Arg{
                     type = .Call,
-                    expr = makeCallPtr(.Div, lhs, rhs),
+                    expr = cmd,
                 }
             }
 

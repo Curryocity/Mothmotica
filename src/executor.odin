@@ -49,6 +49,35 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
 
         return strings.clone(string(buf[:])), true
+
+    case .Measure:
+        msg, argsOK := expectPlainArgs(cmd, "measure(...)", 1, 65536)
+        if !argsOK do return msg, false
+
+        names: [dynamic]u8
+        values: [dynamic]u8
+        defer delete(names)
+        defer delete(values)
+
+        for arg, i in cmd.args {
+            name, value, ok := measureArgValue(prs, p, arg, hitbox)
+            if !ok do return name, false
+
+            if i > 0 {
+                append(&names, ", ")
+                append(&values, ", ")
+            }
+
+            append(&names, name)
+            append(&values, formatNum(prs, value))
+        }
+
+        return fmt.tprintf(
+            "(%s) = (%s)",
+            string(names[:]),
+            string(values[:]),
+        ), true
+
     case .SetVar:
         msg, argsOK := expectPlainArgs(cmd, "set(...)", 2, 2)
         if !argsOK do return msg, false
@@ -452,6 +481,86 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
     case:
         return "Error: unhandled command", false
+    }
+}
+
+measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg, hitbox: f64) -> (string, f64, bool) {
+    #partial switch arg.type {
+    case .Variable:
+        value, ok := eval(prs, p, arg)
+        if !ok do return parserErrorOr(prs, "Error: measure(...) argument cannot be evaluated"), 0, false
+        return arg.text, value, true
+
+    case .Call:
+        if arg.expr == nil {
+            return "Error: measure(...) argument is missing a command", 0, false
+        }
+
+        cmd := arg.expr
+        if len(cmd.args) != 0 || len(cmd.code) != 0 {
+            name := cmd.name
+            if name == "" do name = "command"
+            return fmt.tprintf("Error: measure(...) builtin '%s' must not have arguments or a code block", name), 0, false
+        }
+
+        name := cmd.name
+        if name == "" do name = measureBuiltinDefaultName(cmd.type)
+
+        #partial switch cmd.type {
+        case .SetX:
+            return name, p.x, true
+        case .SetZ:
+            return name, p.z, true
+        case .SetF:
+            return name, f64(p.f), true
+        case .SetVx:
+            return name, p.vx, true
+        case .SetVz:
+            return name, p.vz, true
+        case .OutXBlock:
+            value := (p.x >= 0) ? p.x + hitbox : p.x - hitbox
+            return name, value, true
+        case .OutZBlock:
+            value := (p.z >= 0) ? p.z + hitbox : p.z - hitbox
+            return name, value, true
+        case .OutXMM:
+            value := (p.x >= 0) ? p.x - hitbox : p.x + hitbox
+            return name, value, true
+        case .OutZMM:
+            value := (p.z >= 0) ? p.z - hitbox : p.z + hitbox
+            return name, value, true
+        case:
+            if name == "" do name = "command"
+            return fmt.tprintf("Error: measure(...) cannot measure builtin '%s'", name), 0, false
+        }
+
+    case:
+        return "Error: measure(...) arguments must be variables or builtin values", 0, false
+    }
+}
+
+measureBuiltinDefaultName :: proc(type: CmdType) -> string {
+    #partial switch type {
+    case .SetX:
+        return "x"
+    case .SetZ:
+        return "z"
+    case .SetF:
+        return "f"
+    case .SetVx:
+        return "vx"
+    case .SetVz:
+        return "vz"
+    case .OutXBlock:
+        return "xb"
+    case .OutZBlock:
+        return "zb"
+    case .OutXMM:
+        return "xmm"
+    case .OutZMM:
+        return "zmm"
+    case:
+        return ""
     }
 }
 
