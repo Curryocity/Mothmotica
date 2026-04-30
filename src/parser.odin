@@ -116,12 +116,14 @@ parseMothball :: proc(input: string) -> string {
 
         if !prs.ok do return fmt.tprintf("%s\n", prs.errMsg)
 
-        pendingOutput, ok := exeArg(&prs, &p, cmd)
-        if !ok do return fmt.tprintf("%s\n", pendingOutput)
+        s, ok := exeArg(&prs, &p, cmd)
+        if !ok do return fmt.tprintf("%s\n", s)
 
-        if(pendingOutput != ""){
-            append(&buf, pendingOutput)
-            append(&buf, "\n")
+        if(s != ""){
+            append(&buf, s)
+            if s[len(s) - 1] != '\n'{\
+                append(&buf, "\n")
+            }
         }
     }
 

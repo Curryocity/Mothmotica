@@ -414,42 +414,45 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         tarZ, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: zinv(...){} argument is not a valid number"), false
 
+        // Original Mothball doesn't reset z, but I think it is less confusing that way
+        p.z = 0
+        ss := saveState(p^)
+
         // inertia is off for successful lerping
-        originalInertia := p.inertia_on
         p.inertia_on = false
-        defer p.inertia_on = originalInertia
-
-        
-
-
-        p.z, p.vz = 0, 0
+        p.vz = 0
         output, simOk := exeCode(prs, p, cmd.code[:], true)
         if !simOk do return output, false
         z0 := p.z
 
-        p.z, p.vz = 0, 1
+        loadState(p, ss)
+        p.inertia_on = false
+        p.vz = 1
         output, simOk = exeCode(prs, p, cmd.code[:], true)
         if !simOk do return output, false
         z1 := p.z
 
-        if z1 - z0 == 0 {
+        if abs(z1 - z0) < 1e-15 {
             return "Cannot interpolate zinv because the two simulated samples are identical.", false
         }
 
         // tarZ = tarVz * (z1 - z0) + z0
         tarVz := (tarZ - z0)/(z1 - z0) 
 
-        p.z, p.vz = 0, tarVz
+        // doesn't disable inertia in the final real simulation
+        loadState(p, ss)
+        p.vz = tarVz
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
 
         buf: [dynamic]u8
         defer delete(buf)
 
-        append(&buf, fmt.tprintf("ZInv Vz: %s\n", formatNum(prs, tarVz)))
+        append(&buf, fmt.tprintf("Lerped Vz: %s\n", formatNum(prs, tarVz)))
         append(&buf, output)
 
         return strings.clone(string(buf[:])), true
+        
     case .XZInv:
         return "Error: xzinv(...) not implemented yet", false
     case .VxInv:
