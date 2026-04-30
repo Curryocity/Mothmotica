@@ -60,7 +60,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         defer delete(values)
 
         for arg, i in cmd.args {
-            name, value, ok := measureArgValue(prs, p, arg, hitbox)
+            name, value, ok := measureArgValue(prs, p, arg)
             if !ok do return name, false
 
             if i > 0 {
@@ -408,7 +408,48 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     case .XInv:
         return "Error: xinv(...) not implemented yet", false
     case .ZInv:
-        return "Error: zinv(...) not implemented yet", false
+        msg, argsOK := expectCodeArgs(cmd, "zinv(...){}", 1, 1)
+        if !argsOK do return msg, false
+
+        tarZ, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: zinv(...){} argument is not a valid number"), false
+
+        // inertia is off for successful lerping
+        originalInertia := p.inertia_on
+        p.inertia_on = false
+        defer p.inertia_on = originalInertia
+
+        
+
+
+        p.z, p.vz = 0, 0
+        output, simOk := exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        z0 := p.z
+
+        p.z, p.vz = 0, 1
+        output, simOk = exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        z1 := p.z
+
+        if z1 - z0 == 0 {
+            return "Cannot interpolate zinv because the two simulated samples are identical.", false
+        }
+
+        // tarZ = tarVz * (z1 - z0) + z0
+        tarVz := (tarZ - z0)/(z1 - z0) 
+
+        p.z, p.vz = 0, tarVz
+        output, simOk = exeCode(prs, p, cmd.code[:], false)
+        if !simOk do return output, false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        append(&buf, fmt.tprintf("ZInv Vz: %s\n", formatNum(prs, tarVz)))
+        append(&buf, output)
+
+        return strings.clone(string(buf[:])), true
     case .XZInv:
         return "Error: xzinv(...) not implemented yet", false
     case .VxInv:
@@ -448,14 +489,12 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         defer delete(buf)
 
         for times > 0 {
-            for arg in cmd.code {
-                pendingOutput, itemOK := exeArg(prs, p, arg)
-                if !itemOK do return pendingOutput, false
+            pendingOutput, codeOK := exeCode(prs, p, cmd.code[:], false)
+            if !codeOK do return pendingOutput, false
 
-                if pendingOutput != "" {
-                    append(&buf, pendingOutput)
-                    append(&buf, "\n")
-                }
+            if pendingOutput != "" {
+                append(&buf, pendingOutput)
+                append(&buf, "\n")
             }
             times -= 1
         }
@@ -484,7 +523,27 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     }
 }
 
-measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg, hitbox: f64) -> (string, f64, bool) {
+exeCode :: proc(prs: ^ParserState, p: ^Player, code: []Arg, silent: bool) -> (string, bool) {
+    buf: [dynamic]u8
+    defer delete(buf)
+
+    for arg in code {
+        pendingOutput, ok := exeArg(prs, p, arg)
+        if !ok do return pendingOutput, false
+
+        if !silent && pendingOutput != "" {
+            append(&buf, pendingOutput)
+            append(&buf, "\n")
+        }
+    }
+
+    if silent do return "", true
+    return strings.clone(string(buf[:])), true
+}
+
+measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64, bool) {
+    hitbox := widenf32(0.6)
+
     #partial switch arg.type {
     case .Variable:
         value, ok := eval(prs, p, arg)

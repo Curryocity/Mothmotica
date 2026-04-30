@@ -19,10 +19,11 @@ Player :: struct {
     sprint_delay: bool,
     forceInertiaX: bool,
     forceInertiaZ: bool,
+    inertia_on: bool,
 }
 
 makePlayer :: proc() -> Player {
-    return Player{ground_slip = 0.6, prev_slip = -1, inertia_threshold = 0.005, sprint_delay = true}
+    return Player{ground_slip = 0.6, prev_slip = -1, inertia_threshold = 0.005, sprint_delay = true, inertia_on = true}
     
 }
 
@@ -40,8 +41,8 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     p.vx *= f64(f32(0.91) * p.prev_slip)
     p.vz *= f64(f32(0.91) * p.prev_slip)
 
-    if abs(p.vx) < p.inertia_threshold || p.forceInertiaX do p.vx = 0
-    if abs(p.vz) < p.inertia_threshold || p.forceInertiaZ do p.vz = 0
+    if (abs(p.vx) < p.inertia_threshold && p.inertia_on) || p.forceInertiaX do p.vx = 0
+    if (abs(p.vz) < p.inertia_threshold && p.inertia_on) || p.forceInertiaZ do p.vz = 0
 
     // only force for one tick
     p.forceInertiaX = false
