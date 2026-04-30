@@ -30,8 +30,25 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     hitbox := widenf32(0.6)
 
     switch cmd.type {
-    case .Print:
-        return "Error: print(...) not implemented yet", false
+    case .Print, .Printn:
+        msg, argsOK := expectPlainArgs(cmd, "print(...)", 1, 65536)
+        if !argsOK do return msg, false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        for arg, i in cmd.args {
+            s, ok := argToString(prs, p, arg)
+            if !ok do return s, false
+
+            if i > 0 && cmd.type != .Printn{
+                append(&buf, " ")
+            }
+
+            append(&buf, s)
+        }
+
+        return strings.clone(string(buf[:])), true
     case .SetVar:
         msg, argsOK := expectPlainArgs(cmd, "set(...)", 2, 2)
         if !argsOK do return msg, false

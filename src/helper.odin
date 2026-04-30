@@ -133,3 +133,21 @@ isCall :: proc(arg: ^Arg) -> bool {
     return arg.type == .Call || arg.type == .MoveCall
 }
 
+argToString :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
+    switch arg.type {
+    case .Text:
+        return arg.text, true
+
+    case .Number, .Variable, .Call:
+        value, ok := eval(prs, p, arg)
+        if !ok do return parserErrorOr(prs, "Error: print(...) argument cannot be evaluated"), false
+        return formatNum(prs, value), true
+
+    case .MoveCall:
+        return "Error: print(...) cannot print a movement command", false
+
+    case:
+        return "Error: print(...) argument cannot be printed", false
+    }
+}
+

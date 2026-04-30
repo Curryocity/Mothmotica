@@ -22,17 +22,26 @@ Zmm: 1.1875 - 0.000008
 Zb: 4.4375 + 0.013197
 
 Chat:
-;s set(a,0) set(b,1) x(a) outx x(b) outx r(8){set(c,a+b) x(c) outx set(a,b) set(b,c)}
+;s 
+set(i,0) set(a,0) set(b,1) 
+printn(i,"th fibonacci: ",a)
+set(i,i+1)
+printn(i,"th fibonacci: ",b) 
+r(8){
+    set(i,i+1) set(c,a+b) 
+    printn(i,"th fibonacci: ",c) 
+    set(a,b) set(b,c)
+}
 
 Mothball:
-X: 0
-X: 1
-X: 1
-X: 2
-X: 3
-X: 5
-X: 8
-X: 13
-X: 21
-X: 34
+0th fibonacci: 0
+1th fibonacci: 1
+2th fibonacci: 1
+3th fibonacci: 2
+4th fibonacci: 3
+5th fibonacci: 5
+6th fibonacci: 8
+7th fibonacci: 13
+8th fibonacci: 21
+9th fibonacci: 34
 ```
