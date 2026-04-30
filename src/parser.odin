@@ -706,9 +706,16 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "Error: vxzinv(...) not implemented yet", false
 
     case .ForceInertiaX:
-        return "Error: ix not implemented yet", false
+        msg, argsOK := expectPlainArgs(cmd, "ix", 0, 0)
+        if !argsOK do return msg, false
+        p.forceInertiaX = true
+        return "", true
+        
     case .ForceInertiaZ:
-        return "Error: iz not implemented yet", false
+        msg, argsOK := expectPlainArgs(cmd, "iz", 0, 0)
+        if !argsOK do return msg, false
+        p.forceInertiaZ = true
+        return "", true
 
     case .AngleQueue:
         return "Error: anglequeue(...) not implemented yet", false
@@ -729,7 +736,7 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
         return "Error: zposs(...) not implemented yet", false
 
     case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan:
-        return "Error: operator call cannot be executed as a top-level statement", false
+        return "Error: operator/computation call cannot be executed as a top-level statement", false
 
     case .Invalid:
         return "Error: invalid command", false
@@ -739,6 +746,110 @@ executeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string,
     }
 }
 
+getCommandType :: proc(cmdName: string) -> CmdType {
+    switch cmdName {
+        case "print":
+            return .Print
+        case "set":
+            return .SetVar
+        case "pre", "precision":
+            return .SetPrecision
+        case "x":
+            return .SetX
+        case "z":
+            return .SetZ
+        case "pos":
+            return .SetPos
+        case "vz":
+            return .SetVz
+        case "vx":
+            return .SetVx
+        case "vel":
+            return .SetVel
+        case "vza":
+            return .SetVzAir
+        case "vxa":
+            return .SetVxAir
+        case "vela":
+            return .SetVelAir
+        case "xr", "outx":
+            return .OutXRaw
+        case "xb":
+            return .OutXBlock
+        case "xmm":
+            return .OutXMM
+        case "zr", "outz":
+            return .OutZRaw
+        case "zb":
+            return .OutZBlock
+        case "zmm":
+            return .OutZMM
+        case "outvx":
+            return .OutVx
+        case "outvz":
+            return .OutVz
+        case "f":
+            return .SetF
+        case "outf":
+            return .OutF
+        case "t":
+            return .SetTurn
+        case "outt":
+            return .OutTurn
+        case "slip":
+            return .SetSlip
+        case "inertia":
+            return .SetInertia
+        case "sdel":
+            return .SetSprintDelay
+        case "poss", "zposs":
+            return .ZPoss
+        case "xposs":
+            return .XPoss
+        case "inv", "zinv":
+            return .ZInv
+        case "xinv":
+            return .XInv
+        case "xzinv":
+            return .XZInv
+        case "vxinv":
+            return .VxInv
+        case "vzinv":
+            return .VzInv
+        case "vxzinv":
+            return .VxzInv
+        case "ix":
+            return .ForceInertiaX
+        case "iz":
+            return .ForceInertiaZ
+        case "abs":
+            return .Abs
+        case "sqrt":
+            return .Sqrt
+        case "sin":
+            return .Sin
+        case "cos":
+            return .Cos
+        case "tan":
+            return .Tan
+        case "atan":
+            return .Atan
+        case "aq", "anglequeue":
+            return .AngleQueue
+        case "tq", "turnqueue":
+            return .TurnQueue
+        case "r", "loop", "repeat":
+            return .Loop
+        case "def", "define":
+            return .Define
+        case "save":
+            return .Save
+        case "load":
+            return .Load
+        case:
+            return .Invalid
+    }
+}
 
 eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
     switch expr.type {
@@ -1263,111 +1374,6 @@ parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) 
     return Arg{
         type = .MoveCall,
         mvfunc = mf^
-    }
-}
-
-getCommandType :: proc(cmdName: string) -> CmdType {
-    switch cmdName {
-        case "print":
-            return .Print
-        case "set":
-            return .SetVar
-        case "pre", "precision":
-            return .SetPrecision
-        case "x":
-            return .SetX
-        case "z":
-            return .SetZ
-        case "pos":
-            return .SetPos
-        case "vz":
-            return .SetVz
-        case "vx":
-            return .SetVx
-        case "vel":
-            return .SetVel
-        case "vza":
-            return .SetVzAir
-        case "vxa":
-            return .SetVxAir
-        case "vela":
-            return .SetVelAir
-        case "xr", "outx":
-            return .OutXRaw
-        case "xb":
-            return .OutXBlock
-        case "xmm":
-            return .OutXMM
-        case "zr", "outz":
-            return .OutZRaw
-        case "zb":
-            return .OutZBlock
-        case "zmm":
-            return .OutZMM
-        case "outvx":
-            return .OutVx
-        case "outvz":
-            return .OutVz
-        case "f":
-            return .SetF
-        case "outf":
-            return .OutF
-        case "t":
-            return .SetTurn
-        case "outt":
-            return .OutTurn
-        case "slip":
-            return .SetSlip
-        case "inertia":
-            return .SetInertia
-        case "sdel":
-            return .SetSprintDelay
-        case "poss", "zposs":
-            return .ZPoss
-        case "xposs":
-            return .XPoss
-        case "inv", "zinv":
-            return .ZInv
-        case "xinv":
-            return .XInv
-        case "xzinv":
-            return .XZInv
-        case "vxinv":
-            return .VxInv
-        case "vzinv":
-            return .VzInv
-        case "vxzinv":
-            return .VxzInv
-        case "ix":
-            return .ForceInertiaX
-        case "iz":
-            return .ForceInertiaZ
-        case "abs":
-            return .Abs
-        case "sqrt":
-            return .Sqrt
-        case "sin":
-            return .Sin
-        case "cos":
-            return .Cos
-        case "tan":
-            return .Tan
-        case "atan":
-            return .Atan
-        case "aq", "anglequeue":
-            return .AngleQueue
-        case "tq", "turnqueue":
-            return .TurnQueue
-        case "r", "loop", "repeat":
-            return .Loop
-        case "def", "define":
-            return .Define
-        case "save":
-            return .Save
-        case "load":
-            return .Load
-        case:
-            return .Invalid
     }
 }
 

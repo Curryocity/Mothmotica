@@ -17,6 +17,8 @@ Player :: struct {
     slow: u8,
     inertia_threshold: f64,
     sprint_delay: bool,
+    forceInertiaX: bool,
+    forceInertiaZ: bool,
 }
 
 makePlayer :: proc() -> Player {
@@ -38,8 +40,12 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     p.vx *= f64(f32(0.91) * p.prev_slip)
     p.vz *= f64(f32(0.91) * p.prev_slip)
 
-    if abs(p.vx) < p.inertia_threshold do p.vx = 0
-    if abs(p.vz) < p.inertia_threshold do p.vz = 0
+    if abs(p.vx) < p.inertia_threshold || p.forceInertiaX do p.vx = 0
+    if abs(p.vz) < p.inertia_threshold || p.forceInertiaZ do p.vz = 0
+
+    // only force for one tick
+    p.forceInertiaX = false
+    p.forceInertiaZ = false
 
     // The magic number arise from f64(f32(x)) 
     // Odin skips the inner f32()
