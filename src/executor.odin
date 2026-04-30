@@ -31,7 +31,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
     switch cmd.type {
     case .Print, .Printn:
-        msg, argsOK := expectPlainArgs(cmd, "print(...)", 1, 65536)
+        msg, argsOK := expectPlainArgs(cmd, "print(...) or printn(...)", 1, 65536)
         if !argsOK do return msg, false
 
         buf: [dynamic]u8
