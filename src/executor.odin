@@ -417,6 +417,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         ss := saveState(p^)
         prs_ss := cloneParserState(prs)
         defer delete(prs_ss.vars)
+        old_posRec := p.posRec
+        p.posRec = false
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -444,6 +446,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
         loadParserState(prs, prs_ss)
+        p.posRec = old_posRec
         p.vx = tarVx
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
@@ -467,6 +470,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         ss := saveState(p^)
         prs_ss := cloneParserState(prs)
         defer delete(prs_ss.vars)
+        old_posRec := p.posRec
+        p.posRec = false
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -494,6 +499,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
         loadParserState(prs, prs_ss)
+        p.posRec = old_posRec
         p.vz = tarVz
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
@@ -521,6 +527,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         ss := saveState(p^)
         prs_ss := cloneParserState(prs)
         defer delete(prs_ss.vars)
+        old_posRec := p.posRec
+        p.posRec = false
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -552,6 +560,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
         loadParserState(prs, prs_ss)
+        p.posRec = old_posRec
         p.vx, p.vz = tarVx, tarVz
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
@@ -575,6 +584,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         ss := saveState(p^)
         prs_ss := cloneParserState(prs)
         defer delete(prs_ss.vars)
+        old_posRec := p.posRec
+        p.posRec = false
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -602,6 +613,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
         loadParserState(prs, prs_ss)
+        p.posRec = old_posRec
         p.vx = lerpedVx
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
@@ -623,6 +635,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         ss := saveState(p^)
         prs_ss := cloneParserState(prs)
         defer delete(prs_ss.vars)
+        old_posRec := p.posRec
+        p.posRec = false
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -650,6 +664,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
         loadParserState(prs, prs_ss)
+        p.posRec = old_posRec
         p.vz = lerpedVz
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
@@ -674,6 +689,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         ss := saveState(p^)
         prs_ss := cloneParserState(prs)
         defer delete(prs_ss.vars)
+        old_posRec := p.posRec
+        p.posRec = false
 
         // inertia is off for successful lerping
         p.inertia_on = false
@@ -705,6 +722,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // doesn't disable inertia in the final real simulation
         loadState(p, ss)
         loadParserState(prs, prs_ss)
+        p.posRec = old_posRec
         p.vx, p.vz = lerpedVx, lerpedVz
         output, simOk = exeCode(prs, p, cmd.code[:], false)
         if !simOk do return output, false
