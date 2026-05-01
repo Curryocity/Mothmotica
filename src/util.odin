@@ -34,3 +34,7 @@ cos :: proc(deg: f32) -> f32 {
     rad:f32 = deg * PIf / 180.0
     return SIN_TABLE[int(rad * 10430.378 + 16384.0) & 65535]
 }
+
+vec2 :: struct {
+    x: f64, z: f64
+}

@@ -766,10 +766,129 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return "Error: save(...) not implemented yet", false
     case .Load:
         return "Error: load(...) not implemented yet", false
-    case .XPoss:
-        return "Error: xposs(...) not implemented yet", false
-    case .ZPoss:
-        return "Error: zposs(...) not implemented yet", false
+    case .XPoss, .ZPoss:
+        msg, argsOK := expectCodeArgs(cmd, "(x/z)poss(...){...}", 0, 4)
+        if !argsOK do return msg, false
+
+        px :: 0.0625
+
+        maxPoss := px
+        offset := widenf32(0.6)
+        maxMiss := 0.0
+        has_miss := false
+        tickOffset := 0
+
+        if len(cmd.args) >= 1 {
+            value, ok := eval(prs, p, cmd.args[0])
+            if !ok do return parserErrorOr(prs, "Error: (x/z)poss(...) maxPoss is not a valid number"), false
+            maxPoss = value
+            if maxPoss > px || maxPoss < 0 {
+                return fmt.tprintf("Error: (x/z)poss(...) maxPoss must be between 0 and 0.0625"), false
+            }
+        }
+
+        if len(cmd.args) >= 2 {
+            value, ok := eval(prs, p, cmd.args[1])
+            if !ok do return parserErrorOr(prs, "Error: (x/z)poss(...) offset is not a valid number"), false
+            offset = value
+        }
+
+        if len(cmd.args) >= 3 {
+            value, ok := eval(prs, p, cmd.args[2])
+            if !ok do return parserErrorOr(prs, "Error: (x/z)poss(...) maxMiss is not a valid number"), false
+            maxMiss = value
+            has_miss = true
+
+            if maxMiss > px || maxMiss < 0{
+                return fmt.tprintf("Error: (x/z)poss(...) maxMiss must be between 0 and 0.0625"), false
+            }
+        }
+
+        if len(cmd.args) >= 4 {
+            value, ok := eval(prs, p, cmd.args[3])
+            if !ok do return parserErrorOr(prs, "Error: (x/z)poss(...) tick offset is not a valid number"), false
+
+            rounded := math.round(value)
+            if math.abs(value - rounded) > 1e-15 {
+                return "Error: (x/z)poss(...) tick offset must be an integer", false
+            }
+
+            tickOffset = int(rounded)
+        }
+
+        buf: [dynamic]u8
+        defer delete(buf)
+        possBuf: [dynamic]u8
+        defer delete(possBuf)
+
+        old_posRec := p.posRec
+        old_posStorage := p.posStorage
+
+        p.posRec = true
+        clearPosStorage(p)
+        defer {
+            clearPosStorage(p)
+            p.posRec = old_posRec
+            p.posStorage = old_posStorage
+        }
+
+        output, ok := exeCode(prs, p, cmd.code[:], false)
+        if !ok do return output, false
+
+        append(&buf, output)
+
+        t := 1
+        for pos in p.posStorage {
+
+            axis := cmd.type == .XPoss? pos.x : pos.z
+            if abs(axis) <= max(1e-15, -offset) {
+                t += 1
+                continue
+            }
+
+            sign := axis >= 0? f64(1) : f64(-1)
+            dis := abs(axis) + offset
+            jump :=  math.floor_f64(dis / px) * px
+            made := dis - jump
+            miss := px - made
+
+            if made <= maxPoss {
+                append(&possBuf, fmt.tprintf("t = %d: %s %s %s\n", t + tickOffset, formatNum(prs, sign * jump), (sign > 0)? "+" : "-", formatNum(prs, made)))
+            } else if has_miss && miss <= maxMiss {
+                next_jump := jump + px
+                append(&possBuf, fmt.tprintf("t = %d: %s %s %s\n", t + tickOffset, formatNum(prs, sign * next_jump), (sign > 0)? "-" : "+", formatNum(prs, miss)))
+            }
+
+            t += 1
+        }
+
+        if len(possBuf) > 0 {
+            if has_miss {
+                append(
+                    &buf,
+                    fmt.tprintf(
+                        "Poss: (t = %d...%d, thres = %s...%s)\n",
+                        1 + tickOffset,
+                        len(p.posStorage) + tickOffset,
+                        formatNum(prs, -maxMiss),
+                        formatNum(prs, maxPoss),
+                    ),
+                )
+            } else {
+                append(
+                    &buf,
+                    fmt.tprintf(
+                        "Poss: (t = %d...%d, thres = %s)\n",
+                        1 + tickOffset,
+                        len(p.posStorage) + tickOffset,
+                        formatNum(prs, maxPoss),
+                    ),
+                )
+            }
+            append(&buf, string(possBuf[:]))
+        }
+
+        return strings.clone(string(buf[:])), true
 
     case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan:
         return "Error: operator/computation call cannot be executed as a top-level statement", false

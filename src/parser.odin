@@ -398,6 +398,10 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetSlip
         case "inertia":
             return .SetInertia
+        case "slow", "slowness":
+            return .SetSlow
+        case "speed":
+            return .SetSpeed
         case "sdel":
             return .SetSprintDelay
         case "poss", "zposs":

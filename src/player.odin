@@ -20,6 +20,8 @@ Player :: struct {
     forceInertiaX: bool,
     forceInertiaZ: bool,
     inertia_on: bool,
+    posRec: bool,
+    posStorage: [dynamic] vec2,
 }
 
 makePlayer :: proc() -> Player {
@@ -103,6 +105,10 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
 
     p.prev_slip = slip
     p.prev_sprint = sprint
+
+    if p.posRec {
+        append(&p.posStorage, vec2{x = p.x, z = p.z})
+    }
 }
 
 setF :: proc(p: ^Player, rot: f32) {
@@ -148,4 +154,8 @@ setPrevSprint :: proc(p: ^Player, value: bool) {
 setEffect :: proc(p: ^Player, speed: u8, slow: u8) {
     p.speed = speed
     p.slow = slow
+}
+
+clearPosStorage:: proc(p: ^Player){
+    clear(&p.posStorage)
 }
