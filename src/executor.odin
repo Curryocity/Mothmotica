@@ -629,39 +629,6 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         return "", true
 
-    // r(x) repeats while x > 0, decrementing x by 1 each loop.
-    // Non-integer x is intentionally allowed.
-    case .Loop:
-        msg, argsOK := expectCodeArgs(cmd, "r(...){...}", 1, 1)
-        if !argsOK do return msg, false
-
-        times, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: r(...) argument is not a valid number"), false
-
-        buf: [dynamic]u8
-        defer delete(buf)
-
-        for times > 0 {
-            s, codeOK := exeCode(prs, p, cmd.code[:], false)
-            if !codeOK do return s, false
-
-            if s != "" {
-                append(&buf, s)
-                if s[len(s) - 1] != '\n'{\
-                    append(&buf, "\n")
-                }
-            }
-            times -= 1
-        }
-
-        return strings.clone(string(buf[:])), true
-
-    case .Define:
-        return "Error: define(...) not implemented yet", false
-    case .Save:
-        return "Error: save(...) not implemented yet", false
-    case .Load:
-        return "Error: load(...) not implemented yet", false
     case .XPoss, .ZPoss:
         msg, argsOK := expectCodeArgs(cmd, "(x/z)poss(...){...}", 0, 4)
         if !argsOK do return msg, false
@@ -785,6 +752,42 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
 
         return strings.clone(string(buf[:])), true
+
+    case .Save:
+        return "Error: save(...) not implemented yet", false
+
+    case .Load:
+        return "Error: load(...) not implemented yet", false
+
+    // r(x) repeats while x > 0, decrementing x by 1 each loop.
+    // Non-integer x is intentionally allowed.
+    case .Loop:
+        msg, argsOK := expectCodeArgs(cmd, "r(...){...}", 1, 1)
+        if !argsOK do return msg, false
+
+        times, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: r(...) argument is not a valid number"), false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        for times > 0 {
+            s, codeOK := exeCode(prs, p, cmd.code[:], false)
+            if !codeOK do return s, false
+
+            if s != "" {
+                append(&buf, s)
+                if s[len(s) - 1] != '\n'{\
+                    append(&buf, "\n")
+                }
+            }
+            times -= 1
+        }
+
+        return strings.clone(string(buf[:])), true
+
+    case .Define:
+        return "Error: define(...) not implemented yet", false
 
     case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan:
         return "Error: operator/computation call cannot be executed as a top-level statement", false
