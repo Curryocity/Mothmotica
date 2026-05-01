@@ -22,17 +22,31 @@ Player :: struct {
     inertia_on: bool,
     posRec: bool,
     posStorage: [dynamic] vec2,
+    angleQueue: Queue,
+    turnQueue: Queue,
 }
 
 makePlayer :: proc() -> Player {
     return Player{ground_slip = 0.6, prev_slip = -1, inertia_threshold = 0.005, sprint_delay = true, inertia_on = true}
-    
 }
 
-move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool){
+move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false)
+{
+
+    if turn, ok := qPop(&p.turnQueue); ok {
+        p.f += turn
+    }
+    if angle, ok := qPop(&p.angleQueue); ok {
+        p.f = angle
+    }
+
+    rot := tempRot
+    if !usedRot do rot = p.f
+    if temp45 do rot += 45
+
     forward: f32 = w
     strafe: f32 = a
-    
+
     slip: f32 = airborne ? 1.0 : p.ground_slip
     
     p.x += p.vx
@@ -78,7 +92,7 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     }
 
     if sprint && jump {
-        rad := p.f * f32(0.017453292)
+        rad := rot * f32(0.017453292)
         p.vx -= f64(sinr(rad) * f32(0.2))
         p.vz += f64(cosr(rad) * f32(0.2))
         // I believe sinr(rad) returns a runtime f32 value so it'll be fine
@@ -100,8 +114,8 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     forward *= accelf
     strafe *= accelf
 
-    p.vx += f64(strafe * cos(p.f) - forward * sin(p.f))
-    p.vz += f64(forward * cos(p.f) + strafe * sin(p.f))
+    p.vx += f64(strafe * cos(rot) - forward * sin(rot))
+    p.vz += f64(forward * cos(rot) + strafe * sin(rot))
 
     p.prev_slip = slip
     p.prev_sprint = sprint

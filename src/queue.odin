@@ -9,6 +9,10 @@ qLen :: proc(q: ^Queue) -> int {
     return len(q.data) - q.head
 }
 
+qEmpty :: proc(q: ^Queue) -> bool {
+    return len(q.data) == q.head
+}
+
 qAdd :: proc(q: ^Queue, xs: ..f32){
     append(&q.data, ..xs)
 }

@@ -595,9 +595,32 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return "", true
 
     case .AngleQueue:
-        return "Error: anglequeue(...) not implemented yet", false
+        msg, argsOK := expectPlainArgs(cmd, "aq(...)", 1, 65536)
+        if !argsOK do return msg, false
+
+        idx := 0
+        for arg in cmd.args {
+            angle, ok := eval(prs, p, arg)
+            if !ok do return parserErrorOr(prs, fmt.tprintf("Error: aq(...)'s argument[%d] is not a valid number", idx)), false
+            qAdd(&p.angleQueue, f32(angle))
+            idx += 1
+        }
+
+        return "", true
+        
     case .TurnQueue:
-        return "Error: turnqueue(...) not implemented yet", false
+        msg, argsOK := expectPlainArgs(cmd, "tq(...)", 1, 65536)
+        if !argsOK do return msg, false
+
+        idx := 0
+        for arg in cmd.args {
+            turn, ok := eval(prs, p, arg)
+            if !ok do return parserErrorOr(prs, fmt.tprintf("Error: tq(...)'s argument[%d] is not a valid number", idx)), false
+            qAdd(&p.turnQueue, f32(turn))
+            idx += 1
+        }
+
+        return "", true
 
     // r(x) repeats while x > 0, decrementing x by 1 each loop.
     // Non-integer x is intentionally allowed.
@@ -612,12 +635,14 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         defer delete(buf)
 
         for times > 0 {
-            pendingOutput, codeOK := exeCode(prs, p, cmd.code[:], false)
-            if !codeOK do return pendingOutput, false
+            s, codeOK := exeCode(prs, p, cmd.code[:], false)
+            if !codeOK do return s, false
 
-            if pendingOutput != "" {
-                append(&buf, pendingOutput)
-                append(&buf, "\n")
+            if s != "" {
+                append(&buf, s)
+                if s[len(s) - 1] != '\n'{\
+                    append(&buf, "\n")
+                }
             }
             times -= 1
         }
@@ -770,12 +795,14 @@ exeCode :: proc(prs: ^ParserState, p: ^Player, code: []Arg, silent: bool) -> (st
     defer delete(buf)
 
     for arg in code {
-        pendingOutput, ok := exeArg(prs, p, arg)
-        if !ok do return pendingOutput, false
+        s, ok := exeArg(prs, p, arg)
+        if !ok do return s, false
 
-        if !silent && pendingOutput != "" {
-            append(&buf, pendingOutput)
-            append(&buf, "\n")
+        if !silent && s != "" {
+            append(&buf, s)
+            if s[len(s) - 1] != '\n'{\
+                append(&buf, "\n")
+            }
         }
     }
 
@@ -1031,46 +1058,38 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
 
 exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
 
-    originalF := p.f
-    localF := mf.rotUsed? mf.rot : originalF
-
-    p.f = localF
-
     if mf.strafe45 {
         if mf.jump {
             // jump tick
             if mf.sprint { // sprint jump at f0
-                move(p, 1, 0, false, mf.sprint, mf.sneak, true)
+                move(p, 1, 0, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed)
             }else {
-                p.f = localF + 45
-                move(p, 1, 1, false, mf.sprint, mf.sneak, true)
+                move(p, 1, 1, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed, true)
             } // add support for snsj45 angle
             
-            p.f = localF + 45
             for _ in 0..<(mf.t - 1) {
                 // air ticks
-                move(p, 1, 1, true, mf.sprint, mf.sneak, false)
+                move(p, 1, 1, true, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed, true)
             }
         }else {
-            p.f = localF + 45
             for _ in 0..<mf.t {
-                move(p, 1, 1, mf.airborne, mf.sprint, mf.sneak, false)
+                move(p, 1, 1, mf.airborne, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed, true)
             }
         }
     }else {
         if mf.jump {
             // jump tick
-            move(p, mf.w, mf.a, false, mf.sprint, mf.sneak, true)
+            move(p, mf.w, mf.a, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed)
             for _ in 0..<(mf.t - 1) {
                 // air ticks
-                move(p, mf.w, mf.a, true, mf.sprint, mf.sneak, false)
+                move(p, mf.w, mf.a, true, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed)
             }
         }else {
             for _ in 0..<mf.t {
-                move(p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false)
+                move(p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed)
             }
         }
     }
 
-    p.f = originalF
 }
+
