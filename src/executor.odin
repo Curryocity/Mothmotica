@@ -272,6 +272,13 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !argsOK do return msg, false
         return formatOutValue(prs, p, "Vz", p.vz, cmd.args[:], "outvz")
 
+    case .OutVec:
+        msg, argsOK := expectPlainArgs(cmd, "vec", 0, 0)
+        if !argsOK do return msg, false
+        speed := math.sqrt(p.vx * p.vx + p.vz * p.vz)
+        angle := math.atan2(p.vz, -p.vx) * 180 / PId
+        return fmt.tprintf("(Speed/Angle) (%s, %s)", formatNum(prs, speed), formatNum(prs, angle)), true
+
     case .OutF:
         msg, argsOK := expectPlainArgs(cmd, "outf(...)", 0, 1)
         if !argsOK do return msg, false

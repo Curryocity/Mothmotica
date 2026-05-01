@@ -42,7 +42,7 @@ CmdType :: enum {
     OutXRaw, OutXBlock, OutXMM,
     OutZRaw, OutZBlock, OutZMM,
 
-    OutVx, OutVz,
+    OutVx, OutVz, OutVec,
 
     SetF, OutF, SetTurn, OutTurn,
     Move,
@@ -386,6 +386,8 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .OutVx
         case "outvz":
             return .OutVz
+        case "vec":
+            return .OutVec
         case "f":
             return .SetF
         case "outf":
