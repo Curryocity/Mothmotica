@@ -566,11 +566,157 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return strings.clone(string(buf[:])), true
 
     case .VxInv:
-        return "Error: vxinv(...) not implemented yet", false
+        msg, argsOK := expectCodeArgs(cmd, "vxinv(...){}", 1, 1)
+        if !argsOK do return msg, false
+
+        tarVx, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: vxinv(...){} argument is not a valid number"), false
+
+        ss := saveState(p^)
+        prs_ss := cloneParserState(prs)
+        defer delete(prs_ss.vars)
+
+        // inertia is off for successful lerping
+        p.inertia_on = false
+        p.vx = 0
+        output, simOk := exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        vx0 := p.vx
+
+        loadState(p, ss)
+        loadParserState(prs, prs_ss)
+        p.inertia_on = false
+        p.vx = 1
+        output, simOk = exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        vx1 := p.vx
+
+        if abs(vx1 - vx0) < 1e-15 {
+            loadParserState(prs, prs_ss)
+            return "Cannot interpolate vxinv because the two simulated samples are identical.", false
+        }
+
+        // tarVx = lerpedVx * (vx1 - vx0) + vx0
+        lerpedVx := (tarVx - vx0)/(vx1 - vx0)
+
+        // doesn't disable inertia in the final real simulation
+        loadState(p, ss)
+        loadParserState(prs, prs_ss)
+        p.vx = lerpedVx
+        output, simOk = exeCode(prs, p, cmd.code[:], false)
+        if !simOk do return output, false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        append(&buf, fmt.tprintf("Lerped Vx: %s\n", formatNum(prs, lerpedVx)))
+        append(&buf, output)
+
+        return strings.clone(string(buf[:])), true
     case .VzInv:
-        return "Error: vzinv(...) not implemented yet", false
+        msg, argsOK := expectCodeArgs(cmd, "vzinv(...){}", 1, 1)
+        if !argsOK do return msg, false
+
+        tarVz, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: vzinv(...){} argument is not a valid number"), false
+
+        ss := saveState(p^)
+        prs_ss := cloneParserState(prs)
+        defer delete(prs_ss.vars)
+
+        // inertia is off for successful lerping
+        p.inertia_on = false
+        p.vz = 0
+        output, simOk := exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        vz0 := p.vz
+
+        loadState(p, ss)
+        loadParserState(prs, prs_ss)
+        p.inertia_on = false
+        p.vz = 1
+        output, simOk = exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        vz1 := p.vz
+
+        if abs(vz1 - vz0) < 1e-15 {
+            loadParserState(prs, prs_ss)
+            return "Cannot interpolate vzinv because the two simulated samples are identical.", false
+        }
+
+        // tarVz = lerpedVz * (vz1 - vz0) + vz0
+        lerpedVz := (tarVz - vz0)/(vz1 - vz0)
+
+        // doesn't disable inertia in the final real simulation
+        loadState(p, ss)
+        loadParserState(prs, prs_ss)
+        p.vz = lerpedVz
+        output, simOk = exeCode(prs, p, cmd.code[:], false)
+        if !simOk do return output, false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        append(&buf, fmt.tprintf("Lerped Vz: %s\n", formatNum(prs, lerpedVz)))
+        append(&buf, output)
+
+        return strings.clone(string(buf[:])), true
     case .VxzInv:
-        return "Error: vxzinv(...) not implemented yet", false
+        msg, argsOK := expectCodeArgs(cmd, "vxzinv(...){}", 2, 2)
+        if !argsOK do return msg, false
+
+        tarVx, ok1 := eval(prs, p, cmd.args[0])
+        if !ok1 do return parserErrorOr(prs, "Error: vxzinv(...){} argument is not a valid number"), false
+
+        tarVz, ok2 := eval(prs, p, cmd.args[1])
+        if !ok2 do return parserErrorOr(prs, "Error: vxzinv(...){} argument is not a valid number"), false
+
+        ss := saveState(p^)
+        prs_ss := cloneParserState(prs)
+        defer delete(prs_ss.vars)
+
+        // inertia is off for successful lerping
+        p.inertia_on = false
+        p.vx, p.vz = 0, 0
+        output, simOk := exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        vx0, vz0 := p.vx, p.vz
+
+        loadState(p, ss)
+        loadParserState(prs, prs_ss)
+        p.inertia_on = false
+        p.vx, p.vz = 1, 1
+        output, simOk = exeCode(prs, p, cmd.code[:], true)
+        if !simOk do return output, false
+        vx1, vz1 := p.vx, p.vz
+
+        if abs(vx1 - vx0) < 1e-15 {
+            loadParserState(prs, prs_ss)
+            return "Cannot interpolate vxzinv because the two simulated samples are identical on Vx.", false
+        }
+        if abs(vz1 - vz0) < 1e-15 {
+            loadParserState(prs, prs_ss)
+            return "Cannot interpolate vxzinv because the two simulated samples are identical on Vz.", false
+        }
+
+        lerpedVx := (tarVx - vx0)/(vx1 - vx0)
+        lerpedVz := (tarVz - vz0)/(vz1 - vz0)
+
+        // doesn't disable inertia in the final real simulation
+        loadState(p, ss)
+        loadParserState(prs, prs_ss)
+        p.vx, p.vz = lerpedVx, lerpedVz
+        output, simOk = exeCode(prs, p, cmd.code[:], false)
+        if !simOk do return output, false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        append(&buf, fmt.tprintf("Lerped Vx: %s\n", formatNum(prs, lerpedVx)))
+        append(&buf, fmt.tprintf("Lerped Vz: %s\n", formatNum(prs, lerpedVz)))
+        append(&buf, output)
+
+        return strings.clone(string(buf[:])), true
 
     case .ForceInertiaX:
         msg, argsOK := expectPlainArgs(cmd, "ix", 0, 0)
