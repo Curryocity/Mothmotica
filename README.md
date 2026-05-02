@@ -15,7 +15,7 @@ Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, sim
 
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
 
-#### Use `{}` for code block:
+### Use `{}` for code block:
 
 In original mothball, the repeat function `r(...)` had such syntax:
 
@@ -41,7 +41,7 @@ r(50){
 }
 ```
 
-#### Explicit `inv()`:
+### Explicit `inv()`:
 
 In original mothball, there exists `bwmm/inv/speedreq` each differed by more/less a player hitbox width. But mothmotica prefers to add player hitbox width via the **built-in variable `bx = f32(0.6)`**
 
@@ -51,7 +51,7 @@ Now you don't have to worried about whether to use `xinv(n){zbwmm(m) {...}}` or 
 
 Also the name `bwmm` isn't accurate. And the `speedreq` could a double walled momentum. Honestly it may get really confusing and I don't think it is a good practice.
 
-#### Savestates:
+### Savestates:
 
 Look at this:
 
@@ -95,7 +95,7 @@ In this particular example, the savestate could be replaced by storing the veloc
 
 But there is so much more you can do with savestates.
 
-#### `print()/printn()` and `mes()`
+### `print()/printn()` and `mes()`
 
 `print()` accept multiple arguments and tried to print it's text or value seperated by `' '` char.
 
@@ -146,7 +146,7 @@ Output:
 (x, z, vx, vz) = (-1.507294, 0.870365, -0.274478, 0.158493)
 ```
 
-#### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`
+### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`
 
 In mothball, although you can do `var(a, outx)` to store the current x position into variable `a`. But the `outx` command also execute and prints the line. Which is a really stupid design.
 
@@ -156,7 +156,7 @@ In mothball, although you can do `var(a, outx)` to store the current x position 
 
 In mothmotica, we can do `set(a, getx)` and it will be silent. Or even `set(b, getx * getz + getz)`. Just treat it as a variable that you cannot modify it with `set()`.
 
-#### Handy math functions: `abs()`,`sqrt()`,`sin()`,`cos()`,`tan()`,`atan()`
+### Handy math functions: `abs()`,`sqrt()`,`sin()`,`cos()`,`tan()`,`atan()`
 
 I don't think I need to explain anything of it except that **the unit of angle is always in degrees.**
 
