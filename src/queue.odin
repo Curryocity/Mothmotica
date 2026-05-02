@@ -72,3 +72,20 @@ qCompact :: proc(q: ^Queue) {
     q.head = 0
     resize(&q.data, n)
 }
+
+cloneQueue :: proc(q: Queue) -> Queue {
+    out: Queue
+    out.head = q.head
+    for x in q.data {
+        append(&out.data, x)
+    }
+    return out
+}
+
+loadQueue :: proc(dst: ^Queue, src: Queue) {
+    qClear(dst)
+    dst.head = src.head
+    for x in src.data {
+        append(&dst.data, x)
+    }
+}

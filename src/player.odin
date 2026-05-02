@@ -154,11 +154,31 @@ setVel :: proc(p: ^Player, x_value: f64, z_value: f64, airborne: bool) {
 }
 
 saveState :: proc(p: Player) -> Player {
-    return p
+    copy := p
+    copy.angleQueue = cloneQueue(p.angleQueue)
+    copy.turnQueue = cloneQueue(p.turnQueue)
+    copy.posStorage = nil
+    for sto in p.posStorage{
+        append(&copy.posStorage, sto)
+    }
+    
+    return copy
 }
 
 loadState :: proc(dst: ^Player, src: Player) {
+    qDelete(&dst.angleQueue)
+    qDelete(&dst.turnQueue)
+    delete(dst.posStorage)
+
     dst^ = src
+
+    dst.angleQueue = cloneQueue(src.angleQueue)
+    dst.turnQueue  = cloneQueue(src.turnQueue)
+
+    dst.posStorage = nil
+    for sto in src.posStorage {
+        append(&dst.posStorage, sto)
+    }
 }
 
 setPrevSprint :: proc(p: ^Player, value: bool) {

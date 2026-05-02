@@ -754,10 +754,33 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return strings.clone(string(buf[:])), true
 
     case .Save:
-        return "Error: save(...) not implemented yet", false
+        msg, argsOK := expectPlainArgs(cmd, "save(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        idArg := cmd.args[0]
+        if idArg.type != .Text {
+            return "Error: save(...) id must be an double quoted string", false
+        }
+
+        prs.saves[idArg.text] = saveState(p^)
+        return "", true
 
     case .Load:
-        return "Error: load(...) not implemented yet", false
+        msg, ok := expectPlainArgs(cmd, "load(...)", 1, 1)
+        if !ok do return msg, false
+
+        idArg := cmd.args[0]
+        if idArg.type != .Text {
+            return "Error: load(...) name must be an identifier or string", false
+        }
+
+        state, exists := prs.saves[idArg.text]
+        if !exists {
+            return fmt.tprintf("Error: no saved state named '%s'", idArg.text), false
+        }
+
+        loadState(p, state)
+        return "", true
 
     // r(x) repeats while x > 0, decrementing x by 1 each loop.
     // Non-integer x is intentionally allowed.

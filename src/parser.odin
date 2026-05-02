@@ -10,6 +10,7 @@ ParserState :: struct {
     ok: bool,
     errMsg: string,
     vars: map[string]f64,
+    saves: map[string]Player,
     precision: u8,
 }
 
