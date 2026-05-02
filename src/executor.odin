@@ -375,7 +375,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
             rounded := math.round(t_f64)
             if math.abs(t_f64 - rounded) > 1e-15 {
-                return "Error: slow(...) argument should be an integer between 0 and 255", false
+                return "Error: move(...) argument should be an integer between 0 and 255", false
             }
             t = int(rounded)
         }else{
@@ -777,7 +777,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
             if s != "" {
                 append(&buf, s)
-                if s[len(s) - 1] != '\n'{\
+                if s[len(s) - 1] != '\n'{
                     append(&buf, "\n")
                 }
             }
@@ -810,7 +810,7 @@ exeCode :: proc(prs: ^ParserState, p: ^Player, code: []Arg, silent: bool) -> (st
 
         if !silent && s != "" {
             append(&buf, s)
-            if s[len(s) - 1] != '\n'{\
+            if s[len(s) - 1] != '\n'{
                 append(&buf, "\n")
             }
         }
