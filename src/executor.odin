@@ -757,26 +757,26 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "save(...)", 1, 1)
         if !argsOK do return msg, false
 
-        idArg := cmd.args[0]
-        if idArg.type != .Text {
-            return "Error: save(...) id must be an double quoted string", false
+        nameArg := cmd.args[0]
+        if nameArg.type != .Text {
+            return "Error: save(...) name must be an double quoted string", false
         }
 
-        prs.saves[idArg.text] = saveState(p^)
+        prs.saves[nameArg.text] = saveState(p^)
         return "", true
 
     case .Load:
         msg, ok := expectPlainArgs(cmd, "load(...)", 1, 1)
         if !ok do return msg, false
 
-        idArg := cmd.args[0]
-        if idArg.type != .Text {
+        nameArg := cmd.args[0]
+        if nameArg.type != .Text {
             return "Error: load(...) name must be an identifier or string", false
         }
 
-        state, exists := prs.saves[idArg.text]
+        state, exists := prs.saves[nameArg.text]
         if !exists {
-            return fmt.tprintf("Error: no saved state named '%s'", idArg.text), false
+            return fmt.tprintf("Error: no saved state named '%s'", nameArg.text), false
         }
 
         loadState(p, state)
