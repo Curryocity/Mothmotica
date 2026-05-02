@@ -1,8 +1,48 @@
-# Mothballn't
+# Mothmotica 
 
-An Odin version of Mothball with improved syntax and more powerful stratfinding features. While maintaining simplicity and joy of Mothballing :) 
+> State: Work In Progress
 
-## Example:
+Mothball awaken, this project wouldn't be mothballed.
+
+**This is an Mothball Language editor, Credits:**
+- Original [Mothball](https://github.com/CyrenArkade/mothball) (by CyrenArkade)
+- [Extended Mothball](https://github.com/anon-noob/mothball) (forked, by Anonnoob)
+- [MothballApp2](https://github.com/anon-noob/mothballapp2) (by Anonnoob)
+
+Mothmotica adds more stratfinding features to the existing mothball, the syntax were also modified to make more sense in a PC editor (the original mothball syntax is more suitable for discord/mobile users)
+
+Like the language it was implemented in, Odin, mothmotica also emphasizes clarity, simplicity and **the joy of Mothballing.**
+
+## Modified Mothball (Compared to Anonnoob's extended mothball)
+
+#### Use `{}` for code block:
+
+In original mothball, the repeat function `r(...)` had such syntax:
+
+```
+r(strat, times)
+
+Example:
+r(sj(3) s.wa sa(8) outz outx x(0), 50)
+```
+
+In the example above, the entire `sj(3) s.wa sa(8) outz outx x(0)` is treated as an argument, strat. However, it consists of several commands, and several "identifiers" should really be separated by comma. But they are seperated by spaces here, it is clearly a different structure.
+
+In **Mothmotica**:
+
+```
+r(times){
+    strat 
+}
+
+Example:
+r(50){
+    sj(3) s.wa sa(8) outz outx x(0)
+}
+```
+
+
+## A Few Examples (Guide/Wiki WIP):
 
 **1bm 5-1**
 ```text
