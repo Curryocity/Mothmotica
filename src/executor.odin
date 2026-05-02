@@ -422,7 +422,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // Original Mothball doesn't reset x, but I think it is less confusing that way
         p.x = 0
         inv := saveInvState(prs, p)
-        defer delete(inv.parser.vars)
+        defer deleteInvState(&inv)
 
         output, simOk := invSample(prs, p, &inv, cmd.code[:], 0, inv.player.vz)
         if !simOk do return output, false
@@ -450,7 +450,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // Original Mothball doesn't reset z, but I think it is less confusing that way
         p.z = 0
         inv := saveInvState(prs, p)
-        defer delete(inv.parser.vars)
+        defer deleteInvState(&inv)
 
         output, simOk := invSample(prs, p, &inv, cmd.code[:], inv.player.vx, 0)
         if !simOk do return output, false
@@ -482,7 +482,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         // Original Mothball doesn't reset position, but I think it is less confusing that way
         p.x, p.z = 0, 0
         inv := saveInvState(prs, p)
-        defer delete(inv.parser.vars)
+        defer deleteInvState(&inv)
 
         output, simOk := invSample(prs, p, &inv, cmd.code[:], 0, 0)
         if !simOk do return output, false
@@ -512,7 +512,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !ok do return parserErrorOr(prs, "Error: vxinv(...){} argument is not a valid number"), false
 
         inv := saveInvState(prs, p)
-        defer delete(inv.parser.vars)
+        defer deleteInvState(&inv)
 
         output, simOk := invSample(prs, p, &inv, cmd.code[:], 0, inv.player.vz)
         if !simOk do return output, false
@@ -538,7 +538,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !ok do return parserErrorOr(prs, "Error: vzinv(...){} argument is not a valid number"), false
 
         inv := saveInvState(prs, p)
-        defer delete(inv.parser.vars)
+        defer deleteInvState(&inv)
 
         output, simOk := invSample(prs, p, &inv, cmd.code[:], inv.player.vx, 0)
         if !simOk do return output, false
@@ -567,7 +567,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !ok2 do return parserErrorOr(prs, "Error: vxzinv(...){} argument is not a valid number"), false
 
         inv := saveInvState(prs, p)
-        defer delete(inv.parser.vars)
+        defer deleteInvState(&inv)
 
         output, simOk := invSample(prs, p, &inv, cmd.code[:], 0, 0)
         if !simOk do return output, false
@@ -762,6 +762,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             return "Error: save(...) name must be an double quoted string", false
         }
 
+        if oldState, exists := prs.saves[nameArg.text]; exists {
+            deletePlayerState(&oldState)
+        }
         prs.saves[nameArg.text] = saveState(p^)
         return "", true
 
@@ -857,6 +860,11 @@ saveInvState :: proc(prs: ^ParserState, p: ^Player) -> InvState {
     }
     p.posRec = false
     return state
+}
+
+deleteInvState :: proc(state: ^InvState) {
+    deletePlayerState(&state.player)
+    deleteParserState(&state.parser)
 }
 
 invSample :: proc(prs: ^ParserState, p: ^Player, state: ^InvState, code: []Arg, vx, vz: f64) -> (string, bool) {
@@ -1125,4 +1133,3 @@ exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
     }
 
 }
-

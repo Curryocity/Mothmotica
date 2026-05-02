@@ -104,13 +104,16 @@ parseMothball :: proc(input: string) -> string {
         ok = true,
         errMsg = "",
         vars = make(map[string]f64),
+        saves = make(map[string]Player),
         precision = 6,
     }
+    defer deleteParserState(&prs)
 
     map_insert(&prs.vars, "bx", widenf32(0.6))
     map_insert(&prs.vars, "px", 0.0625)
 
     p := makePlayer()
+    defer deletePlayerState(&p)
 
     for lexerPeek(&prs.lex).type != .EOF {
         cmd := parseArg(&prs, &p, 0)

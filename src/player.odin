@@ -181,6 +181,13 @@ loadState :: proc(dst: ^Player, src: Player) {
     }
 }
 
+deletePlayerState :: proc(p: ^Player) {
+    qDelete(&p.angleQueue)
+    qDelete(&p.turnQueue)
+    delete(p.posStorage)
+    p.posStorage = nil
+}
+
 setPrevSprint :: proc(p: ^Player, value: bool) {
     p.prev_sprint = value
 }

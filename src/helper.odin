@@ -17,17 +17,44 @@ cloneVars :: proc(vars: map[string]f64) -> map[string]f64 {
     return cloned
 }
 
+cloneSaves :: proc(saves: map[string]Player) -> map[string]Player {
+    cloned := make(map[string]Player)
+    for key, value in saves {
+        cloned[key] = saveState(value)
+    }
+    return cloned
+}
+
+deleteSaves :: proc(saves: map[string]Player) {
+    for _, &state in saves {
+        deletePlayerState(&state)
+    }
+    delete(saves)
+}
+
 cloneParserState :: proc(prs: ^ParserState) -> ParserState {
     cloned := prs^
     cloned.vars = cloneVars(prs.vars)
+    cloned.saves = cloneSaves(prs.saves)
     return cloned
 }
 
 loadParserState :: proc(dst: ^ParserState, src: ParserState) {
     oldVars := dst.vars
+    oldSaves := dst.saves
+
     dst^ = src
+
     dst.vars = cloneVars(src.vars)
+    dst.saves = cloneSaves(src.saves)
+
     delete(oldVars)
+    deleteSaves(oldSaves)
+}
+
+deleteParserState :: proc(prs: ^ParserState) {
+    delete(prs.vars)
+    deleteSaves(prs.saves)
 }
 
 trimTrailingZeros :: proc(s: string) -> string {
