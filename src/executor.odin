@@ -433,6 +433,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         
         return "", true
 
+    // This is loop with trailing st(x) bruh
     case .Taps:
         msg, argsOK := expectCodeArgs(cmd, "taps(...){}", 1, 1)
 
@@ -460,7 +461,6 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
 
         return strings.clone(string(buf[:])), true
-
 
     case .XInv:
         msg, argsOK := expectCodeArgs(cmd, "xinv(...){}", 1, 1)
