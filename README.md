@@ -222,7 +222,7 @@ Vz: 0.192659
 
 > Note: `zr` (Z Raw) is an alias to `outz`
 
-### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`
+### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`,`getig`,`getia`
 
 In mothball, although you can do `var(a, outx)` to store the current x position into variable `a`. But the `outx` command also executes and prints the line. Which is a really stupid design.
 
@@ -232,6 +232,24 @@ In mothball, although you can do `var(a, outx)` to store the current x position 
 
 In mothmotica, we can do `set(a, getx)` and it will be silent. Or even `set(b, getx * getz + getz)`. Just treat it as a variable that you cannot modify it with `set()`.
 
+| Variable | Meaning |
+| --- | --- |
+| `getx` | Get `X` |
+| `getz` | Get `Z` |
+| `getvx` | Get `Vx` |
+| `getvz` | Get `Vz` |
+| `getf` | Get `F` |
+| `getig` | Get ground inertia: `inertia / ground_slip / 0.91` |
+| `getia` | Get air inertia: `inertia / 0.91` |
+
+These built-in constants are also read-only:
+
+| Constant | Value |
+| --- | --- |
+| `bx` | Player hitbox width: `0.60000002384185791` |
+| `px` | Pixel size: `0.0625` |
+| `pi` | Pi |
+
 ### Force inertia next tick with `ix` and `iz`
 
 Sometimes you hate movement branching or just want to test what if next tick hits inertia. Use this. 
@@ -239,8 +257,6 @@ Sometimes you hate movement branching or just want to test what if next tick hit
 ### Handy math functions: `abs()`,`sqrt()`,`sin()`,`cos()`,`tan()`,`atan()`
 
 I don't think I need to explain anything of it except that **the unit of angle is always in degrees.**
-
-Tip: `pi` is a built-in variable.
 
 ## A Few Examples (Guide/Wiki WIP):
 

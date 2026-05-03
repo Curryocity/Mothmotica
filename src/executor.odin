@@ -88,8 +88,10 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
 
         switch target.text {
-        case "getx", "getz", "getvx", "getvz", "getf":
+        case "getx", "getz", "getvx", "getvz", "getf", "getig", "getia":
             return "Error: cannot assign to pseudo variable", false
+        case "bx", "px", "pi":
+            return "Error: cannot assign to built-in constant", false
         }
 
         value, ok := eval(prs, p, cmd.args[1])
@@ -1065,6 +1067,10 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
             return p.vz, true
         case "getf":
             return f64(p.f), true
+        case "getig":
+            return p.inertia_threshold/f64(p.ground_slip)/0.91, true
+        case "getia":
+            return p.inertia_threshold/0.91, true
         case:
             value, ok := prs.vars[expr.text]
             if !ok{
