@@ -49,7 +49,7 @@ Instead of `bwmm(n, ...), speedreq(n, ..)`. We use `inv(n + bx){...} ,  inv(n - 
 
 Now you don't have to worry about whether to use `xinv(n){zbwmm(m) {...}}` or `xzinv(n, m+bx){...}` or `xzbwmm(n-bx, m){...}` Just keep it simple. The syntax sugar isn't worth it.
 
-Also the name `bwmm` isn't accurate. And the `speedreq` could a double walled momentum. Honestly it may get really confusing and I don't think it is a good practice.
+Also the names `bwmm/speedreq` were not accurate at all: `bwmm` could output forward speed, `speedreq` could represent double walled momentum. Honestly it may get really confusing and I don't think it is a good practice.
 
 ### Savestates:
 
