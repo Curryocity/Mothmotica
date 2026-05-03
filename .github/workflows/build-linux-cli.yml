@@ -1,0 +1,35 @@
+name: Build Linux CLI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-linux-cli:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Odin
+        uses: laytan/setup-odin@v2
+        with:
+          release: nightly
+
+      - name: Show Odin version
+        run: odin report
+
+      - name: Build CLI
+        run: odin build src -out:mothmotica-linux-x86_64
+
+      - name: Quick test
+        run: |
+          printf ';s sj45(12) zmm\n\n' | ./mothmotica-linux-x86_64
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: mothmotica-linux-x86_64
+          path: mothmotica-linux-x86_64
