@@ -433,6 +433,35 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         
         return "", true
 
+    case .Taps:
+        msg, argsOK := expectCodeArgs(cmd, "taps(...){}", 1, 1)
+
+        times, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: taps(...){} argument is not a valid number"), false
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        for times > 0 {
+            s, codeOK := exeCode(prs, p, cmd.code[:], false)
+            if !codeOK do return s, false
+
+            for p.vx != 0 || p.vz != 0 {
+                move(p, 0, 0, false, false, false, false)
+            }
+
+            if s != "" {
+                append(&buf, s)
+                if s[len(s) - 1] != '\n'{
+                    append(&buf, "\n")
+                }
+            }
+            times -= 1
+        }
+
+        return strings.clone(string(buf[:])), true
+
+
     case .XInv:
         msg, argsOK := expectCodeArgs(cmd, "xinv(...){}", 1, 1)
         if !argsOK do return msg, false

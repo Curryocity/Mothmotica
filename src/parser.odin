@@ -45,7 +45,8 @@ CmdType :: enum {
     OutVx, OutVz, OutVec,
 
     SetF, OutF, SetTurn, OutTurn,
-    Move,
+
+    Move, Taps,
 
     XPoss, ZPoss,
 
@@ -436,6 +437,8 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .ForceInertiaZ
         case "move":
             return .Move
+        case "taps":
+            return .Taps
         case "abs":
             return .Abs
         case "sqrt":
