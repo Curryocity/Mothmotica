@@ -125,32 +125,12 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     }
 }
 
-setF :: proc(p: ^Player, rot: f32) {
-    p.f = rot
+prevGround :: proc(p: ^Player) {
+    p.prev_slip = p.ground_slip
 }
 
-setX :: proc(p: ^Player, value: f64) {
-    p.x = value
-}
-
-setZ :: proc(p: ^Player, value: f64) {
-    p.z = value
-}
-
-setVx :: proc(p: ^Player, value: f64, airborne: bool) {
-    p.vx = value
-    p.prev_slip = 1.0 if airborne else p.ground_slip
-}
-
-setVz :: proc(p: ^Player, value: f64, airborne: bool) {
-    p.vz = value
-    p.prev_slip = 1.0 if airborne else p.ground_slip
-}
-
-setVel :: proc(p: ^Player, x_value: f64, z_value: f64, airborne: bool) {
-    p.vx = x_value
-    p.vz = z_value
-    p.prev_slip = 1.0 if airborne else p.ground_slip
+prevAir :: proc(p: ^Player) {
+    p.prev_slip = 1.0
 }
 
 saveState :: proc(p: Player) -> Player {
@@ -186,15 +166,6 @@ deletePlayerState :: proc(p: ^Player) {
     qDelete(&p.turnQueue)
     delete(p.posStorage)
     p.posStorage = nil
-}
-
-setPrevSprint :: proc(p: ^Player, value: bool) {
-    p.prev_sprint = value
-}
-
-setEffect :: proc(p: ^Player, speed: u8, slow: u8) {
-    p.speed = speed
-    p.slow = slow
 }
 
 clearPosStorage:: proc(p: ^Player){

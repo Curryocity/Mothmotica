@@ -124,7 +124,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         x, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: x(...) argument is not a valid number"), false
-        setX(p, x)
+        p.x = x
         return "", true
 
     case .SetZ:
@@ -133,7 +133,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         z, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: z(...) argument is not a valid number"), false
-        setZ(p, z)
+        p.z = z
         return "", true
 
     case .SetPos:
@@ -146,37 +146,32 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         z, ok2 := eval(prs, p, cmd.args[1])
         if !ok2 do return parserErrorOr(prs, "Error: second argument of pos(...) is not a valid number"), false
 
-        setX(p, x)
-        setZ(p, z)
+        p.x = x
+        p.z = z
         return "", true
 
-    case .SetVx, .SetVxAir:
-        name := (cmd.type == .SetVxAir) ? "vxa(...)" : "vx(...)"
-        msg, argsOK := expectPlainArgs(cmd, name, 1, 1)
+    case .SetVx:
+        msg, argsOK := expectPlainArgs(cmd, "vx(...)", 1, 1)
         if !argsOK do return msg, false
 
         vx, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: vx(...) argument is not a valid number"), false
 
-        airborne := (cmd.type == .SetVxAir)
-        setVx(p, vx, airborne)
+        p.vx = vx
         return "", true
 
-    case .SetVz, .SetVzAir:
-        name := (cmd.type == .SetVzAir) ? "vza(...)" : "vz(...)"
-        msg, argsOK := expectPlainArgs(cmd, name, 1, 1)
+    case .SetVz:
+        msg, argsOK := expectPlainArgs(cmd, "vz(...)", 1, 1)
         if !argsOK do return msg, false
 
         vz, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: vz(...) argument is not a valid number"), false
 
-        airborne := (cmd.type == .SetVzAir)
-        setVz(p, vz, airborne)
+        p.vz = vz
         return "", true
 
-    case .SetVel, .SetVelAir:
-        name := (cmd.type == .SetVelAir) ? "vela(...)" : "vel(...)"
-        msg, argsOK := expectPlainArgs(cmd, name, 2, 2)
+    case .SetVel:
+        msg, argsOK := expectPlainArgs(cmd, "vel(...)", 2, 2)
         if !argsOK do return msg, false
 
         vx, ok1 := eval(prs, p, cmd.args[0])
@@ -185,8 +180,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         vz, ok2 := eval(prs, p, cmd.args[1])
         if !ok2 do return parserErrorOr(prs, "Error: second argument of vel(...) is not a valid number"), false
 
-        airborne := (cmd.type == .SetVelAir)
-        setVel(p, vx, vz, airborne)
+        p.vx, p.vz = vx, vz
+
         return "", true
 
     case .SetF:
@@ -195,7 +190,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         f, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: f(...) argument is not a valid number"), false
-        setF(p, f32(f))
+        p.f = f32(f)
         return "", true
     case .SetTurn:
         msg, argsOK := expectPlainArgs(cmd, "t(...)", 1, 1)
@@ -350,6 +345,20 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
 
         p.speed = u8(rounded)
+        return "", true
+
+    case .PrevGround:
+        msg, argsOK := expectPlainArgs(cmd, "gnd", 0, 0)
+        if !argsOK do return msg, false
+
+        prevGround(p)
+        return "", true
+    
+    case .PrevAir:
+        msg, argsOK := expectPlainArgs(cmd, "air", 0, 0)
+        if !argsOK do return msg, false
+
+        prevAir(p)
         return "", true
 
     case .Move: // slip, accel, t, facing

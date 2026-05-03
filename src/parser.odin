@@ -37,7 +37,6 @@ CmdType :: enum {
 
     SetX, SetZ, SetPos, 
     SetVz, SetVx, SetVel,
-    SetVzAir, SetVxAir, SetVelAir,
     ResetPos, ResetPosVel,
 
     OutXRaw, OutXBlock, OutXMM,
@@ -57,6 +56,8 @@ CmdType :: enum {
 
     SetPrecision, SetSlip, SetSprintDelay, SetInertia,
     SetSlow, SetSpeed,
+
+    PrevGround, PrevAir,
 
     AngleQueue, TurnQueue,
 
@@ -368,12 +369,6 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetVx
         case "vel":
             return .SetVel
-        case "vza":
-            return .SetVzAir
-        case "vxa":
-            return .SetVxAir
-        case "vela":
-            return .SetVelAir
         case "xr", "outx":
             return .OutXRaw
         case "xb":
@@ -408,6 +403,10 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetSlow
         case "speed":
             return .SetSpeed
+        case "gnd":
+            return .PrevGround
+        case "air":
+            return .PrevAir
         case "sdel":
             return .SetSprintDelay
         case "poss", "zposs":

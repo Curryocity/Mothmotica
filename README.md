@@ -146,6 +146,45 @@ Output:
 (x, z, vx, vz) = (-1.507294, 0.870365, -0.274478, 0.158493)
 ```
 
+### Explcit speed-type support: `gnd` and `air`
+
+From the original mothball README:
+
+> Finding the speed required for a 5 block, no 45: `sta speedreq(5, sj(12)) b`. Note the sta before the speedreq. This is to make the player start midair, since mothball usually assumes the player starts on the ground.
+
+As you can see, they use `sta` to hint the next velocity is going to be airborned. This works by implicitly setting `player.prev_sprint` into `airslip(=1.0)`
+
+That works in mothmotica, but we prefer to use `air` for explicitly setting player's `prev_sprint` to `airslip`.
+
+Example 1:
+```
+;s air inv(2.5+bx){sj45(12) zmm} | poss(0.005){sj45(25)}
+```
+
+Output:
+
+```
+Lerped Vz: 0.086059
+Zmm: 2.5
+Poss: (t = 1...25, thres = 0.005)
+t = 11: 4.375 + 0.000153
+t = 19: 6.8125 + 0.003243
+```
+
+Example 2:
+
+```
+;s gnd inv(1.3125){sa(11) zr} outvz
+```
+
+```
+Lerped Vz: 0.057208
+Z: 1.3125
+Vz: 0.192659
+```
+
+> Note: `zr` (Z Raw) is an alias to `outz`
+
 ### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`
 
 In mothball, although you can do `var(a, outx)` to store the current x position into variable `a`. But the `outx` command also execute and prints the line. Which is a really stupid design.
