@@ -295,7 +295,7 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
         }
     }
 
-    // f(){...} or f{...} arguments is a code block, i.e. list of commands seperated by space
+    // f(){...} or f{...} arguments is a code block, i.e. list of commands separated by space
     brace: if lexerPeek(&prs.lex).type == .LBrace{
         lexerNext(&prs.lex)
 

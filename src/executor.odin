@@ -780,7 +780,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         nameArg := cmd.args[0]
         if nameArg.type != .Text {
-            return "Error: save(...) name must be an double quoted string", false
+            return "Error: save(...) name must be a double quoted string", false
         }
 
         if oldState, exists := prs.saves[nameArg.text]; exists {

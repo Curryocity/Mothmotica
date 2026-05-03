@@ -2,7 +2,7 @@
 
 > State: Work In Progress, GUI isn't ready
 
-Mothball awakened, this project wouldn't be mothballed.
+Mothball awakened, this project won't be mothballed.
 
 **This is a Mothball language editor, Credits:**
 - Original [Mothball](https://github.com/CyrenArkade/mothball) (by CyrenArkade)
@@ -95,7 +95,7 @@ In this particular example, the savestate could be replaced by storing the veloc
 
 But there is so much more you can do with savestates.
 
-### Powerful Player Set/Output function
+### Powerful Player Set/Output Functions
 
 | Command | What it does |
 | --- | --- |
@@ -125,7 +125,7 @@ But there is so much more you can do with savestates.
 
 ### `print()/printn()` and `mes()`
 
-`print()` accepts multiple arguments and tries to print its text or value separated by `' '` char.
+`print()` accepts multiple arguments and prints their text or values separated by a `' '` char.
 
 `printn()`'s separator char is empty, allowing more flexible formatting.
 
@@ -158,9 +158,9 @@ Output:
 9th fibonacci: 34
 ```
 
-`mes()` ( full name `measure()`) is really good for debugging
+`mes()` (full name `measure()`) is really good for debugging
 
-It accept multiple variables like `mes(var1, var2, var3)`
+It accepts multiple variables like `mes(var1, var2, var3)`
 And it outputs like `(var1, var2, var3) = (3.5, -4, 0.67)` in a single line.
 
 Apart from variables, you can put in built-in identifier `x/xb/xmm/xld/z/zb/zmm/zld/vx/vz/f/t` to measure the state of the player. Like:
@@ -174,13 +174,13 @@ Output:
 (x, z, vx, vz) = (-1.507294, 0.870365, -0.274478, 0.158493)
 ```
 
-### Explcit speed-type support: `gnd` and `air`
+### Explicit speed-type support: `gnd` and `air`
 
 From the original mothball README:
 
 > Finding the speed required for a 5 block, no 45: `sta speedreq(5, sj(12)) b`. Note the sta before the speedreq. This is to make the player start midair, since mothball usually assumes the player starts on the ground.
 
-As you can see, they use `sta` to hint the next velocity is going to be airborned. This works by implicitly setting `player.prev_sprint` into `airslip(=1.0)`
+As you can see, they use `sta` to hint that the next velocity is going to be airborne. This works by implicitly setting `player.prev_sprint` into `airslip(=1.0)`
 
 That works in mothmotica, but we prefer to use `air` for explicitly setting player's `prev_sprint` to `airslip`.
 
@@ -215,7 +215,7 @@ Vz: 0.192659
 
 ### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`
 
-In mothball, although you can do `var(a, outx)` to store the current x position into variable `a`. But the `outx` command also execute and prints the line. Which is a really stupid design.
+In mothball, although you can do `var(a, outx)` to store the current x position into variable `a`. But the `outx` command also executes and prints the line. Which is a really stupid design.
 
 > I quit making a number guessing game in mothball because that outx/z cannot shut up
 
