@@ -4,12 +4,12 @@
 
 Mothball awakened, this project wouldn't be mothballed.
 
-**This is an Mothball Language editor, Credits:**
+**This is a Mothball language editor, Credits:**
 - Original [Mothball](https://github.com/CyrenArkade/mothball) (by CyrenArkade)
 - [Extended Mothball](https://github.com/anon-noob/mothball) (forked, by Anonnoob)
 - [MothballApp2](https://github.com/anon-noob/mothballapp2) (by Anonnoob)
 
-Mothmotica adds more stratfinding features to the existing mothball, the syntax were also modified to make more sense in a PC editor (the original mothball syntax is more suitable for discord/mobile users)
+Mothmotica adds more stratfinding features to the existing mothball, the syntax was also modified to make more sense in a PC editor (the original mothball syntax is more suitable for discord/mobile users)
 
 Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, simplicity, and **the joy of Mothballing.**
 
@@ -26,7 +26,7 @@ Example:
 r(sj(3) s.wa sa(8) outz outx x(0), 50)
 ```
 
-In the example above, the entire `sj(3) s.wa sa(8) outz outx x(0)` is treated as an argument, strat. However, it consists of several commands, and several "identifiers" should really be separated by comma. But they are seperated by spaces here, it is clearly a different structure.
+In the example above, the entire `sj(3) s.wa sa(8) outz outx x(0)` is treated as an argument, strat. However, it consists of several commands, and several "identifiers" should really be separated by comma. But they are separated by spaces here, it is clearly a different structure.
 
 In **Mothmotica**:
 
@@ -47,7 +47,7 @@ In original mothball, there exists `bwmm/inv/speedreq` each differed by more/les
 
 Instead of `bwmm(n, ...), speedreq(n, ..)`. We use `inv(n + bx){...} ,  inv(n - bx){...}`.
 
-Now you don't have to worried about whether to use `xinv(n){zbwmm(m) {...}}` or `xzinv(n, m+bx){...}` or `xzbwmm(n-bx, m){...}` Just keep it simple. The syntax sugar isn't worth it.
+Now you don't have to worry about whether to use `xinv(n){zbwmm(m) {...}}` or `xzinv(n, m+bx){...}` or `xzbwmm(n-bx, m){...}` Just keep it simple. The syntax sugar isn't worth it.
 
 Also the name `bwmm` isn't accurate. And the `speedreq` could a double walled momentum. Honestly it may get really confusing and I don't think it is a good practice.
 
@@ -97,9 +97,9 @@ But there is so much more you can do with savestates.
 
 ### `print()/printn()` and `mes()`
 
-`print()` accept multiple arguments and tried to print it's text or value seperated by `' '` char.
+`print()` accepts multiple arguments and tries to print its text or value separated by `' '` char.
 
-`printn()`'s seperator char is empty, allow more flexible formatting.
+`printn()`'s separator char is empty, allowing more flexible formatting.
 
 Like:
 
@@ -156,6 +156,10 @@ In mothball, although you can do `var(a, outx)` to store the current x position 
 
 In mothmotica, we can do `set(a, getx)` and it will be silent. Or even `set(b, getx * getz + getz)`. Just treat it as a variable that you cannot modify it with `set()`.
 
+### Force inertia next tick with `ix` and `iz`
+
+Sometimes you hate movement branching or just want to test what if next tick hits inertia. Use this. 
+
 ### Handy math functions: `abs()`,`sqrt()`,`sin()`,`cos()`,`tan()`,`atan()`
 
 I don't think I need to explain anything of it except that **the unit of angle is always in degrees.**
@@ -200,7 +204,6 @@ t = 18: 5.875 + 0.01039939
 t = 21: 6.75 + 0.016182457
 t = 24: 7.625 + 0.018486902
 ```
-
 
 
 
