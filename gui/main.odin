@@ -425,10 +425,10 @@ drawIntro :: proc() {
     im.Dummy({0, 24})
 
     im.SetWindowFontScale(2.2)
-    title_size := im.CalcTextSize("Mothomatica")
+    title_size := im.CalcTextSize("Mothmotica")
     title_x := max((im.GetWindowWidth() - title_size.x) * 0.5, SIDE_PAD)
     im.SetCursorPosX(title_x)
-    im.TextColored({0.93, 0.95, 1.0, 1.0}, "Mothomatica")
+    im.TextColored({0.93, 0.95, 1.0, 1.0}, "Mothmotica")
     im.SetWindowFontScale(1)
 
     im.Dummy({0, 14})

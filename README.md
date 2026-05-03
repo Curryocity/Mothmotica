@@ -43,20 +43,40 @@ r(50){
 
 ### Explicit `inv()`:
 
-In original mothball, there exists `bwmm/inv/speedreq` each differed by more/less a player hitbox width. But mothmotica prefers to add player hitbox width via the **built-in variable `bx = f32(0.6)`**
+Mothmotica keeps `inv(n){...}` as the base inverse command. It also keeps `bwmm(n){...}` as a historical Mothball shortcut:
 
-Instead of `bwmm(n, ...), speedreq(n, ..)`. We use `inv(n + bx){...} ,  inv(n - bx){...}`.
+| Command | Expands to |
+| --- | --- |
+| `bwmm(n){...}` | `inv(n + bx){...}` when `n >= 0`, `inv(n - bx){...}` when `n < 0` |
 
-Now you don't have to worry about whether to use `xinv(n){zbwmm(m) {...}}` or `xzinv(n, m+bx){...}` or `xzbwmm(n-bx, m){...}` Just keep it simple. The syntax sugar isn't worth it.
+`bwmm` is syntax sugar because it was the most popular function in Mothball. For new explicit code, prefer the general `@mm`, `@b`, and `@ld` argument modifiers.
 
-Also the names `bwmm/speedreq` were not accurate at all: `bwmm` could output forward speed, `speedreq` could represent double walled momentum. Honestly it may get really confusing and I don't think it is a good practice.
+The general form is to use `@mm`, `@b`, or `@ld` inside an expression:
+
+| Argument Prefix Modifier | Expands to |
+| --- | --- |
+| `@mm n` | `n + bx` when `n >= 0`, `n - bx` when `n < 0` |
+| `@b n` | `n - bx` when `n >= 0`, `n + bx` when `n < 0` |
+| `@ld n` | `n + bx/2` when `n >= 0`, `n - bx/2` when `n < 0` |
+
+This avoids adding every `x` and `xz` variant. For example:
+
+```
+xzinv(@mm -1, @b 1){...}
+```
+
+is the same as:
+
+```
+xzinv(-1-bx, 1-bx){...}
+```
 
 ### Savestates:
 
 Look at this:
 
 ```
-;s inv(5 + bx){ sj45(12) sj45(12)} | 
+;s inv(@mm 5){ sj45(12) sj45(12)} | 
 save("mm") 
 
 print("Normal:") 
@@ -111,12 +131,12 @@ But there is so much more you can do with savestates.
 | `t(n)` | Turn facing by `n` degrees |
 | `xr` / `outx` | Output `X` |
 | `zr` / `outz` | Output `Z` |
-| `xb` | Output `X + bx` |
-| `zb` | Output `Z + bx` |
-| `xmm` | Output `X - bx` |
-| `zmm` | Output `Z - bx` |
-| `xld` | Output `X + bx/2` |
-| `zld` | Output `Z + bx/2` |
+| `xb` | Output `X` offset outward by `bx` |
+| `zb` | Output `Z` offset outward by `bx` |
+| `xmm` | Output `X` offset inward by `bx` |
+| `zmm` | Output `Z` offset inward by `bx` |
+| `xld` | Output `X` offset outward by `bx/2` |
+| `zld` | Output `Z` offset outward by `bx/2` |
 | `outvx` | Output `Vx` |
 | `outvz` | Output `Vz` |
 | `vec` | Output speed and angle |
@@ -186,7 +206,7 @@ That works in mothmotica, but we prefer to use `air` for explicitly setting play
 
 Example 1:
 ```
-;s air inv(2.5+bx){sj45(12) zmm} | poss(0.005){sj45(25)}
+;s air inv(@mm 2.5){sj45(12) zmm} | poss(0.005){sj45(25)}
 ```
 
 Output:
@@ -271,7 +291,7 @@ t = 24: 8 + 0.003147
 **slowness I 1.5bm 6-1 to ladder**
 ```
 Chat:
-;s pre(9) f(45.01) slow(1) inv(1.5+bx){ sj(1,0) sa.wa(11) zmm} | sj(1,0) sa.wa(14) zld(5)
+;s pre(9) f(45.01) slow(1) inv(@mm 1.5){ sj(1,0) sa.wa(11) zmm} | sj(1,0) sa.wa(14) zld(5)
 
 Mothball:
 Lerped Vz: -0.127684424

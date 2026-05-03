@@ -492,12 +492,20 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         tarVx := (tarX - x0)/(x1 - x0) 
 
         return finalInvSim(prs, p, &inv, cmd.code[:], tarVx, inv.player.vz, true, false)
-    case .ZInv:
-        msg, argsOK := expectCodeArgs(cmd, "zinv(...){}", 1, 1)
+    case .ZInv, .BWMM:
+        cmdName := "zinv"
+        if cmd.type == .BWMM {
+            cmdName = "bwmm"
+        }
+
+        msg, argsOK := expectCodeArgs(cmd, fmt.tprintf("%s(...){}", cmdName), 1, 1)
         if !argsOK do return msg, false
 
         tarZ, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: zinv(...){} argument is not a valid number"), false
+        if !ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...){} argument is not a valid number", cmdName)), false
+        if cmd.type == .BWMM {
+            tarZ = offsetMM(tarZ)
+        }
 
         // Original Mothball doesn't reset z, but I think it is less confusing that way
         p.z = 0
@@ -1042,7 +1050,43 @@ measureBuiltinDefaultName :: proc(type: CmdType) -> string {
     }
 }
 
+offsetMM :: proc(x: f64) -> f64 {
+    hitbox := widenf32(0.6)
+    return x + ((x >= 0) ? hitbox : -hitbox)
+}
+
+offsetB :: proc(x: f64) -> f64 {
+    hitbox := widenf32(0.6)
+    return x + ((x >= 0) ? -hitbox : hitbox)
+}
+
+offsetLD :: proc(x: f64) -> f64 {
+    hitbox := widenf32(0.6)
+    return x + ((x >= 0) ? hitbox/2 : -hitbox/2)
+}
+
+applyArgModifier :: proc(value: f64, modifier: ArgModifier) -> f64 {
+    switch modifier {
+    case .MM:
+        return offsetMM(value)
+    case .B:
+        return offsetB(value)
+    case .LD:
+        return offsetLD(value)
+    case .None:
+        return value
+    }
+
+    return value
+}
+
 eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
+    value, ok := evalRaw(prs, p, expr)
+    if !ok do return 0, false
+    return applyArgModifier(value, expr.modifier), true
+}
+
+evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
     switch expr.type {
     case .Number:
         return expr.value, true
@@ -1117,7 +1161,7 @@ eval :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
                 failParse(prs, "Error: expression cannot be evaluated as a number")
                 return 0, false
             }
-        }else if cmd.type == .Abs ||cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
+        }else if cmd.type == .Abs || cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
             if len(cmd.args) != 1 {
                 failParse(prs, "Error: computing function should have exactly one parameter")
                 return 0, false

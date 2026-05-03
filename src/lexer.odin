@@ -14,6 +14,7 @@ TokenType :: enum{
     RParen,
     LBrace,
     RBrace,
+    At,
     Op,
     Pipe,
     DoublePipe,
@@ -166,6 +167,8 @@ updateNext :: proc(lex : ^Lexer) {
         tok_type = .LBrace
     case '}':
         tok_type = .RBrace
+    case '@':
+        tok_type = .At
     case '+', '-', '*', '/':
         tok_type = .Op
     case:

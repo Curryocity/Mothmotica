@@ -50,7 +50,7 @@ CmdType :: enum {
 
     XPoss, ZPoss,
 
-    XInv, ZInv, XZInv,
+    XInv, ZInv, BWMM, XZInv,
     VxInv, VzInv, VxzInv,
 
     ForceInertiaX, ForceInertiaZ,
@@ -78,12 +78,23 @@ ArgType :: enum {
     Number, Text, Variable, Call, MoveCall
 }
 
+ArgModifier :: enum {
+    None, MM, B, LD,
+}
+
 Arg :: struct {
     type: ArgType,
+    modifier: ArgModifier,
     value: f64,
     text: string,
     expr: ^Command,
     mvfunc: MoveFunc,
+}
+
+ArgContext :: enum {
+    Default,
+    FuncArg,
+    OffsetValue,
 }
 
 // ENTRY !!!!!
@@ -119,7 +130,7 @@ parseMothball :: proc(input: string) -> string {
     defer deletePlayerState(&p)
 
     for lexerPeek(&prs.lex).type != .EOF {
-        cmd := parseArg(&prs, &p, 0)
+        cmd := parseArg(&prs, &p, 0, .Default)
 
         if !prs.ok do return fmt.tprintf("%s\n", prs.errMsg)
 
@@ -140,8 +151,13 @@ parseMothball :: proc(input: string) -> string {
     return result
 }
 
-parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
+parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int, argCtx := ArgContext.Default) -> Arg{
     if !prs.ok do return Arg{}
+    if argCtx == .FuncArg && lexerPeek(&prs.lex).type == .At {
+        lexerNext(&prs.lex)
+        return parseOffsetModifier(prs, p)
+    }
+
     lhs: Arg
 
     prefix := lexerNext(&prs.lex)
@@ -160,7 +176,7 @@ parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
         case .Op:
             if prefix.content == "-" {
                 unaryMinusBP :: 30
-                rhs := parseArg(prs, p, unaryMinusBP)
+                rhs := parseArg(prs, p, unaryMinusBP, .Default)
                 if !prs.ok do return Arg{}
                 NEG_ONE :: Arg{type = .Number, value = -1}
                 MULT_TOKEN :: Token{type = .Op, content = "*"}
@@ -169,8 +185,11 @@ parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
                 failParse(prs, fmt.tprintf("Error: unexpected operator %s", tokenToMessage(prefix)))
                 return Arg{}
             }
+        case .At:
+            failParse(prs, "Error: offset modifiers can only appear at the start of a function argument")
+            return Arg{}
         case .LParen:
-            lhs = parseArg(prs, p, 0)
+            lhs = parseArg(prs, p, 0, .Default)
             if !prs.ok do return Arg{}
             if lexerNext(&prs.lex).type != .RParen {
                 failParse(prs, "Error: missing ')' to close grouped expression")
@@ -202,7 +221,7 @@ parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
             return Arg{}
     }
 
-    if lhs.type != .Number && lhs.type != .Variable do return lhs
+    if !canContinueExpr(lhs) do return lhs
 
     for {
         op: Token = lexerPeek(&prs.lex)
@@ -214,7 +233,7 @@ parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
         if baseBP.left < minBP do break 
         lexerNext(&prs.lex)
 
-        rhs := parseArg(prs, p, baseBP.right)
+        rhs := parseArg(prs, p, baseBP.right, .Default)
         if !prs.ok do return Arg{}
 
         lhs = combine(prs, lhs, rhs, op)
@@ -222,6 +241,56 @@ parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int) -> Arg{
     }
 
     return lhs
+}
+
+canContinueExpr :: proc(arg: Arg) -> bool {
+    #partial switch arg.type {
+    case .Number, .Variable:
+        return true
+    case .Call:
+        if arg.expr == nil do return false
+        #partial switch arg.expr.type {
+        case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan:
+            return true
+        case:
+            return false
+        }
+    case:
+        return false
+    }
+
+    return false
+}
+
+parseOffsetModifier :: proc(prs: ^ParserState, p: ^Player) -> Arg {
+    modifierTok := lexerNext(&prs.lex)
+    if modifierTok.type != .Identifier {
+        failParse(prs, fmt.tprintf("Error: expected offset modifier after '@', got %s", tokenToMessage(modifierTok)))
+        return Arg{}
+    }
+
+    modifier: ArgModifier
+    switch modifierTok.content {
+    case "mm":
+        modifier = .MM
+    case "b":
+        modifier = .B
+    case "ld":
+        modifier = .LD
+    case:
+        failParse(prs, fmt.tprintf("Error: unknown offset modifier '@%s'", modifierTok.content))
+        return Arg{}
+    }
+
+    arg := parseArg(prs, p, 0, .OffsetValue)
+    if !prs.ok do return Arg{}
+    if arg.modifier != .None {
+        failParse(prs, "Error: offset modifiers cannot be stacked")
+        return Arg{}
+    }
+
+    arg.modifier = modifier
+    return arg
 }
 
 parseNumber :: proc(prs: ^ParserState, tok: Token) -> Arg {
@@ -272,7 +341,7 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
         }
 
         for {
-            arg := parseArg(prs, p, 0)
+            arg := parseArg(prs, p, 0, .FuncArg)
             if !prs.ok{
                 delete(cmd.args)
                 free(cmd)
@@ -309,7 +378,7 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
         }
 
         for {
-            inner_cmd := parseArg(prs, p, 0)
+            inner_cmd := parseArg(prs, p, 0, .Default)
 
             if !prs.ok{
                 delete(cmd.args)
@@ -421,6 +490,8 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .XPoss
         case "inv", "zinv":
             return .ZInv
+        case "bwmm":
+            return .BWMM
         case "xinv":
             return .XInv
         case "xzinv":
@@ -552,7 +623,7 @@ parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) 
 
     paren: if lexerPeek(&prs.lex).type == .LParen{
         lexerNext(&prs.lex)
-        targ := parseArg(prs, p, 0)
+        targ := parseArg(prs, p, 0, .FuncArg)
         t, ok1 := eval(prs, p, targ)
 
         if !ok1 {
@@ -586,7 +657,7 @@ parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) 
             return Arg{}
         }
 
-        rotarg := parseArg(prs, p, 0)
+        rotarg := parseArg(prs, p, 0, .FuncArg)
         rot64, ok2 := eval(prs, p, rotarg)
 
         if !ok2 {
@@ -618,7 +689,7 @@ parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) 
 
 combine :: proc(prs: ^ParserState, lhs: Arg, rhs: Arg, op: Token) -> Arg {
     if !prs.ok do return Arg{}
-    reducible := (lhs.type == .Number && rhs.type == .Number)
+    reducible := (lhs.type == .Number && lhs.modifier == .None && rhs.type == .Number && rhs.modifier == .None)
     switch op.content {
         case "+":
             if reducible{
