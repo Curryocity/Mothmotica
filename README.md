@@ -231,6 +231,8 @@ Sometimes you hate movement branching or just want to test what if next tick hit
 
 I don't think I need to explain anything of it except that **the unit of angle is always in degrees.**
 
+Tip: `pi` is a built-in variable.
+
 ## A Few Examples (Guide/Wiki WIP):
 
 **1.1875bm jumps**
