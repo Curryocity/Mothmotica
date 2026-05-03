@@ -13,6 +13,15 @@ Mothmotica adds more stratfinding features to the existing mothball, the syntax 
 
 Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, simplicity, and **the joy of Mothballing.**
 
+## Build
+
+Requires Odin.
+
+```sh
+odin build src
+./src.bin
+```
+
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
 
 ### Use `{}` for code block:
