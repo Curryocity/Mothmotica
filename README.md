@@ -1,6 +1,6 @@
 # Mothmotica 
 
-> State: Work In Progress
+> State: Work In Progress, GUI isn't ready
 
 Mothball awakened, this project wouldn't be mothballed.
 
