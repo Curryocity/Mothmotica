@@ -1,5 +1,7 @@
 mothball_test
 src.bin
 src/src
+mothmotica-gui
+imgui.ini
 
 .vscode/

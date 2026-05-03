@@ -1,6 +1,6 @@
 # Mothmotica 
 
-> State: Work In Progress, GUI isn't ready
+> State: Work In Progress, GUI is experimental
 
 Mothball awakened, this project won't be mothballed.
 
@@ -12,15 +12,6 @@ Mothball awakened, this project won't be mothballed.
 Mothmotica adds more stratfinding features to the existing mothball, the syntax was also modified to make more sense in a PC editor (the original mothball syntax is more suitable for discord/mobile users)
 
 Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, simplicity, and **the joy of Mothballing.**
-
-## Build
-
-Requires Odin.
-
-```sh
-odin build src
-./src.bin
-```
 
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
 

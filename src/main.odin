@@ -7,7 +7,7 @@ import "core:strings"
 main :: proc(){
     bake_trig() // do not forget
 
-    buf: [256]byte
+    buf: [65536]byte
     for {
         fmt.println("Chat:")
         
