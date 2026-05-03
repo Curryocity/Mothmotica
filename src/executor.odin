@@ -236,6 +236,12 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
         xmm := (p.x >= 0) ? p.x - hitbox : p.x + hitbox
         return formatOutValue(prs, p, "Xmm", xmm, cmd.args[:], "xmm")
+    
+    case .OutXLadder:
+        msg, argsOK := expectPlainArgs(cmd, "xld(...)", 0, 1)
+        if !argsOK do return msg, false
+        xld := (p.x >= 0) ? p.x + hitbox/2 : p.x - hitbox/2
+        return formatOutValue(prs, p, "Xld", xld, cmd.args[:], "xld")
 
     case .OutZRaw:
         msg, argsOK := expectPlainArgs(cmd, "zr(...)", 0, 1)
@@ -256,6 +262,12 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
         zmm := (p.z >= 0) ? p.z - hitbox : p.z + hitbox
         return formatOutValue(prs, p, "Zmm", zmm, cmd.args[:], "zmm")
+
+    case .OutZLadder:
+        msg, argsOK := expectPlainArgs(cmd, "zld(...)", 0, 1)
+        if !argsOK do return msg, false
+        zld := (p.z >= 0) ? p.z + hitbox/2 : p.z - hitbox/2
+        return formatOutValue(prs, p, "Zld", zld, cmd.args[:], "zld")
 
     case .OutVx:
         msg, argsOK := expectPlainArgs(cmd, "outvx(...)", 0, 1)
@@ -954,6 +966,12 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
         case .OutZMM:
             value := (p.z >= 0) ? p.z - hitbox : p.z + hitbox
             return name, value, true
+        case .OutXLadder:
+            value := (p.x >= 0) ? p.x + hitbox/2 : p.x - hitbox/2
+            return name, value, true
+        case .OutZLadder:
+            value := (p.z >= 0) ? p.z + hitbox/2 : p.z - hitbox/2
+            return name, value, true
         case:
             if name == "" do name = "command"
             return fmt.tprintf("Error: measure(...) cannot measure builtin '%s'", name), 0, false
@@ -984,6 +1002,10 @@ measureBuiltinDefaultName :: proc(type: CmdType) -> string {
         return "xmm"
     case .OutZMM:
         return "zmm"
+    case .OutXLadder:
+        return "xld"
+    case .OutZLadder:
+        return "zld"
     case:
         return ""
     }

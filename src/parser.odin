@@ -39,8 +39,8 @@ CmdType :: enum {
     SetVz, SetVx, SetVel,
     ResetPos, ResetPosVel,
 
-    OutXRaw, OutXBlock, OutXMM,
-    OutZRaw, OutZBlock, OutZMM,
+    OutXRaw, OutXBlock, OutXMM, OutXLadder,
+    OutZRaw, OutZBlock, OutZMM, OutZLadder,
 
     OutVx, OutVz, OutVec,
 
@@ -112,6 +112,7 @@ parseMothball :: proc(input: string) -> string {
 
     map_insert(&prs.vars, "bx", widenf32(0.6))
     map_insert(&prs.vars, "px", 0.0625)
+    map_insert(&prs.vars, "pi", PId)
 
     p := makePlayer()
     defer deletePlayerState(&p)
@@ -375,12 +376,16 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .OutXBlock
         case "xmm":
             return .OutXMM
+        case "xld":
+            return .OutXLadder
         case "zr", "outz":
             return .OutZRaw
         case "zb":
             return .OutZBlock
         case "zmm":
             return .OutZMM
+        case "zld":
+            return .OutZLadder
         case "outvx":
             return .OutVx
         case "outvz":

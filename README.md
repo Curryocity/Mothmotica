@@ -95,6 +95,34 @@ In this particular example, the savestate could be replaced by storing the veloc
 
 But there is so much more you can do with savestates.
 
+### Powerful Player Set/Output function
+
+| Command | What it does |
+| --- | --- |
+| `\|` | `pos(0, 0)` |
+| `\|\|` | `pos(0, 0)` + `vel(0, 0)` |
+| `x(n)` | Set `X = n` |
+| `z(n)` | Set `Z = n` |
+| `pos(n, m)` | Set `(X,Z) = (n, m)` |
+| `vx(n)` | Set `Vx = n` |
+| `vz(n)` | Set `Vz = n` |
+| `vel(n, m)` | Set `(Vx,Vz) = (n, m)` |
+| `f(n)` | Set `facing = n` degrees |
+| `t(n)` | Turn facing by `n` degrees |
+| `xr` / `outx` | Output `X` |
+| `zr` / `outz` | Output `Z` |
+| `xb` | Output `X + bx` |
+| `zb` | Output `Z + bx` |
+| `xmm` | Output `X - bx` |
+| `zmm` | Output `Z - bx` |
+| `xld` | Output `X + bx/2` |
+| `zld` | Output `Z + bx/2` |
+| `outvx` | Output `Vx` |
+| `outvz` | Output `Vz` |
+| `vec` | Output speed and angle |
+| `outf` | Output facing |
+| `outt` | Output turn/facing |
+
 ### `print()/printn()` and `mes()`
 
 `print()` accepts multiple arguments and tries to print its text or value separated by `' '` char.
@@ -135,7 +163,7 @@ Output:
 It accept multiple variables like `mes(var1, var2, var3)`
 And it outputs like `(var1, var2, var3) = (3.5, -4, 0.67)` in a single line.
 
-Apart from variables, you can put in built-in identifier `x/xb/xmm/z/zb/zmm/vx/vz/f/t` to measure the state of the player. Like:
+Apart from variables, you can put in built-in identifier `x/xb/xmm/xld/z/zb/zmm/zld/vx/vz/f/t` to measure the state of the player. Like:
 
 ```
 ;s f(15) wj.wd sa.wd(11) s.wd mes(x,z,vx,vz)
@@ -205,44 +233,30 @@ I don't think I need to explain anything of it except that **the unit of angle i
 
 ## A Few Examples (Guide/Wiki WIP):
 
-**1bm 5-1**
-```text
-Chat:
-;s pre(16) f(33.8) wa.sd(1) wj.sd(12) w.sd zmm | sj.wa f(0) sa45(11) zmm | sj45(14) zb
-
-Mothball:
-Zmm: -0.9645575333436178
-Zmm: 0.9999674696973333
-Zb: 5.0044307480362358
-```
-
-**1.1875bm 4.4375b**
+**1.1875bm jumps**
 ```
 Chat:
-;s wj.s(2) wa.sa(2) wa.s(8) w.s zmm(-1.1875) | sj45(12) zmm(1.1875) | sj45(12) zb(4.4375)
+;s wj.s(2) wa.sa(2) wa.s(8) w.s zmm(-1.1875) | sj45(12) zmm(1.1875) | poss(0.02){ sj45(25)}
 
 Mothball:
 Zmm: -1.1875 + 0.403479
 Zmm: 1.1875 - 0.000008
-Zb: 4.4375 + 0.013197
+Poss: (t = 1...25, thres = 0.02)
+t = 1: 0.8125 + 0.015714
+t = 12: 4.4375 + 0.013197
+t = 13: 4.75 + 0.000981
+t = 17: 5.9375 + 0.005244
+t = 20: 6.8125 + 0.016381
+t = 24: 8 + 0.003147
 ```
 
 **slowness I 1.5bm 6-1 to ladder**
 ```
 Chat:
-;s pre(9) slow(1) inv(1.5+bx){ sj sa.wa(11,45.01) zmm} | poss(0.02, bx/2){sj sa.wa(24,45.01)}
+;s pre(9) f(45.01) slow(1) inv(1.5+bx){ sj(1,0) sa.wa(11) zmm} | sj(1,0) sa.wa(14) zld(5)
 
 Mothball:
 Lerped Vz: -0.127684424
 Zmm: 1.5
-Poss: (t = 1...25, thres = 0.02)
-t = 10: 3.5 + 0.009757577
-t = 14: 4.6875 + 0.016093186
-t = 15: 5 + 0.000000137
-t = 18: 5.875 + 0.01039939
-t = 21: 6.75 + 0.016182457
-t = 24: 7.625 + 0.018486902
+Zld: 5 + 0.000000137
 ```
-
-
-
