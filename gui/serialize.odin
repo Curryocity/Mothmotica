@@ -13,8 +13,62 @@ freeSavedSettings :: proc(settings: ^SavedSettings) {
     delete(settings.player_avatar_path)
 }
 
+appDataDir :: proc() -> (string, os.Error) {
+    root, root_err := os.user_data_dir(context.allocator)
+    if root_err != nil {
+        return "", root_err
+    }
+    defer delete(root)
+
+    return os.join_path({root, APP_NAME}, context.allocator)
+}
+
+settingsPath :: proc() -> (string, os.Error) {
+    dir, dir_err := appDataDir()
+    if dir_err != nil {
+        return "", dir_err
+    }
+    defer delete(dir)
+
+    return os.join_path({dir, SETTINGS_FILE}, context.allocator)
+}
+
+booksDir :: proc() -> (string, os.Error) {
+    dir, dir_err := appDataDir()
+    if dir_err != nil {
+        return "", dir_err
+    }
+    defer delete(dir)
+
+    return os.join_path({dir, BOOKS_FOLDER}, context.allocator)
+}
+
+userAvatarDir :: proc() -> (string, os.Error) {
+    dir, dir_err := appDataDir()
+    if dir_err != nil {
+        return "", dir_err
+    }
+    defer delete(dir)
+
+    return os.join_path({dir, USER_DATA_FOLDER, AVATAR_FOLDER}, context.allocator)
+}
+
+playerAvatarPath :: proc() -> (string, os.Error) {
+    dir, dir_err := userAvatarDir()
+    if dir_err != nil {
+        return "", dir_err
+    }
+    defer delete(dir)
+
+    return os.join_path({dir, PLAYER_AVATAR_FILE}, context.allocator)
+}
+
 loadSettings :: proc(state: ^AppState) {
-    data, read_err := os.read_entire_file(SETTINGS_PATH, context.allocator)
+    path, path_err := settingsPath()
+    if path_err != nil do return
+    defer delete(path)
+
+    data, read_err := os.read_entire_file(path, context.allocator)
     if read_err != nil do return
     defer delete(data)
 
@@ -41,6 +95,18 @@ loadSettings :: proc(state: ^AppState) {
 }
 
 saveSettings :: proc(state: ^AppState) {
+    dir, dir_err := appDataDir()
+    if dir_err != nil do return
+    defer delete(dir)
+
+    if mkdir_err := os.make_directory_all(dir); mkdir_err != nil && !os.is_dir(dir) {
+        return
+    }
+
+    path, path_err := settingsPath()
+    if path_err != nil do return
+    defer delete(path)
+
     saved := SavedSettings {
         version = 1,
         player_name = bufferString(state.playerName[:]),
@@ -54,7 +120,7 @@ saveSettings :: proc(state: ^AppState) {
     if marshal_err != nil do return
     defer delete(data)
 
-    if os.write_entire_file(SETTINGS_PATH, data) == nil {
+    if os.write_entire_file(path, data) == nil {
         state.settingsDirty = false
     }
 }
@@ -63,10 +129,6 @@ saveDirtySettings :: proc(state: ^AppState) {
     if state.settingsDirty {
         saveSettings(state)
     }
-}
-
-booksDir :: proc() -> (string, os.Error) {
-    return os.get_absolute_path(BOOKS_DIR, context.allocator)
 }
 
 bookPagesDir :: proc(state: ^AppState) -> (string, os.Error) {

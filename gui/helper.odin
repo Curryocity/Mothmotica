@@ -25,11 +25,13 @@ MAX_NOTES :: 12
 MAX_MSGS :: 128
 NOTE_TITLE_SIZE :: 128
 PATH_SIZE :: 1024
-BOOKS_DIR :: "books"
-SETTINGS_PATH :: "mothmotica-settings.json"
+APP_NAME :: "Mothmotica"
+BOOKS_FOLDER :: "books"
+SETTINGS_FILE :: "mothmotica-settings.json"
 BOT_AVATAR_PATH :: "asset/image/mothballpfp.png"
-USER_AVATAR_DIR :: "user_data/avatar"
-PLAYER_AVATAR_PATH :: "user_data/avatar/player_avatar.png"
+USER_DATA_FOLDER :: "user_data"
+AVATAR_FOLDER :: "avatar"
+PLAYER_AVATAR_FILE :: "player_avatar.png"
 SIDEBAR_WIDTH :: f32(240)
 AUTOSAVE_INTERVAL_SECONDS :: f64(1.0)
 
@@ -115,23 +117,8 @@ SavedSettings :: struct {
 loadFonts :: proc(scale: f32) {
     io := im.GetIO()
     font_scale := max(scale, 1)
-    font_path := "asset/fonts/JetBrainsMono-Regular.ttf"
-
-    resolved: string
-    if !os.is_file(font_path) {
-        exe_dir, exe_dir_err := os.get_executable_directory(context.allocator)
-        if exe_dir_err == nil {
-            defer delete(exe_dir)
-            joined, join_err := os.join_path({exe_dir, font_path}, context.allocator)
-            if join_err == nil {
-                resolved = joined
-                if os.is_file(resolved) {
-                    font_path = resolved
-                }
-            }
-        }
-    }
-    defer if len(resolved) > 0 do delete(resolved)
+    font_path := resolveAssetPath("asset/fonts/JetBrainsMono-Regular.ttf")
+    defer delete(font_path)
 
     font_path_c := strings.clone_to_cstring(font_path)
     defer delete(font_path_c)
@@ -167,6 +154,16 @@ resolveAssetPath :: proc(path: string) -> string {
         return strings.clone(path)
     }
     defer delete(exe_dir)
+
+    when ODIN_OS == .Darwin {
+        resource_path, resource_err := os.join_path({exe_dir, "..", "Resources", path}, context.allocator)
+        if resource_err == nil {
+            if os.is_file(resource_path) {
+                return resource_path
+            }
+            delete(resource_path)
+        }
+    }
 
     joined, join_err := os.join_path({exe_dir, path}, context.allocator)
     if join_err != nil {
@@ -240,15 +237,27 @@ usePlayerAvatarImage :: proc(state: ^AppState) -> bool {
         return false
     }
 
-    if mkdir_err := os.make_directory_all(USER_AVATAR_DIR); mkdir_err != nil && !os.is_dir(USER_AVATAR_DIR) {
+    avatar_dir, dir_err := userAvatarDir()
+    if dir_err != nil {
+        return false
+    }
+    defer delete(avatar_dir)
+
+    if mkdir_err := os.make_directory_all(avatar_dir); mkdir_err != nil && !os.is_dir(avatar_dir) {
         return false
     }
 
-    if copy_err := os.copy_file(PLAYER_AVATAR_PATH, source); copy_err != nil {
+    avatar_path, path_err := playerAvatarPath()
+    if path_err != nil {
+        return false
+    }
+    defer delete(avatar_path)
+
+    if copy_err := os.copy_file(avatar_path, source); copy_err != nil {
         return false
     }
 
-    bufferSet(state.playerAvatarPath[:], PLAYER_AVATAR_PATH)
+    bufferSet(state.playerAvatarPath[:], avatar_path)
     if !loadPlayerAvatarTexture(state) {
         return false
     }
