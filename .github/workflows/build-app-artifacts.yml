@@ -44,6 +44,11 @@ jobs:
         with:
           release: nightly
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Setup MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -52,14 +57,25 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang build-essential libglfw3-dev libgl1-mesa-dev xorg-dev
+          sudo apt-get install -y clang build-essential libglfw3-dev libgl1-mesa-dev xorg-dev python3-ply
 
       - name: Show Odin version
         run: odin report
 
+      - name: Install Python build dependencies
+        run: |
+          python -c "import sys; print(sys.executable)"
+          python -m pip install --upgrade pip
+          python -m pip install ply
+          python -m pip show ply
+
       - name: Build odin-imgui native libraries
         working-directory: third_party/odin-imgui
-        run: python build.py
+        run: |
+          python -c "import sys; print(sys.executable)"
+          python -m pip install ply
+          python -m pip show ply
+          python build.py
 
       - name: Build CLI
         run: odin build src -out:${{ matrix.target.cli }}
