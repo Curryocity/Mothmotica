@@ -1,7 +1,11 @@
 mothball_test
 src.bin
 src/src
+mothmotica-cli
+mothmotica-cli.exe
 mothmotica-gui
+mothmotica-gui.exe
+dist/
 imgui.ini
 notes/
 books/

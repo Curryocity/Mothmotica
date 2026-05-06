@@ -726,9 +726,14 @@ runMothball :: proc(input: string, output: []byte) {
     }
     defer delete(exe_dir)
 
-    cli_path, join_err := os.join_path({exe_dir, "src.bin"}, context.allocator)
+    cli_name := "mothmotica-cli"
+    when ODIN_OS == .Windows {
+        cli_name = "mothmotica-cli.exe"
+    }
+
+    cli_path, join_err := os.join_path({exe_dir, cli_name}, context.allocator)
     if join_err != nil {
-        bufferSet(output, "Could not resolve src.bin path.")
+        bufferSet(output, "Could not resolve mothmotica-cli path.")
         return
     }
     defer delete(cli_path)
@@ -745,7 +750,7 @@ runMothball :: proc(input: string, output: []byte) {
     defer delete(stderr)
 
     if proc_err != nil {
-        bufferSet(output, "Could not run src.bin. Build it with `odin build src -out:src.bin`.")
+        bufferSet(output, "Could not run mothmotica-cli. Build it with `make gui`.")
         return
     }
 

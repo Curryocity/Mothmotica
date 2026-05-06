@@ -1,0 +1,85 @@
+name: Build App Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    tags: [ "v*" ]
+
+jobs:
+  build:
+    name: mothmotica-${{ matrix.version }}-${{ matrix.target.platform }}
+    runs-on: ${{ matrix.target.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [v0.1.0]
+        target:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+            gui: mothmotica-gui
+            cli: mothmotica-cli
+          - os: windows-latest
+            platform: windows-x86_64
+            gui: mothmotica-gui.exe
+            cli: mothmotica-cli.exe
+          - os: macos-13
+            platform: macos-x86_64
+            gui: mothmotica-gui
+            cli: mothmotica-cli
+          - os: macos-14
+            platform: macos-arm64
+            gui: mothmotica-gui
+            cli: mothmotica-cli
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Odin
+        uses: laytan/setup-odin@v2
+        with:
+          release: nightly
+
+      - name: Setup MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang build-essential libglfw3-dev libgl1-mesa-dev xorg-dev
+
+      - name: Show Odin version
+        run: odin report
+
+      - name: Build odin-imgui native libraries
+        working-directory: third_party/odin-imgui
+        run: python build.py
+
+      - name: Build CLI
+        run: odin build src -out:${{ matrix.target.cli }}
+
+      - name: Build GUI
+        run: odin build gui -out:${{ matrix.target.gui }}
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact="mothmotica-${{ matrix.version }}-${{ matrix.target.platform }}"
+          mkdir -p "dist/${artifact}"
+          cp "${{ matrix.target.gui }}" "dist/${artifact}/"
+          cp "${{ matrix.target.cli }}" "dist/${artifact}/"
+          cp -R asset "dist/${artifact}/asset"
+          cp README.md LICENSE "dist/${artifact}/"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mothmotica-${{ matrix.version }}-${{ matrix.target.platform }}
+          path: dist/mothmotica-${{ matrix.version }}-${{ matrix.target.platform }}

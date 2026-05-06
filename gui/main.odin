@@ -52,7 +52,7 @@ main :: proc() {
     state.nextNoteID = 1
     state.sendHotkey = .Enter
     state.theme = .Dark
-    bufferSet(state.playerName[:], "Curryocity")
+    bufferSet(state.playerName[:], "Player")
     bufferSet(state.botName[:], "Mothball")
     loadSettings(state)
     loadPlayerAvatarTexture(state)
