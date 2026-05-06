@@ -614,7 +614,8 @@ openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
 createBook :: proc(state: ^AppState) -> bool {
     name := strings.trim_space(bufferString(state.bookNameInput[:]))
     if name == "" {
-        name = "new-book"
+        bufferSet(state.openStatus[:], "Book name cannot be empty.")
+        return false
     }
 
     root, root_err := booksDir()
@@ -688,6 +689,30 @@ openExternal :: proc(url: string, status: []byte) {
         return
     }
     bufferSet(status, fmt.tprintf("Opening %s", url))
+}
+
+openCurrentBookFolder :: proc(state: ^AppState) {
+    path := bufferString(state.currentBookPath[:])
+    if path == "" || !os.is_dir(path) {
+        bufferSet(state.saveStatus[:], "No open book folder to show.")
+        return
+    }
+    openExternal(path, state.saveStatus[:])
+}
+
+openBooksFolder :: proc(state: ^AppState) {
+    dir, dir_err := booksDir()
+    if dir_err != nil {
+        bufferSet(state.openStatus[:], "Could not resolve books folder.")
+        return
+    }
+    defer delete(dir)
+
+    if mkdir_err := os.make_directory_all(dir); mkdir_err != nil && !os.is_dir(dir) {
+        bufferSet(state.openStatus[:], fmt.tprintf("Could not create books folder: %v", mkdir_err))
+        return
+    }
+    openExternal(dir, state.openStatus[:])
 }
 
 noteTitle :: proc(note: ^Note) -> string {
@@ -1304,6 +1329,10 @@ drawTopBar :: proc(state: ^AppState, note: ^Note) {
     if im.Button("Switch Book") {
         state.showOpenBookDialog = true
     }
+    im.SameLine()
+    if im.Button("Locate Book") {
+        openCurrentBookFolder(state)
+    }
 
     if note != nil {
         im.SameLine()
@@ -1362,12 +1391,15 @@ drawBookDialogs :: proc(state: ^AppState) {
     if im.BeginPopupModal("Create Book", &state.showCreateBookDialog) {
         im.SetNextItemWidth(360)
         im.InputText("Book Name", cstring(&state.bookNameInput[0]), c.size_t(len(state.bookNameInput)))
+        can_create_book := strings.trim_space(bufferString(state.bookNameInput[:])) != ""
+        im.BeginDisabled(!can_create_book)
         if im.Button("Create") {
             if createBook(state) {
                 state.showCreateBookDialog = false
                 im.CloseCurrentPopup()
             }
         }
+        im.EndDisabled()
         im.SameLine()
         if im.Button("Cancel") {
             state.showCreateBookDialog = false
@@ -1397,6 +1429,11 @@ drawBookDialogs :: proc(state: ^AppState) {
         im.SetCursorPosX(max((im.GetWindowWidth() - title_size.x) * 0.5, 16))
         im.TextColored(titleColor(state.theme), "Select A Book")
         im.SetWindowFontScale(1)
+        book_folder_w := f32(118)
+        im.SameLine(max(im.GetWindowWidth() - book_folder_w - 18, 16))
+        if im.Button("Book Folder", {book_folder_w, 32}) {
+            openBooksFolder(state)
+        }
         im.Dummy({0, 8})
         im.Separator()
         im.Dummy({0, 8})
@@ -1451,16 +1488,10 @@ drawBookDialogs :: proc(state: ^AppState) {
         }
         im.EndChild()
 
-        status := bufferString(state.openStatus[:])
-        if len(status) > 0 {
-            im.Separator()
-            status_c := strings.clone_to_cstring(status)
-            defer delete(status_c)
-            im.TextWrapped("%s", status_c)
-        }
-
         im.Separator()
-        if im.Button("Close", {100, 34}) {
+        close_w := f32(100)
+        im.SetCursorPosX(max((im.GetWindowWidth() - close_w) * 0.5, 16))
+        if im.Button("Close", {close_w, 34}) {
             state.showOpenBookDialog = false
             im.CloseCurrentPopup()
         }
