@@ -164,14 +164,6 @@ drawTopBar :: proc(state: ^AppState, note: ^Note) {
         _ = avail
     }
 
-    save_status := bufferString(state.saveStatus[:])
-    if len(save_status) > 0 {
-        im.NewLine()
-        save_status_c := strings.clone_to_cstring(save_status)
-        defer delete(save_status_c)
-        im.TextColored(mutedColor(state.theme), "Save: %s", save_status_c)
-    }
-
     im.Separator()
 }
 
