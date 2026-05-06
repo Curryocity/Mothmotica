@@ -448,7 +448,7 @@ createNote :: proc(state: ^AppState) -> ^Note {
         }
         state.nextNoteID += 1
     }
-    bufferSet(note.title[:], fmt.tprintf("note-%d", note.id))
+    bufferSet(note.title[:], fmt.tprintf("page-%d", note.id))
     state.nextNoteID += 1
     appendEmptyMsg(note)
     note.dirty = true

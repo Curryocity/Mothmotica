@@ -145,7 +145,7 @@ defaultNotePath :: proc(state: ^AppState, note: ^Note) -> (string, os.Error) {
         return "", dir_err
     }
     defer delete(dir)
-    return os.join_path({dir, fmt.tprintf("note-%d.json", note.id)}, context.allocator)
+    return os.join_path({dir, fmt.tprintf("page-%d.json", note.id)}, context.allocator)
 }
 
 notePath :: proc(state: ^AppState, note: ^Note) -> (string, os.Error) {

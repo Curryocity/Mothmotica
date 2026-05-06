@@ -94,7 +94,7 @@ jobs:
           python build.py
 
       - name: Build CLI
-        run: odin build src -out:${{ matrix.target.cli }}
+        run: odin build src -o:size -out:${{ matrix.target.cli }}
 
       - name: Build Odin STB libraries
         if: runner.os != 'Windows'
@@ -113,7 +113,23 @@ jobs:
           }
 
       - name: Build GUI
-        run: odin build gui -out:${{ matrix.target.gui }}
+        run: odin build gui -o:size -out:${{ matrix.target.gui }}
+
+      - name: Strip release binaries
+        if: runner.os != 'Windows'
+        shell: bash
+        run: strip "${{ matrix.target.gui }}" "${{ matrix.target.cli }}"
+
+      - name: Strip release binaries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $strip = Get-Command llvm-strip -ErrorAction SilentlyContinue
+          if ($strip) {
+            & $strip.Source "${{ matrix.target.gui }}" "${{ matrix.target.cli }}"
+          } else {
+            Write-Host "llvm-strip was not found; leaving Windows binaries unstripped."
+          }
 
       - name: Package artifact
         shell: bash
