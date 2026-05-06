@@ -6,6 +6,7 @@ imgui.ini
 notes/
 books/
 mothmotica-settings.json
+user_data/
 
 .vscode/
 .DS_Store

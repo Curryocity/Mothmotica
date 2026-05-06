@@ -10,6 +10,7 @@ import "core:unicode"
 freeSavedSettings :: proc(settings: ^SavedSettings) {
     delete(settings.player_name)
     delete(settings.bot_name)
+    delete(settings.player_avatar_path)
 }
 
 loadSettings :: proc(state: ^AppState) {
@@ -27,6 +28,9 @@ loadSettings :: proc(state: ^AppState) {
     if strings.trim_space(saved.bot_name) != "" {
         bufferSet(state.botName[:], saved.bot_name)
     }
+    if strings.trim_space(saved.player_avatar_path) != "" {
+        bufferSet(state.playerAvatarPath[:], saved.player_avatar_path)
+    }
     if saved.send_hotkey >= int(SendHotkey.Enter) && saved.send_hotkey <= int(SendHotkey.Shift_Enter) {
         state.sendHotkey = SendHotkey(saved.send_hotkey)
     }
@@ -41,6 +45,7 @@ saveSettings :: proc(state: ^AppState) {
         version = 1,
         player_name = bufferString(state.playerName[:]),
         bot_name = bufferString(state.botName[:]),
+        player_avatar_path = bufferString(state.playerAvatarPath[:]),
         send_hotkey = int(state.sendHotkey),
         theme = int(state.theme),
     }
@@ -456,4 +461,3 @@ ensureBooksDir :: proc(state: ^AppState) {
         bufferSet(state.openStatus[:], fmt.tprintf("Could not create books folder: %v", mkdir_err))
     }
 }
-

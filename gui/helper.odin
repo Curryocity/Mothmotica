@@ -10,8 +10,12 @@ import "core:strings"
 
 import im "../third_party/odin-imgui"
 import "vendor:glfw"
+import gl "vendor:OpenGL"
+import stbi "vendor:stb/image"
 
 code_font: ^im.Font
+bot_avatar_texture: u32
+player_avatar_texture: u32
 FONT_SIZE :: f32(18)
 SIDE_PAD :: f32(28)
 MESSAGE_GAP :: f32(10)
@@ -23,6 +27,9 @@ NOTE_TITLE_SIZE :: 128
 PATH_SIZE :: 1024
 BOOKS_DIR :: "books"
 SETTINGS_PATH :: "mothmotica-settings.json"
+BOT_AVATAR_PATH :: "asset/image/mothballpfp.png"
+USER_AVATAR_DIR :: "user_data/avatar"
+PLAYER_AVATAR_PATH :: "user_data/avatar/player_avatar.png"
 SIDEBAR_WIDTH :: f32(240)
 AUTOSAVE_INTERVAL_SECONDS :: f64(1.0)
 
@@ -55,9 +62,11 @@ AppState :: struct {
     currentBookName: [NOTE_TITLE_SIZE]byte,
     openStatus: [256]byte,
     saveStatus: [256]byte,
+    settingsStatus: [256]byte,
     titleEdit: [NOTE_TITLE_SIZE]byte,
     playerName: [NOTE_TITLE_SIZE]byte,
     botName: [NOTE_TITLE_SIZE]byte,
+    playerAvatarPath: [PATH_SIZE]byte,
     sendHotkey: SendHotkey,
     theme: Theme,
     settingsDirty: bool,
@@ -98,6 +107,7 @@ SavedSettings :: struct {
     version: int,
     player_name: string,
     bot_name: string,
+    player_avatar_path: string,
     send_hotkey: int,
     theme: int,
 }
@@ -144,6 +154,113 @@ pushCodeFont :: proc() -> bool {
 popFontIf :: proc(pushed: bool) {
     if pushed {
         im.PopFont()
+    }
+}
+
+resolveAssetPath :: proc(path: string) -> string {
+    if os.is_file(path) {
+        return strings.clone(path)
+    }
+
+    exe_dir, exe_dir_err := os.get_executable_directory(context.allocator)
+    if exe_dir_err != nil {
+        return strings.clone(path)
+    }
+    defer delete(exe_dir)
+
+    joined, join_err := os.join_path({exe_dir, path}, context.allocator)
+    if join_err != nil {
+        return strings.clone(path)
+    }
+    return joined
+}
+
+loadTextureRGBA :: proc(path: string) -> u32 {
+    resolved := resolveAssetPath(path)
+    defer delete(resolved)
+
+    path_c := strings.clone_to_cstring(resolved)
+    defer delete(path_c)
+
+    width, height, channels: c.int
+    pixels := stbi.load(path_c, &width, &height, &channels, 4)
+    if pixels == nil || width <= 0 || height <= 0 {
+        return 0
+    }
+    defer stbi.image_free(pixels)
+
+    texture: u32
+    gl.GenTextures(1, &texture)
+    if texture == 0 {
+        return 0
+    }
+
+    gl.BindTexture(gl.TEXTURE_2D, texture)
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, i32(gl.LINEAR))
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, i32(gl.LINEAR))
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, i32(gl.CLAMP_TO_EDGE))
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, i32(gl.CLAMP_TO_EDGE))
+    gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    gl.TexImage2D(gl.TEXTURE_2D, 0, i32(gl.RGBA), width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, rawptr(pixels))
+    gl.BindTexture(gl.TEXTURE_2D, 0)
+    return texture
+}
+
+loadBotAvatarTexture :: proc() {
+    bot_avatar_texture = loadTextureRGBA(BOT_AVATAR_PATH)
+}
+
+destroyBotAvatarTexture :: proc() {
+    if bot_avatar_texture != 0 {
+        gl.DeleteTextures(1, &bot_avatar_texture)
+        bot_avatar_texture = 0
+    }
+}
+
+loadPlayerAvatarTexture :: proc(state: ^AppState) -> bool {
+    path := strings.trim_space(bufferString(state.playerAvatarPath[:]))
+    if path == "" {
+        destroyPlayerAvatarTexture()
+        return false
+    }
+
+    texture := loadTextureRGBA(path)
+    if texture == 0 {
+        return false
+    }
+
+    destroyPlayerAvatarTexture()
+    player_avatar_texture = texture
+    return true
+}
+
+usePlayerAvatarImage :: proc(state: ^AppState) -> bool {
+    source := strings.trim_space(bufferString(state.playerAvatarPath[:]))
+    if source == "" || !os.is_file(source) {
+        return false
+    }
+
+    if mkdir_err := os.make_directory_all(USER_AVATAR_DIR); mkdir_err != nil && !os.is_dir(USER_AVATAR_DIR) {
+        return false
+    }
+
+    if copy_err := os.copy_file(PLAYER_AVATAR_PATH, source); copy_err != nil {
+        return false
+    }
+
+    bufferSet(state.playerAvatarPath[:], PLAYER_AVATAR_PATH)
+    if !loadPlayerAvatarTexture(state) {
+        return false
+    }
+
+    state.settingsDirty = true
+    return true
+}
+
+destroyPlayerAvatarTexture :: proc() {
+    if player_avatar_texture != 0 {
+        gl.DeleteTextures(1, &player_avatar_texture)
+        player_avatar_texture = 0
     }
 }
 
@@ -425,6 +542,26 @@ drawAvatar :: proc(label: cstring, bg, ring, text_col: im.Vec4) {
         center.y - text_size.y * 0.5,
     }
     im.DrawList_AddText(draw_list, text_pos, im.GetColorU32ImVec4(text_col), label)
+}
+
+drawAvatarImage :: proc(texture: u32) {
+    pos := im.GetCursorScreenPos()
+    p_min := pos
+    p_max := im.Vec2{pos.x + AVATAR_SIZE, pos.y + AVATAR_SIZE}
+    radius := AVATAR_SIZE * 0.5
+    draw_list := im.GetWindowDrawList()
+
+    im.DrawList_AddImageRounded(
+        draw_list,
+        im.TextureID(texture),
+        p_min,
+        p_max,
+        {0, 0},
+        {1, 1},
+        0xff_ff_ff_ff,
+        radius,
+        im.DrawFlags_RoundCornersAll,
+    )
 }
 
 titleColor :: proc(theme: Theme) -> im.Vec4 {

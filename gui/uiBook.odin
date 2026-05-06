@@ -12,8 +12,12 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
 
     im.Dummy({0, 8})
     bot_name := bufferString(state.botName[:])
-    bot_avatar := avatarLabel(bot_name, 'M')
-    drawAvatar(cstring(&bot_avatar[0]), {0.27, 0.24, 0.58, 1}, {0.49, 0.42, 0.82, 1}, {0.96, 0.95, 1.0, 1})
+    if bot_avatar_texture != 0 {
+        drawAvatarImage(bot_avatar_texture)
+    } else {
+        bot_avatar := avatarLabel(bot_name, 'M')
+        drawAvatar(cstring(&bot_avatar[0]), {0.27, 0.24, 0.58, 1}, {0.49, 0.42, 0.82, 1}, {0.96, 0.95, 1.0, 1})
+    }
     im.Indent(AVATAR_SIZE + AVATAR_GAP)
 
     bot_name_c := strings.clone_to_cstring(bot_name)
@@ -38,8 +42,12 @@ drawUserMsg :: proc(state: ^AppState, note: ^Note, idx: int, is_draft: bool) {
 
     im.Dummy({0, MESSAGE_GAP})
     player_name := bufferString(state.playerName[:])
-    player_avatar := avatarLabel(player_name, 'C')
-    drawAvatar(cstring(&player_avatar[0]), {0.78, 0.53, 0.16, 1}, {1.0, 0.79, 0.32, 1}, {0.07, 0.06, 0.04, 1})
+    if player_avatar_texture != 0 {
+        drawAvatarImage(player_avatar_texture)
+    } else {
+        player_avatar := avatarLabel(player_name, 'C')
+        drawAvatar(cstring(&player_avatar[0]), {0.78, 0.53, 0.16, 1}, {1.0, 0.79, 0.32, 1}, {0.07, 0.06, 0.04, 1})
+    }
     im.Indent(AVATAR_SIZE + AVATAR_GAP)
 
     im.AlignTextToFramePadding()

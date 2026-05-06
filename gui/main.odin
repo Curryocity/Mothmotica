@@ -35,6 +35,9 @@ main :: proc() {
     io.ConfigFlags += {.NavEnableKeyboard}
     xscale, yscale := glfw.GetWindowContentScale(window)
     loadFonts(max(xscale, yscale))
+    loadBotAvatarTexture()
+    defer destroyBotAvatarTexture()
+    defer destroyPlayerAvatarTexture()
 
     applyTheme(.Dark)
 
@@ -52,6 +55,7 @@ main :: proc() {
     bufferSet(state.playerName[:], "Curryocity")
     bufferSet(state.botName[:], "Mothball")
     loadSettings(state)
+    loadPlayerAvatarTexture(state)
     applyTheme(state.theme)
     last_theme := state.theme
     last_autosave_time := im.GetTime()

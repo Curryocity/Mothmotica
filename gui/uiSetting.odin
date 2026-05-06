@@ -1,6 +1,7 @@
 package main
 
 import "core:c"
+import "core:strings"
 
 import im "../third_party/odin-imgui"
 
@@ -31,6 +32,33 @@ drawSettings :: proc(state: ^AppState) {
         im.SetNextItemWidth(-1)
         if im.InputText("##bot-name", cstring(&state.botName[0]), c.size_t(len(state.botName))) {
             state.settingsDirty = true
+        }
+
+        im.SeparatorText("Player Avatar")
+        im.AlignTextToFramePadding()
+        im.Text("Source Path:")
+        im.SameLine()
+        im.SetNextItemWidth(-1)
+        im.InputText("##player-avatar-path", cstring(&state.playerAvatarPath[0]), c.size_t(len(state.playerAvatarPath)))
+        if im.Button("Use Image", {120, 34}) {
+            if usePlayerAvatarImage(state) {
+                bufferSet(state.settingsStatus[:], "Copied player avatar locally.")
+            } else {
+                bufferSet(state.settingsStatus[:], "Could not copy player avatar image.")
+            }
+        }
+        im.SameLine()
+        if im.Button("Reset", {90, 34}) {
+            destroyPlayerAvatarTexture()
+            bufferSet(state.playerAvatarPath[:], "")
+            state.settingsDirty = true
+            bufferSet(state.settingsStatus[:], "Reset player avatar.")
+        }
+        settings_status := bufferString(state.settingsStatus[:])
+        if len(settings_status) > 0 {
+            settings_status_c := strings.clone_to_cstring(settings_status)
+            defer delete(settings_status_c)
+            im.TextColored(mutedColor(state.theme), "%s", settings_status_c)
         }
 
         im.SeparatorText("Send Hotkey")
@@ -64,4 +92,3 @@ drawSettings :: proc(state: ^AppState) {
     }
     im.EndChild()
 }
-
