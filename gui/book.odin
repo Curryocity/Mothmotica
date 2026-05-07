@@ -184,8 +184,7 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
 
 drawTopBar :: proc(state: ^AppState, page: ^Page) {
     if im.Button("Home") {
-        state.showHome = true
-        state.showSettings = false
+        state.scene = .Home
     }
     im.SameLine()
     if im.Button("Switch Book") {
@@ -396,7 +395,7 @@ createPage :: proc(state: ^AppState) -> ^Page {
 
     state.pageCount += 1
     state.activePage = idx
-    state.showHome = false
+    state.scene = .Book
     state.showStarred = false
     state.newMsgQ = true
     return page

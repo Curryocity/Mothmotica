@@ -405,6 +405,14 @@ findOpenPageByPath :: proc(state: ^AppState, path: string) -> int {
 
 // Page ordering
 
+orderFileExist :: proc(state: ^AppState) -> bool {
+    path, err := getPageOrderPath(state)
+    if err != nil {
+        return false
+    }
+    return os.is_file(path)
+}
+
 getPageOrderPath :: proc(state: ^AppState)  -> (string, os.Error) {
     dir, err := booksDir()
     if err != nil {
@@ -413,13 +421,32 @@ getPageOrderPath :: proc(state: ^AppState)  -> (string, os.Error) {
     return os.join_path({dir, PAGE_ORDER_FILE}, context.allocator)
 }
 
-savePagesOrder :: proc(state: ^AppState) {
+savePagesOrder :: proc(state: ^AppState) -> bool{
 
+    path, err := getPageOrderPath(state)
+    defer delete(path)
+    if err != nil {
+        return false
+    }
+
+    b := strings.builder_make()
+    defer strings.builder_destroy(&b)
+
+    for i in 0..<state.pageCount {
+        page := &state.pages[i]
+        title := getTitle(page)
+        strings.write_string(&b, fmt.tprintf("%d: %s\n", i, title))
+    }
+
+    text := strings.to_string(b)
+    err = os.write_entire_file(path, transmute([]byte)text)
+
+    return err == nil
 }
 
-getPagesOrder :: proc(state: ^AppState) -> [MAX_PAGES]Page{
+// getPagesOrder :: proc(state: ^AppState) -> [MAX_PAGES]Page{
     
-}
+// }
 
 // Book folders and loaded page sets
 
@@ -473,8 +500,7 @@ openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
         createPage(state)
     }
     state.activePage = min(state.activePage, state.pageCount - 1)
-    state.showHome = false
-    state.showSettings = false
+    state.scene = .Book
     state.showStarred = false
     return true
 }

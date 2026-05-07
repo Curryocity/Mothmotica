@@ -22,13 +22,19 @@ AUTOSAVE_INTERVAL_SECONDS :: f64(1.0)
 
 REPO_URL :: "https://github.com/Curryocity/Mothmotica"
 
+Scene :: enum {
+    Home,
+    Settings,
+    Book,
+}
+
 AppState :: struct {
     pages: [MAX_PAGES]Page,
     pageCount: int,
     activePage: int,
     nextPageID: int,
-    showHome: bool,
-    showSettings: bool,
+    pageOrderDirty: bool,
+    scene: Scene,
     showStarred: bool,
     showCreateBookPopup: bool,
     showOpenBookPopup: bool,
@@ -130,7 +136,7 @@ main :: proc() {
 
 init :: proc() -> ^AppState{
     state := new(AppState)
-    state.showHome = true
+    state.scene = .Home
     state.nextPageID = 1
     state.sendHotkey = .Enter
     state.theme = .Dark
@@ -155,21 +161,22 @@ draw :: proc(state: ^AppState) {
     if im.Begin("Mothmotica", nil, flags) {
         total := im.GetContentRegionAvail()
 
-        if state.showSettings {
+        switch state.scene {
+        case .Settings:
             if im.BeginChild("Settings", total, {}, {}) {
                 drawSettings(state)
             }
             im.EndChild()
-        } else if state.showHome {
+        case .Home:
             if im.BeginChild("Home", total, {}, {}) {
                 drawHomePage(state)
             }
             im.EndChild()
-        } else {
+        case .Book:
             drawBookUI(state)
         }
         
-        createBookPopup(state)
+        drawBookPopup(state)
     }
     im.End()
 }

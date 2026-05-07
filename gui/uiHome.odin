@@ -54,7 +54,7 @@ drawHomePage :: proc(state: ^AppState) {
 
     im.SetCursorPosX(max((im.GetWindowWidth() - button_w) * 0.5, SIDE_PAD))
     if im.Button("Settings", {button_w, button_h}) {
-        state.showSettings = true
+        state.scene = .Settings
     }
 
     im.SetCursorPosX(max((im.GetWindowWidth() - button_w) * 0.5, SIDE_PAD))
@@ -63,7 +63,7 @@ drawHomePage :: proc(state: ^AppState) {
     }
 }
 
-createBookPopup :: proc(state: ^AppState) {
+drawBookPopup :: proc(state: ^AppState) {
     if state.showCreateBookPopup {
         im.OpenPopup("Create Book")
     }

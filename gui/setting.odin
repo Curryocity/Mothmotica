@@ -121,7 +121,7 @@ drawSettings :: proc(state: ^AppState) {
 
         im.Separator()
         if im.Button("Back", {120, 36}) {
-            state.showSettings = false
+            state.scene = .Home
         }
     }
     im.EndChild()
