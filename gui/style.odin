@@ -135,8 +135,8 @@ loadPlayerpfpTex :: proc(state: ^AppState) -> bool {
     return true
 }
 
-usePlayerPfp :: proc(state: ^AppState) -> bool {
-    source := strings.trim_space(bufferString(state.playerAvatarPath[:]))
+usePlayerPfp :: proc(state: ^AppState, source_path: string) -> bool {
+    source := strings.trim_space(source_path)
     if source == "" || !os.is_file(source) {
         return false
     }

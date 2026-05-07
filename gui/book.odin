@@ -212,7 +212,7 @@ drawTopBar :: proc(state: ^AppState, page: ^Page) {
         im.SetNextItemWidth(260)
         im.InputText("##page-title", cstring(&state.titleEdit[0]), c.size_t(len(state.titleEdit)))
         if im.IsItemDeactivatedAfterEdit() {
-            setPageFilename(state, page, bufferString(state.titleEdit[:]), state.saveStatus[:])
+            setPageFilename(state, page, bufferString(state.titleEdit[:]))
         }
         im.SameLine()
 

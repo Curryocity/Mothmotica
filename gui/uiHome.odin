@@ -59,7 +59,7 @@ drawHomePage :: proc(state: ^AppState) {
 
     im.SetCursorPosX(max((im.GetWindowWidth() - button_w) * 0.5, SIDE_PAD))
     if im.Button("Visit the Github", {button_w, button_h}) {
-        openExternal(REPO_URL, state.openStatus[:])
+        openExternal(REPO_URL)
     }
 }
 
@@ -178,4 +178,3 @@ createBookPopup :: proc(state: ^AppState) {
         im.EndPopup()
     }
 }
-

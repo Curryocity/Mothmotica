@@ -17,12 +17,6 @@ MAX_MSGS :: 1024
 PAGE_TITLE_SIZE :: 128
 PATH_SIZE :: 1024
 APP_NAME :: "Mothmotica"
-BOOKS_FOLDER :: "books"
-SETTINGS_FILE :: "mothmotica-settings.json"
-BOT_AVATAR_PATH :: "asset/image/mothballpfp.png"
-USER_DATA_FOLDER :: "user_data"
-AVATAR_FOLDER :: "avatar"
-PLAYER_AVATAR_FILE :: "player_avatar.png"
 SIDEBAR_WIDTH :: f32(240)
 AUTOSAVE_INTERVAL_SECONDS :: f64(1.0)
 
@@ -42,13 +36,13 @@ AppState :: struct {
     bookNameInput: [PAGE_TITLE_SIZE]byte,
     curBookPath: [PATH_SIZE]byte,
     curBookName: [PAGE_TITLE_SIZE]byte,
-    openStatus: [256]byte,
-    saveStatus: [256]byte,
-    settingsStatus: [256]byte,
     titleEdit: [PAGE_TITLE_SIZE]byte,
     playerName: [PAGE_TITLE_SIZE]byte,
     botName: [PAGE_TITLE_SIZE]byte,
     playerAvatarPath: [PATH_SIZE]byte,
+    playerAvatarImportPath: [PATH_SIZE]byte,
+    playerAvatarStatus: [256]byte,
+    playerAvatarStatusError: bool,
     sendHotkey: SendHotkey,
     theme: Theme,
     settingsDirty: bool,

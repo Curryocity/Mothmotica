@@ -1,8 +1,8 @@
 package main
 
 import "core:c"
+import "core:os"
 import "core:strings"
-
 import im "../third_party/odin-imgui"
 
 Settings :: struct {
@@ -22,6 +22,11 @@ SendHotkey :: enum {
 SubmitState :: struct {
     state: ^AppState,
     submitted: ^bool,
+}
+
+setAvatarStatus :: proc(state: ^AppState, message: string, is_error: bool) {
+    bufferSet(state.playerAvatarStatus[:], message)
+    state.playerAvatarStatusError = is_error
 }
 
 drawSettings :: proc(state: ^AppState) {
@@ -58,12 +63,18 @@ drawSettings :: proc(state: ^AppState) {
         im.Text("Source Path:")
         im.SameLine()
         im.SetNextItemWidth(-1)
-        im.InputText("##pfp-path", cstring(&state.playerAvatarPath[0]), c.size_t(len(state.playerAvatarPath)))
+        im.InputText("##pfp-path", cstring(&state.playerAvatarImportPath[0]), c.size_t(len(state.playerAvatarImportPath)))
         if im.Button("Use Image", {120, 34}) {
-            if usePlayerPfp(state) {
-                bufferSet(state.settingsStatus[:], "Copied pfp image locally.")
+            source := strings.trim_space(bufferString(state.playerAvatarImportPath[:]))
+            if source == "" {
+                setAvatarStatus(state, "Choose an image path first.", true)
+            } else if !os.is_file(source) {
+                setAvatarStatus(state, "Could not find an image at that path.", true)
+            } else if usePlayerPfp(state, source) {
+                setAvatarStatus(state, "Copied profile picture locally.", false)
+                bufferSet(state.playerAvatarImportPath[:], "")
             } else {
-                bufferSet(state.settingsStatus[:], "Could not copy pfp image.")
+                setAvatarStatus(state, "Could not use that image.", true)
             }
         }
         im.SameLine()
@@ -71,13 +82,17 @@ drawSettings :: proc(state: ^AppState) {
             destroyPlayerpfpTex()
             bufferSet(state.playerAvatarPath[:], "")
             state.settingsDirty = true
-            bufferSet(state.settingsStatus[:], "Remove pfp.")
+            setAvatarStatus(state, "Removed profile picture.", false)
         }
-        settings_status := bufferString(state.settingsStatus[:])
-        if len(settings_status) > 0 {
-            settings_status_c := strings.clone_to_cstring(settings_status)
-            defer delete(settings_status_c)
-            im.TextColored(mutedColor(state.theme), "%s", settings_status_c)
+        avatar_status := bufferString(state.playerAvatarStatus[:])
+        if len(avatar_status) > 0 {
+            avatar_status_c := strings.clone_to_cstring(avatar_status)
+            defer delete(avatar_status_c)
+            im.Spacing()
+            status_color := im.Vec4{0.95, 0.36, 0.31, 1} if state.playerAvatarStatusError else mutedColor(state.theme)
+            im.PushTextWrapPos(0)
+            im.TextColored(status_color, "%s", avatar_status_c)
+            im.PopTextWrapPos()
         }
 
         im.SeparatorText("Send Hotkey")
@@ -111,5 +126,3 @@ drawSettings :: proc(state: ^AppState) {
     }
     im.EndChild()
 }
-
-

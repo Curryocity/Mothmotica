@@ -7,6 +7,14 @@ import "core:path/filepath"
 import "core:strings"
 import "core:unicode"
 
+BOOKS_FOLDER :: "books"
+SETTINGS_FILE :: "mothmotica-settings.json"
+PAGE_ORDER_FILE:: "order.txt"
+BOT_AVATAR_PATH :: "asset/image/mothballpfp.png"
+USER_DATA_FOLDER :: "user_data"
+AVATAR_FOLDER :: "avatar"
+PLAYER_AVATAR_FILE :: "player_avatar.png"
+
 freeSavedSettings :: proc(settings: ^Settings) {
     delete(settings.player_name)
     delete(settings.bot_name)
@@ -211,13 +219,12 @@ titlePagePath :: proc(state: ^AppState, page: ^Page, title: string) -> (string, 
     return candidate, nil
 }
 
-setPageFilename :: proc(state: ^AppState, page: ^Page, title: string, status: []byte) {
+setPageFilename :: proc(state: ^AppState, page: ^Page, title: string) {
     if page == nil do return
 
     current_title := getTitle(page)
     new_title := strings.trim_space(title)
     if new_title == "" {
-        bufferSet(status, "Filename cannot be empty.")
         return
     }
     if new_title == current_title {
@@ -228,36 +235,32 @@ setPageFilename :: proc(state: ^AppState, page: ^Page, title: string, status: []
     if old_path == "" && !pageHasContent(page) {
         bufferSet(page.title[:], title)
         page.dirty = false
-        bufferSet(status, "")
         return
     } else if old_path == "" {
         bufferSet(page.title[:], title)
         page.dirty = true
-        savePage(state, page, status)
+        savePage(state, page)
         return
     }
 
     new_path, path_err := titlePagePath(state, page, title)
     if path_err != nil {
-        bufferSet(status, "Could not resolve renamed page path.")
         return
     }
     defer delete(new_path)
 
     if old_path == new_path {
-        bufferSet(status, "Filename already matches the page title.")
         return
     }
 
     if rename_err := os.rename(old_path, new_path); rename_err != nil {
-        bufferSet(status, fmt.tprintf("Could not rename page file: %v", rename_err))
         return
     }
 
     bufferSet(page.path[:], new_path)
     bufferSet(page.title[:], filepath.stem(new_path))
     page.dirty = true
-    savePage(state, page, status)
+    savePage(state, page)
 }
 
 freeSavedPage :: proc(saved: ^SavedPage) {
@@ -279,7 +282,7 @@ pageHasContent :: proc(page: ^Page) -> bool {
     return false
 }
 
-savePage :: proc(state: ^AppState, page: ^Page, status: []byte) {
+savePage :: proc(state: ^AppState, page: ^Page) {
     if page == nil do return
 
     if !pageHasContent(page) {
@@ -288,25 +291,21 @@ savePage :: proc(state: ^AppState, page: ^Page, status: []byte) {
             _ = os.remove(path)
         }
         page.dirty = false
-        bufferSet(status, "")
         return
     }
 
     dir, dir_err := bookPagesDir(state)
     if dir_err != nil {
-        bufferSet(status, "Create or open a book before saving pages.")
         return
     }
     defer delete(dir)
 
     if mkdir_err := os.make_directory_all(dir); mkdir_err != nil && !os.is_dir(dir) {
-        bufferSet(status, fmt.tprintf("Could not create pages folder: %v (%s)", mkdir_err, dir))
         return
     }
 
     path, path_err := pagePath(state, page)
     if path_err != nil {
-        bufferSet(status, "Could not resolve page path.")
         return
     }
     defer delete(path)
@@ -331,25 +330,22 @@ savePage :: proc(state: ^AppState, page: ^Page, status: []byte) {
 
     data, marshal_err := json.marshal(saved, {pretty = true}, context.allocator)
     if marshal_err != nil {
-        bufferSet(status, "Could not encode page JSON.")
         return
     }
     defer delete(data)
 
     if write_err := os.write_entire_file(path, data); write_err != nil {
-        bufferSet(status, fmt.tprintf("Could not save page: %v (%s)", write_err, path))
         return
     }
 
     bufferSet(page.path[:], path)
     page.dirty = false
-    bufferSet(status, fmt.tprintf("Saved %s", path))
 }
 
 saveDirtyPages :: proc(state: ^AppState) {
     for i in 0..<state.pageCount {
         if state.pages[i].dirty {
-            savePage(state, &state.pages[i], state.saveStatus[:])
+            savePage(state, &state.pages[i])
         }
     }
 }
@@ -428,7 +424,6 @@ loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
 
     if loaded {
         state.activePage = 0
-        bufferSet(state.saveStatus[:], "Loaded pages.")
     }
     return loaded
 }
@@ -436,11 +431,9 @@ loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
 openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
     trimmed := strings.trim_space(path)
     if trimmed == "" {
-        bufferSet(state.openStatus[:], "Choose a book folder first.")
         return false
     }
     if !os.is_dir(trimmed) {
-        bufferSet(state.openStatus[:], fmt.tprintf("Could not open book: %s", trimmed))
         return false
     }
 
@@ -455,25 +448,21 @@ openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
     state.showHome = false
     state.showSettings = false
     state.showStarred = false
-    bufferSet(state.openStatus[:], fmt.tprintf("Opened book %s", bufferString(state.curBookName[:])))
     return true
 }
 
 createBook :: proc(state: ^AppState) -> bool {
     name := strings.trim_space(bufferString(state.bookNameInput[:]))
     if name == "" {
-        bufferSet(state.openStatus[:], "Book name cannot be empty.")
         return false
     }
 
     root, root_err := booksDir()
     if root_err != nil {
-        bufferSet(state.openStatus[:], "Could not resolve books folder.")
         return false
     }
     defer delete(root)
     if mkdir_err := os.make_directory_all(root); mkdir_err != nil && !os.is_dir(root) {
-        bufferSet(state.openStatus[:], fmt.tprintf("Could not create books folder: %v", mkdir_err))
         return false
     }
 
@@ -485,7 +474,6 @@ createBook :: proc(state: ^AppState) -> bool {
         folder := slug if n == 0 else fmt.tprintf("%s-%d", slug, n + 1)
         candidate, join_err := os.join_path({root, folder}, context.allocator)
         if join_err != nil {
-            bufferSet(state.openStatus[:], "Could not resolve book path.")
             return false
         }
         if !os.is_dir(candidate) {
@@ -496,7 +484,6 @@ createBook :: proc(state: ^AppState) -> bool {
     }
 
     if mkdir_err := os.make_directory_all(book_path); mkdir_err != nil && !os.is_dir(book_path) {
-        bufferSet(state.openStatus[:], fmt.tprintf("Could not create book: %v", mkdir_err))
         delete(book_path)
         return false
     }
@@ -508,17 +495,16 @@ createBook :: proc(state: ^AppState) -> bool {
 ensureBooksDir :: proc(state: ^AppState) {
     root, root_err := booksDir()
     if root_err != nil {
-        bufferSet(state.openStatus[:], "Could not resolve books folder.")
         return
     }
     defer delete(root)
 
     if mkdir_err := os.make_directory_all(root); mkdir_err != nil && !os.is_dir(root) {
-        bufferSet(state.openStatus[:], fmt.tprintf("Could not create books folder: %v", mkdir_err))
+        return
     }
 }
 
-openExternal :: proc(url: string, status: []byte) {
+openExternal :: proc(url: string) {
     command: []string
     when ODIN_OS == .Darwin {
         command = []string{"/usr/bin/open", url}
@@ -533,33 +519,27 @@ openExternal :: proc(url: string, status: []byte) {
     defer delete(stdout)
     defer delete(stderr)
     if err != nil {
-        bufferSet(status, fmt.tprintf("Could not open %s", url))
         return
     }
-    bufferSet(status, fmt.tprintf("Opening %s", url))
 }
 
 openCurrentBookFolder :: proc(state: ^AppState) {
     path := bufferString(state.curBookPath[:])
     if path == "" || !os.is_dir(path) {
-        bufferSet(state.saveStatus[:], "No open book folder to show.")
         return
     }
-    openExternal(path, state.saveStatus[:])
+    openExternal(path)
 }
 
 openBooksFolder :: proc(state: ^AppState) {
     dir, dir_err := booksDir()
     if dir_err != nil {
-        bufferSet(state.openStatus[:], "Could not resolve books folder.")
         return
     }
     defer delete(dir)
 
     if mkdir_err := os.make_directory_all(dir); mkdir_err != nil && !os.is_dir(dir) {
-        bufferSet(state.openStatus[:], fmt.tprintf("Could not create books folder: %v", mkdir_err))
         return
     }
-    openExternal(dir, state.openStatus[:])
+    openExternal(dir)
 }
-
