@@ -7,7 +7,7 @@ import "core:path/filepath"
 import "core:strings"
 import "core:unicode"
 
-freeSavedSettings :: proc(settings: ^SavedSettings) {
+freeSavedSettings :: proc(settings: ^Settings) {
     delete(settings.player_name)
     delete(settings.bot_name)
     delete(settings.player_avatar_path)
@@ -72,7 +72,7 @@ loadSettings :: proc(state: ^AppState) {
     if read_err != nil do return
     defer delete(data)
 
-    saved: SavedSettings
+    saved: Settings
     if json.unmarshal(data, &saved, allocator = context.allocator) != nil do return
     defer freeSavedSettings(&saved)
 
@@ -107,7 +107,7 @@ saveSettings :: proc(state: ^AppState) {
     if path_err != nil do return
     defer delete(path)
 
-    saved := SavedSettings {
+    saved := Settings {
         version = 1,
         player_name = bufferString(state.playerName[:]),
         bot_name = bufferString(state.botName[:]),
@@ -139,24 +139,24 @@ bookPagesDir :: proc(state: ^AppState) -> (string, os.Error) {
     return strings.clone(path), nil
 }
 
-defaultNotePath :: proc(state: ^AppState, note: ^Note) -> (string, os.Error) {
+defaultPagePath :: proc(state: ^AppState, page: ^Page) -> (string, os.Error) {
     dir, dir_err := bookPagesDir(state)
     if dir_err != nil {
         return "", dir_err
     }
     defer delete(dir)
-    return os.join_path({dir, fmt.tprintf("page-%d.json", note.id)}, context.allocator)
+    return os.join_path({dir, fmt.tprintf("page-%d.json", page.id)}, context.allocator)
 }
 
-notePath :: proc(state: ^AppState, note: ^Note) -> (string, os.Error) {
-    path := bufferString(note.path[:])
+pagePath :: proc(state: ^AppState, page: ^Page) -> (string, os.Error) {
+    path := bufferString(page.path[:])
     if len(path) > 0 {
         return strings.clone(path), nil
     }
-    return titleNotePath(state, note, noteTitle(note))
+    return titlePagePath(state, page, pageTitle(page))
 }
 
-noteFilenameSlug :: proc(title: string) -> string {
+pageFilenameSlug :: proc(title: string) -> string {
     b := strings.builder_make()
     wrote := false
     last_dash := false
@@ -177,20 +177,20 @@ noteFilenameSlug :: proc(title: string) -> string {
         result = result[:len(result) - 1]
     }
     if len(result) == 0 {
-        strings.write_string(&b, "untitled-note")
+        strings.write_string(&b, "untitled-page")
         result = strings.to_string(b)
     }
     return strings.clone(result)
 }
 
-titleNotePath :: proc(state: ^AppState, note: ^Note, title: string) -> (string, os.Error) {
+titlePagePath :: proc(state: ^AppState, page: ^Page, title: string) -> (string, os.Error) {
     dir, dir_err := bookPagesDir(state)
     if dir_err != nil {
         return "", dir_err
     }
     defer delete(dir)
 
-    slug := noteFilenameSlug(title)
+    slug := pageFilenameSlug(title)
     defer delete(slug)
 
     candidate: string
@@ -201,7 +201,7 @@ titleNotePath :: proc(state: ^AppState, note: ^Note, title: string) -> (string, 
             return "", path_err
         }
 
-        current := bufferString(note.path[:])
+        current := bufferString(page.path[:])
         if !os.is_file(path) || path == current {
             candidate = path
             break
@@ -211,49 +211,49 @@ titleNotePath :: proc(state: ^AppState, note: ^Note, title: string) -> (string, 
     return candidate, nil
 }
 
-renameNoteFileToTitle :: proc(state: ^AppState, note: ^Note, title: string, status: []byte) {
-    if note == nil do return
+renamePageFileToTitle :: proc(state: ^AppState, page: ^Page, title: string, status: []byte) {
+    if page == nil do return
 
-    old_path := bufferString(note.path[:])
-    if old_path == "" && !noteHasContent(note) {
-        bufferSet(note.title[:], title)
-        note.dirty = false
+    old_path := bufferString(page.path[:])
+    if old_path == "" && !pageHasContent(page) {
+        bufferSet(page.title[:], title)
+        page.dirty = false
         bufferSet(status, "")
         return
     } else if old_path == "" {
-        bufferSet(note.title[:], title)
-        note.dirty = true
-        saveNote(state, note, status)
+        bufferSet(page.title[:], title)
+        page.dirty = true
+        savePage(state, page, status)
         return
     }
 
-    new_path, path_err := titleNotePath(state, note, title)
+    new_path, path_err := titlePagePath(state, page, title)
     if path_err != nil {
-        bufferSet(status, "Could not resolve renamed note path.")
+        bufferSet(status, "Could not resolve renamed page path.")
         return
     }
     defer delete(new_path)
 
     if old_path == new_path {
-        bufferSet(status, "Filename already matches the note title.")
+        bufferSet(status, "Filename already matches the page title.")
         return
     }
 
     if rename_err := os.rename(old_path, new_path); rename_err != nil {
-        bufferSet(status, fmt.tprintf("Could not rename note file: %v", rename_err))
+        bufferSet(status, fmt.tprintf("Could not rename page file: %v", rename_err))
         return
     }
 
-    bufferSet(note.path[:], new_path)
-    bufferSet(note.title[:], filepath.stem(new_path))
-    note.dirty = true
-    saveNote(state, note, status)
+    bufferSet(page.path[:], new_path)
+    bufferSet(page.title[:], filepath.stem(new_path))
+    page.dirty = true
+    savePage(state, page, status)
 }
 
-setNoteFilename :: proc(state: ^AppState, note: ^Note, title: string, status: []byte) {
-    if note == nil do return
+setPageFilename :: proc(state: ^AppState, page: ^Page, title: string, status: []byte) {
+    if page == nil do return
 
-    current_title := noteTitle(note)
+    current_title := pageTitle(page)
     new_title := strings.trim_space(title)
     if new_title == "" {
         bufferSet(status, "Filename cannot be empty.")
@@ -263,10 +263,10 @@ setNoteFilename :: proc(state: ^AppState, note: ^Note, title: string, status: []
         return
     }
 
-    renameNoteFileToTitle(state, note, new_title, status)
+    renamePageFileToTitle(state, page, new_title, status)
 }
 
-freeSavedNote :: proc(saved: ^SavedNote) {
+freeSavedPage :: proc(saved: ^SavedPage) {
     for i in 0..<len(saved.messages) {
         delete(saved.messages[i].text)
         delete(saved.messages[i].reply)
@@ -274,26 +274,26 @@ freeSavedNote :: proc(saved: ^SavedNote) {
     delete(saved.messages)
 }
 
-noteHasContent :: proc(note: ^Note) -> bool {
-    if note == nil do return false
+pageHasContent :: proc(page: ^Page) -> bool {
+    if page == nil do return false
 
-    for i in 0..<realMessageCount(note) {
-        if strings.trim_space(bufferString(note.msgs[i].text[:])) != "" {
+    for i in 0..<realMessageCount(page) {
+        if strings.trim_space(bufferString(page.msgs[i].text[:])) != "" {
             return true
         }
     }
     return false
 }
 
-saveNote :: proc(state: ^AppState, note: ^Note, status: []byte) {
-    if note == nil do return
+savePage :: proc(state: ^AppState, page: ^Page, status: []byte) {
+    if page == nil do return
 
-    if !noteHasContent(note) {
-        path := bufferString(note.path[:])
+    if !pageHasContent(page) {
+        path := bufferString(page.path[:])
         if path != "" && os.is_file(path) {
             _ = os.remove(path)
         }
-        note.dirty = false
+        page.dirty = false
         bufferSet(status, "")
         return
     }
@@ -306,21 +306,21 @@ saveNote :: proc(state: ^AppState, note: ^Note, status: []byte) {
     defer delete(dir)
 
     if mkdir_err := os.make_directory_all(dir); mkdir_err != nil && !os.is_dir(dir) {
-        bufferSet(status, fmt.tprintf("Could not create notes folder: %v (%s)", mkdir_err, dir))
+        bufferSet(status, fmt.tprintf("Could not create pages folder: %v (%s)", mkdir_err, dir))
         return
     }
 
-    path, path_err := notePath(state, note)
+    path, path_err := pagePath(state, page)
     if path_err != nil {
-        bufferSet(status, "Could not resolve note path.")
+        bufferSet(status, "Could not resolve page path.")
         return
     }
     defer delete(path)
 
-    messages := make([]SavedMessage, note.msgCount, context.allocator)
+    messages := make([]SavedMessage, page.msgCount, context.allocator)
     defer delete(messages)
-    for i in 0..<note.msgCount {
-        msg := &note.msgs[i]
+    for i in 0..<page.msgCount {
+        msg := &page.msgs[i]
         messages[i] = SavedMessage {
             text = bufferString(msg.text[:]),
             reply = bufferString(msg.reply[:]),
@@ -329,76 +329,76 @@ saveNote :: proc(state: ^AppState, note: ^Note, status: []byte) {
         }
     }
 
-    saved := SavedNote {
+    saved := SavedPage {
         version = 1,
-        id = note.id,
+        id = page.id,
         messages = messages,
     }
 
     data, marshal_err := json.marshal(saved, {pretty = true}, context.allocator)
     if marshal_err != nil {
-        bufferSet(status, "Could not encode note JSON.")
+        bufferSet(status, "Could not encode page JSON.")
         return
     }
     defer delete(data)
 
     if write_err := os.write_entire_file(path, data); write_err != nil {
-        bufferSet(status, fmt.tprintf("Could not save note: %v (%s)", write_err, path))
+        bufferSet(status, fmt.tprintf("Could not save page: %v (%s)", write_err, path))
         return
     }
 
-    bufferSet(note.path[:], path)
-    note.dirty = false
+    bufferSet(page.path[:], path)
+    page.dirty = false
     bufferSet(status, fmt.tprintf("Saved %s", path))
 }
 
-saveDirtyNotes :: proc(state: ^AppState) {
-    for i in 0..<state.noteCount {
-        if state.notes[i].dirty {
-            saveNote(state, &state.notes[i], state.saveStatus[:])
+saveDirtyPages :: proc(state: ^AppState) {
+    for i in 0..<state.pageCount {
+        if state.pages[i].dirty {
+            savePage(state, &state.pages[i], state.saveStatus[:])
         }
     }
 }
 
-loadNoteFile :: proc(state: ^AppState, path: string) -> bool {
-    if state.noteCount >= len(state.notes) do return false
+loadPageFile :: proc(state: ^AppState, path: string) -> bool {
+    if state.pageCount >= len(state.pages) do return false
 
     data, read_err := os.read_entire_file(path, context.allocator)
     if read_err != nil do return false
     defer delete(data)
 
-    saved: SavedNote
+    saved: SavedPage
     unmarshal_err := json.unmarshal(data, &saved, allocator = context.allocator)
     if unmarshal_err != nil do return false
-    defer freeSavedNote(&saved)
+    defer freeSavedPage(&saved)
 
-    note := &state.notes[state.noteCount]
-    note^ = Note{}
-    note.id = max(saved.id, state.nextNoteID)
-    bufferSet(note.path[:], path)
-    bufferSet(note.title[:], noteTitle(note))
+    page := &state.pages[state.pageCount]
+    page^ = Page{}
+    page.id = max(saved.id, state.nextPageID)
+    bufferSet(page.path[:], path)
+    bufferSet(page.title[:], pageTitle(page))
 
-    message_count := min(len(saved.messages), len(note.msgs))
+    message_count := min(len(saved.messages), len(page.msgs))
     for i in 0..<message_count {
-        msg := &note.msgs[i]
+        msg := &page.msgs[i]
         bufferSet(msg.text[:], saved.messages[i].text)
         bufferSet(msg.reply[:], saved.messages[i].reply)
         msg.has_reply = saved.messages[i].has_reply
         msg.starred = saved.messages[i].starred
         msg.dirty = false
     }
-    note.msgCount = message_count
-    ensureDraftMsg(note)
-    note.dirty = false
+    page.msgCount = message_count
+    ensureDraftMsg(page)
+    page.dirty = false
 
-    state.noteCount += 1
-    state.nextNoteID = max(state.nextNoteID, note.id + 1)
+    state.pageCount += 1
+    state.nextPageID = max(state.nextPageID, page.id + 1)
     return true
 }
 
-findOpenNoteByPath :: proc(state: ^AppState, path: string) -> int {
-    for i in 0..<state.noteCount {
-        if bufferString(state.notes[i].path[:]) == path {
+findOpenPageByPath :: proc(state: ^AppState, path: string) -> int {
+    for i in 0..<state.pageCount {
+        if bufferString(state.pages[i].path[:]) == path {
             return i
         }
     }
@@ -406,10 +406,10 @@ findOpenNoteByPath :: proc(state: ^AppState, path: string) -> int {
 }
 
 clearPages :: proc(state: ^AppState) {
-    state.noteCount = 0
-    state.activeNote = 0
-    state.nextNoteID = 1
-    state.editingTitleNote = 0
+    state.pageCount = 0
+    state.activePage = 0
+    state.nextPageID = 1
+    state.editingTitlePage = 0
 }
 
 loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
@@ -426,14 +426,14 @@ loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
         if info.type != .Regular || !strings.has_suffix(info.name, ".json") {
             continue
         }
-        if loadNoteFile(state, info.fullpath) {
-            bufferSet(state.notes[state.noteCount - 1].path[:], info.fullpath)
+        if loadPageFile(state, info.fullpath) {
+            bufferSet(state.pages[state.pageCount - 1].path[:], info.fullpath)
             loaded = true
         }
     }
 
     if loaded {
-        state.activeNote = 0
+        state.activePage = 0
         bufferSet(state.saveStatus[:], "Loaded pages.")
     }
     return loaded
@@ -454,10 +454,10 @@ openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
     bufferSet(state.currentBookPath[:], trimmed)
     bufferSet(state.currentBookName[:], filepath.base(trimmed))
     loadBookPages(state, trimmed)
-    if state.noteCount == 0 {
-        createNote(state)
+    if state.pageCount == 0 {
+        createPage(state)
     }
-    state.activeNote = min(state.activeNote, state.noteCount - 1)
+    state.activePage = min(state.activePage, state.pageCount - 1)
     state.showHome = false
     state.showSettings = false
     state.showStarred = false
@@ -483,7 +483,7 @@ createBook :: proc(state: ^AppState) -> bool {
         return false
     }
 
-    slug := noteFilenameSlug(name)
+    slug := pageFilenameSlug(name)
     defer delete(slug)
 
     book_path: string

@@ -4,6 +4,26 @@ import "core:c"
 import "core:strings"
 
 import im "../third_party/odin-imgui"
+import "vendor:glfw"
+
+Settings :: struct {
+    version: int,
+    player_name: string,
+    bot_name: string,
+    player_avatar_path: string,
+    send_hotkey: int,
+    theme: int,
+}
+
+SendHotkey :: enum {
+    Enter,
+    Shift_Enter,
+}
+
+SubmitState :: struct {
+    state: ^AppState,
+    submitted: ^bool,
+}
 
 drawSettings :: proc(state: ^AppState) {
     total := im.GetContentRegionAvail()
@@ -91,4 +111,16 @@ drawSettings :: proc(state: ^AppState) {
         }
     }
     im.EndChild()
+}
+
+updateShortcuts :: proc(window: glfw.WindowHandle, state: ^AppState) {
+    enter_down := glfw.GetKey(window, glfw.KEY_ENTER) == glfw.PRESS ||
+                  glfw.GetKey(window, glfw.KEY_KP_ENTER) == glfw.PRESS
+    shift_down := glfw.GetKey(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS ||
+                  glfw.GetKey(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
+    wants_shift := state.sendHotkey == .Shift_Enter
+    down := enter_down && (shift_down == wants_shift)
+
+    state.shiftEnterSignal = down && !state.shiftEnterQ
+    state.shiftEnterQ = down
 }
