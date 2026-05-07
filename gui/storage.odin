@@ -15,11 +15,7 @@ USER_DATA_FOLDER :: "user_data"
 AVATAR_FOLDER :: "avatar"
 PLAYER_AVATAR_FILE :: "player_avatar.png"
 
-freeSavedSettings :: proc(settings: ^Settings) {
-    delete(settings.player_name)
-    delete(settings.bot_name)
-    delete(settings.player_pfp_path)
-}
+// App data paths
 
 appDataDir :: proc() -> (string, os.Error) {
     root, root_err := os.user_data_dir(context.allocator)
@@ -51,6 +47,14 @@ booksDir :: proc() -> (string, os.Error) {
     return os.join_path({dir, BOOKS_FOLDER}, context.allocator)
 }
 
+bookPagesDir :: proc(state: ^AppState) -> (string, os.Error) {
+    path := bufferString(state.curBookPath[:])
+    if path == "" {
+        return "", os.General_Error.Not_Exist
+    }
+    return strings.clone(path), nil
+}
+
 userAvatarDir :: proc() -> (string, os.Error) {
     dir, dir_err := appDataDir()
     if dir_err != nil {
@@ -69,6 +73,14 @@ playerpfpPath :: proc() -> (string, os.Error) {
     defer delete(dir)
 
     return os.join_path({dir, PLAYER_AVATAR_FILE}, context.allocator)
+}
+
+// Settings persistence
+
+freeSavedSettings :: proc(settings: ^Settings) {
+    delete(settings.player_name)
+    delete(settings.bot_name)
+    delete(settings.player_pfp_path)
 }
 
 loadSettings :: proc(state: ^AppState) {
@@ -139,13 +151,7 @@ saveDirtySettings :: proc(state: ^AppState) {
     }
 }
 
-bookPagesDir :: proc(state: ^AppState) -> (string, os.Error) {
-    path := bufferString(state.curBookPath[:])
-    if path == "" {
-        return "", os.General_Error.Not_Exist
-    }
-    return strings.clone(path), nil
-}
+// Page paths and filenames
 
 defaultPagePath :: proc(state: ^AppState, page: ^Page) -> (string, os.Error) {
     dir, dir_err := bookPagesDir(state)
@@ -219,6 +225,17 @@ titlePagePath :: proc(state: ^AppState, page: ^Page, title: string) -> (string, 
     return candidate, nil
 }
 
+pageHasContent :: proc(page: ^Page) -> bool {
+    if page == nil do return false
+
+    for i in 0..<msgCount(page) {
+        if strings.trim_space(bufferString(page.msgs[i].text[:])) != "" {
+            return true
+        }
+    }
+    return false
+}
+
 setPageFilename :: proc(state: ^AppState, page: ^Page, title: string) {
     if page == nil do return
 
@@ -263,23 +280,14 @@ setPageFilename :: proc(state: ^AppState, page: ^Page, title: string) {
     savePage(state, page)
 }
 
+// Page persistence
+
 freeSavedPage :: proc(saved: ^SavedPage) {
     for i in 0..<len(saved.messages) {
         delete(saved.messages[i].text)
         delete(saved.messages[i].reply)
     }
     delete(saved.messages)
-}
-
-pageHasContent :: proc(page: ^Page) -> bool {
-    if page == nil do return false
-
-    for i in 0..<msgCount(page) {
-        if strings.trim_space(bufferString(page.msgs[i].text[:])) != "" {
-            return true
-        }
-    }
-    return false
 }
 
 savePage :: proc(state: ^AppState, page: ^Page) {
@@ -395,6 +403,26 @@ findOpenPageByPath :: proc(state: ^AppState, path: string) -> int {
     return -1
 }
 
+// Page ordering
+
+getPageOrderPath :: proc(state: ^AppState)  -> (string, os.Error) {
+    dir, err := booksDir()
+    if err != nil {
+        return "", err
+    }
+    return os.join_path({dir, PAGE_ORDER_FILE}, context.allocator)
+}
+
+savePagesOrder :: proc(state: ^AppState) {
+
+}
+
+getPagesOrder :: proc(state: ^AppState) -> [MAX_PAGES]Page{
+    
+}
+
+// Book folders and loaded page sets
+
 clearPages :: proc(state: ^AppState) {
     state.pageCount = 0
     state.activePage = 0
@@ -503,6 +531,8 @@ ensureBooksDir :: proc(state: ^AppState) {
         return
     }
 }
+
+// External folder and URL actions
 
 openExternal :: proc(url: string) {
     command: []string
