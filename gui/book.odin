@@ -96,9 +96,9 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
 
     reply := bufferString(msg.reply[:])
     height := max(f32(lineCount(reply)) * im.GetTextLineHeight() + 14, 36)
-    im.PushStyleColorImVec4(im.Col.FrameBg, messageBoxBgColor(state.theme, false))
-    im.PushStyleColorImVec4(im.Col.Border, messageBoxBorderColor(state.theme, false))
-    im.PushStyleColorImVec4(im.Col.Text, messageBoxTextColor(state.theme))
+    im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.theme, false))
+    im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.theme, false))
+    im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.theme))
     pushed_code_font := pushMonoFont()
     im.InputTextMultiline("##reply", cstring(&msg.reply[0]), c.size_t(len(msg.reply)), {-1, height}, {.ReadOnly})
     popFontIf(pushed_code_font)
@@ -142,9 +142,9 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
 
     text := bufferString(msg.text[:])
     height := max(f32(lineCount(text)) * im.GetTextLineHeight() + 14, 36)
-    im.PushStyleColorImVec4(im.Col.FrameBg, messageBoxBgColor(state.theme, is_draft))
-    im.PushStyleColorImVec4(im.Col.Border, messageBoxBorderColor(state.theme, is_draft))
-    im.PushStyleColorImVec4(im.Col.Text, messageBoxTextColor(state.theme))
+    im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.theme, is_draft))
+    im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.theme, is_draft))
+    im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.theme))
     pushed_MonoFont := pushMonoFont()
     submit := false
     cb_data := SubmitState{state = state, submitted = &submit}
@@ -189,7 +189,7 @@ drawTopBar :: proc(state: ^AppState, page: ^Page) {
     }
     im.SameLine()
     if im.Button("Switch Book") {
-        state.showOpenBookDialog = true
+        state.showOpenBookPopup = true
     }
     im.SameLine()
     if im.Button("Locate Book") {
@@ -198,7 +198,7 @@ drawTopBar :: proc(state: ^AppState, page: ^Page) {
 
     if page != nil {
         im.SameLine()
-        book_name := bufferString(state.currentBookName[:])
+        book_name := bufferString(state.curBookName[:])
         book_name_c := strings.clone_to_cstring(book_name)
         defer delete(book_name_c)
         im.TextColored(subTextColor(state.theme), "%s", book_name_c)
@@ -330,48 +330,6 @@ drawAvatarImage :: proc(texture: u32) {
         radius,
         im.DrawFlags_RoundCornersAll,
     )
-}
-
-sendMsgQ :: proc(state: ^AppState) -> bool {
-    io := im.GetIO()
-    if state != nil && state.sendHotkey == .ShiftEnter {
-        return io.KeyShift
-    }
-    return !io.KeyShift
-}
-
-sendMsgCallback :: proc "c" (data: ^im.InputTextCallbackData) -> c.int {
-    context = runtime.default_context()
-
-    payload := cast(^SubmitState)data.UserData
-    if payload == nil || payload.submitted == nil do return 0
-
-    if .CallbackAlways in data.EventFlag && sendMsgQ(payload.state) && im.IsKeyPressed(.Enter, false) {
-        payload.submitted^ = true
-        return 0
-    }
-
-    if .CallbackCharFilter in data.EventFlag && sendMsgQ(payload.state) {
-        if data.EventChar == '\n' || data.EventChar == '\r' {
-            payload.submitted^ = true
-            data.EventChar = 0
-            return 1
-        }
-    }
-
-    return 0
-}
-
-updateSendSignal :: proc(window: glfw.WindowHandle, state: ^AppState) {
-    enter_down := glfw.GetKey(window, glfw.KEY_ENTER) == glfw.PRESS ||
-                  glfw.GetKey(window, glfw.KEY_KP_ENTER) == glfw.PRESS
-    shift_down := glfw.GetKey(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS ||
-                  glfw.GetKey(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
-    wants_shift := state.sendHotkey == .ShiftEnter
-    down := enter_down && (shift_down == wants_shift)
-
-    state.shiftEnterSignal = down && !state.shiftEnterQ
-    state.shiftEnterQ = down
 }
 
 getTitle :: proc(page: ^Page) -> string {
@@ -509,4 +467,46 @@ deleteMsg :: proc(page: ^Page, idx: int) {
     page.msgCount -= 1
     atLeastOneMsg(page)
     page.dirty = true
+}
+
+sendMsgQ :: proc(state: ^AppState) -> bool {
+    io := im.GetIO()
+    if state != nil && state.sendHotkey == .ShiftEnter {
+        return io.KeyShift
+    }
+    return !io.KeyShift
+}
+
+sendMsgCallback :: proc "c" (data: ^im.InputTextCallbackData) -> c.int {
+    context = runtime.default_context()
+
+    payload := cast(^SubmitState)data.UserData
+    if payload == nil || payload.submitted == nil do return 0
+
+    if .CallbackAlways in data.EventFlag && sendMsgQ(payload.state) && im.IsKeyPressed(.Enter, false) {
+        payload.submitted^ = true
+        return 0
+    }
+
+    if .CallbackCharFilter in data.EventFlag && sendMsgQ(payload.state) {
+        if data.EventChar == '\n' || data.EventChar == '\r' {
+            payload.submitted^ = true
+            data.EventChar = 0
+            return 1
+        }
+    }
+
+    return 0
+}
+
+updateSendSignal :: proc(window: glfw.WindowHandle, state: ^AppState) {
+    enter_down := glfw.GetKey(window, glfw.KEY_ENTER) == glfw.PRESS ||
+                  glfw.GetKey(window, glfw.KEY_KP_ENTER) == glfw.PRESS
+    shift_down := glfw.GetKey(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS ||
+                  glfw.GetKey(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
+    wants_shift := state.sendHotkey == .ShiftEnter
+    down := enter_down && (shift_down == wants_shift)
+
+    state.shiftEnterSignal = down && !state.shiftEnterQ
+    state.shiftEnterQ = down
 }

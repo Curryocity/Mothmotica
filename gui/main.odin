@@ -36,12 +36,12 @@ AppState :: struct {
     showHome: bool,
     showSettings: bool,
     showStarred: bool,
-    showCreateBookDialog: bool,
-    showOpenBookDialog: bool,
+    showCreateBookPopup: bool,
+    showOpenBookPopup: bool,
     openPath: [PATH_SIZE]byte,
     bookNameInput: [PAGE_TITLE_SIZE]byte,
-    currentBookPath: [PATH_SIZE]byte,
-    currentBookName: [PAGE_TITLE_SIZE]byte,
+    curBookPath: [PATH_SIZE]byte,
+    curBookName: [PAGE_TITLE_SIZE]byte,
     openStatus: [256]byte,
     saveStatus: [256]byte,
     settingsStatus: [256]byte,
@@ -88,9 +88,9 @@ main :: proc() {
     io.ConfigFlags += {.NavEnableKeyboard}
     xscale, yscale := glfw.GetWindowContentScale(window)
     loadFonts(max(xscale, yscale))
-    loadBotAvatarTexture()
-    defer destroyBotAvatarTexture()
-    defer destroyPlayerAvatarTexture()
+    loadBotpfpTex()
+    defer destroyBotpfpTex()
+    defer destroyPlayerpfpTex()
 
     applyTheme(.Dark)
 
@@ -140,10 +140,10 @@ init :: proc() -> ^AppState{
     state.nextPageID = 1
     state.sendHotkey = .Enter
     state.theme = .Dark
-    bufferSet(state.playerName[:], "Baller")
+    bufferSet(state.playerName[:], "Me")
     bufferSet(state.botName[:], "Mothball")
     loadSettings(state)
-    loadPlayerAvatarTexture(state)
+    loadPlayerpfpTex(state)
     applyTheme(state.theme)
     state.last_theme = state.theme
     state.last_autosave = im.GetTime()
@@ -168,7 +168,7 @@ draw :: proc(state: ^AppState) {
             im.EndChild()
         } else if state.showHome {
             if im.BeginChild("Home", total, {}, {}) {
-                drawHome(state)
+                drawHomePage(state)
             }
             im.EndChild()
         } else {

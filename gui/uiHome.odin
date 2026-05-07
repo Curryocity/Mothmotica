@@ -7,7 +7,7 @@ import "core:strings"
 
 import im "../third_party/odin-imgui"
 
-drawIntro :: proc() {
+drawTitle :: proc() {
     im.Dummy({0, 24})
 
     im.SetWindowFontScale(2.2)
@@ -22,7 +22,7 @@ drawIntro :: proc() {
     im.Dummy({0, 10})
 }
 
-drawHome :: proc(state: ^AppState) {
+drawHomePage :: proc(state: ^AppState) {
     total := im.GetContentRegionAvail()
     im.Dummy({0, max(total.y * 0.18, 36)})
 
@@ -49,7 +49,7 @@ drawHome :: proc(state: ^AppState) {
 
     im.SetCursorPosX(max((im.GetWindowWidth() - button_w) * 0.5, SIDE_PAD))
     if im.Button("Open Book", {button_w, button_h}) {
-        state.showOpenBookDialog = true
+        state.showOpenBookPopup = true
     }
 
     im.SetCursorPosX(max((im.GetWindowWidth() - button_w) * 0.5, SIDE_PAD))
@@ -64,31 +64,31 @@ drawHome :: proc(state: ^AppState) {
 }
 
 createBookPopup :: proc(state: ^AppState) {
-    if state.showCreateBookDialog {
+    if state.showCreateBookPopup {
         im.OpenPopup("Create Book")
     }
 
-    if im.BeginPopupModal("Create Book", &state.showCreateBookDialog) {
+    if im.BeginPopupModal("Create Book", &state.showCreateBookPopup) {
         im.SetNextItemWidth(360)
         im.InputText("Book Name", cstring(&state.bookNameInput[0]), c.size_t(len(state.bookNameInput)))
         can_create_book := strings.trim_space(bufferString(state.bookNameInput[:])) != ""
         im.BeginDisabled(!can_create_book)
         if im.Button("Create") {
             if createBook(state) {
-                state.showCreateBookDialog = false
+                state.showCreateBookPopup = false
                 im.CloseCurrentPopup()
             }
         }
         im.EndDisabled()
         im.SameLine()
         if im.Button("Cancel") {
-            state.showCreateBookDialog = false
+            state.showCreateBookPopup = false
             im.CloseCurrentPopup()
         }
         im.EndPopup()
     }
 
-    if state.showOpenBookDialog {
+    if state.showOpenBookPopup {
         im.OpenPopup("Open Book")
     }
 
@@ -102,7 +102,7 @@ createBookPopup :: proc(state: ^AppState) {
     im.SetNextWindowPos(popup_center, {}, {0.5, 0.5})
     im.SetNextWindowSize({popup_w, popup_h})
 
-    if im.BeginPopupModal("Open Book", &state.showOpenBookDialog, {.NoTitleBar, .NoMove, .NoResize}) {
+    if im.BeginPopupModal("Open Book", &state.showOpenBookPopup, {.NoTitleBar, .NoMove, .NoResize}) {
         im.Dummy({0, 8})
         im.SetWindowFontScale(1.35)
         title_size := im.CalcTextSize("Select A Book")
@@ -146,7 +146,7 @@ createBookPopup :: proc(state: ^AppState) {
                     if im.SmallButton(open_label_c) {
                         bufferSet(state.openPath[:], info.fullpath)
                         if openBookFromPath(state, info.fullpath) {
-                            state.showOpenBookDialog = false
+                            state.showOpenBookPopup = false
                             im.CloseCurrentPopup()
                         }
                         im.PopID()
@@ -172,7 +172,7 @@ createBookPopup :: proc(state: ^AppState) {
         close_w := f32(100)
         im.SetCursorPosX(max((im.GetWindowWidth() - close_w) * 0.5, 16))
         if im.Button("Close", {close_w, 34}) {
-            state.showOpenBookDialog = false
+            state.showOpenBookPopup = false
             im.CloseCurrentPopup()
         }
         im.EndPopup()

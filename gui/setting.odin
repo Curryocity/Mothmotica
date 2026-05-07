@@ -9,7 +9,7 @@ Settings :: struct {
     version: int,
     player_name: string,
     bot_name: string,
-    player_avatar_path: string,
+    player_pfp_path: string,
     send_hotkey: int,
     theme: int,
 }
@@ -39,7 +39,7 @@ drawSettings :: proc(state: ^AppState) {
     im.SetCursorPosX(max((im.GetWindowWidth() - panel_w) * 0.5, SIDE_PAD))
     if im.BeginChild("SettingsPanel", {panel_w, 0}, {.Borders}, {}) {
         im.AlignTextToFramePadding()
-        im.Text("Player Name:")
+        im.Text("Name:")
         im.SameLine()
         im.SetNextItemWidth(-1)
         if im.InputText("##player-name", cstring(&state.playerName[0]), c.size_t(len(state.playerName))) {
@@ -53,25 +53,25 @@ drawSettings :: proc(state: ^AppState) {
             state.settingsDirty = true
         }
 
-        im.SeparatorText("Player Avatar")
+        im.SeparatorText("Profile Picture")
         im.AlignTextToFramePadding()
         im.Text("Source Path:")
         im.SameLine()
         im.SetNextItemWidth(-1)
-        im.InputText("##player-avatar-path", cstring(&state.playerAvatarPath[0]), c.size_t(len(state.playerAvatarPath)))
+        im.InputText("##pfp-path", cstring(&state.playerAvatarPath[0]), c.size_t(len(state.playerAvatarPath)))
         if im.Button("Use Image", {120, 34}) {
-            if usePlayerAvatarImage(state) {
-                bufferSet(state.settingsStatus[:], "Copied player avatar locally.")
+            if usePlayerPfp(state) {
+                bufferSet(state.settingsStatus[:], "Copied pfp image locally.")
             } else {
-                bufferSet(state.settingsStatus[:], "Could not copy player avatar image.")
+                bufferSet(state.settingsStatus[:], "Could not copy pfp image.")
             }
         }
         im.SameLine()
         if im.Button("Delete", {90, 34}) {
-            destroyPlayerAvatarTexture()
+            destroyPlayerpfpTex()
             bufferSet(state.playerAvatarPath[:], "")
             state.settingsDirty = true
-            bufferSet(state.settingsStatus[:], "Remove player avatar.")
+            bufferSet(state.settingsStatus[:], "Remove pfp.")
         }
         settings_status := bufferString(state.settingsStatus[:])
         if len(settings_status) > 0 {

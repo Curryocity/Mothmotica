@@ -10,7 +10,7 @@ import "core:unicode"
 freeSavedSettings :: proc(settings: ^Settings) {
     delete(settings.player_name)
     delete(settings.bot_name)
-    delete(settings.player_avatar_path)
+    delete(settings.player_pfp_path)
 }
 
 appDataDir :: proc() -> (string, os.Error) {
@@ -53,7 +53,7 @@ userAvatarDir :: proc() -> (string, os.Error) {
     return os.join_path({dir, USER_DATA_FOLDER, AVATAR_FOLDER}, context.allocator)
 }
 
-playerAvatarPath :: proc() -> (string, os.Error) {
+playerpfpPath :: proc() -> (string, os.Error) {
     dir, dir_err := userAvatarDir()
     if dir_err != nil {
         return "", dir_err
@@ -82,8 +82,8 @@ loadSettings :: proc(state: ^AppState) {
     if strings.trim_space(saved.bot_name) != "" {
         bufferSet(state.botName[:], saved.bot_name)
     }
-    if strings.trim_space(saved.player_avatar_path) != "" {
-        bufferSet(state.playerAvatarPath[:], saved.player_avatar_path)
+    if strings.trim_space(saved.player_pfp_path) != "" {
+        bufferSet(state.playerAvatarPath[:], saved.player_pfp_path)
     }
     if saved.send_hotkey >= int(SendHotkey.Enter) && saved.send_hotkey <= int(SendHotkey.ShiftEnter) {
         state.sendHotkey = SendHotkey(saved.send_hotkey)
@@ -111,7 +111,7 @@ saveSettings :: proc(state: ^AppState) {
         version = 1,
         player_name = bufferString(state.playerName[:]),
         bot_name = bufferString(state.botName[:]),
-        player_avatar_path = bufferString(state.playerAvatarPath[:]),
+        player_pfp_path = bufferString(state.playerAvatarPath[:]),
         send_hotkey = int(state.sendHotkey),
         theme = int(state.theme),
     }
@@ -132,7 +132,7 @@ saveDirtySettings :: proc(state: ^AppState) {
 }
 
 bookPagesDir :: proc(state: ^AppState) -> (string, os.Error) {
-    path := bufferString(state.currentBookPath[:])
+    path := bufferString(state.curBookPath[:])
     if path == "" {
         return "", os.General_Error.Not_Exist
     }
@@ -445,8 +445,8 @@ openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
     }
 
     clearPages(state)
-    bufferSet(state.currentBookPath[:], trimmed)
-    bufferSet(state.currentBookName[:], filepath.base(trimmed))
+    bufferSet(state.curBookPath[:], trimmed)
+    bufferSet(state.curBookName[:], filepath.base(trimmed))
     loadBookPages(state, trimmed)
     if state.pageCount == 0 {
         createPage(state)
@@ -455,7 +455,7 @@ openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
     state.showHome = false
     state.showSettings = false
     state.showStarred = false
-    bufferSet(state.openStatus[:], fmt.tprintf("Opened book %s", bufferString(state.currentBookName[:])))
+    bufferSet(state.openStatus[:], fmt.tprintf("Opened book %s", bufferString(state.curBookName[:])))
     return true
 }
 
@@ -540,7 +540,7 @@ openExternal :: proc(url: string, status: []byte) {
 }
 
 openCurrentBookFolder :: proc(state: ^AppState) {
-    path := bufferString(state.currentBookPath[:])
+    path := bufferString(state.curBookPath[:])
     if path == "" || !os.is_dir(path) {
         bufferSet(state.saveStatus[:], "No open book folder to show.")
         return

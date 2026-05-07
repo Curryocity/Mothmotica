@@ -107,21 +107,21 @@ loadTextureRGBA :: proc(path: string) -> u32 {
     return texture
 }
 
-loadBotAvatarTexture :: proc() {
+loadBotpfpTex :: proc() {
     bot_pfpTex = loadTextureRGBA(BOT_AVATAR_PATH)
 }
 
-destroyBotAvatarTexture :: proc() {
+destroyBotpfpTex :: proc() {
     if bot_pfpTex != 0 {
         gl.DeleteTextures(1, &bot_pfpTex)
         bot_pfpTex = 0
     }
 }
 
-loadPlayerAvatarTexture :: proc(state: ^AppState) -> bool {
+loadPlayerpfpTex :: proc(state: ^AppState) -> bool {
     path := strings.trim_space(bufferString(state.playerAvatarPath[:]))
     if path == "" {
-        destroyPlayerAvatarTexture()
+        destroyPlayerpfpTex()
         return false
     }
 
@@ -130,12 +130,12 @@ loadPlayerAvatarTexture :: proc(state: ^AppState) -> bool {
         return false
     }
 
-    destroyPlayerAvatarTexture()
+    destroyPlayerpfpTex()
     user_pfpTex = texture
     return true
 }
 
-usePlayerAvatarImage :: proc(state: ^AppState) -> bool {
+usePlayerPfp :: proc(state: ^AppState) -> bool {
     source := strings.trim_space(bufferString(state.playerAvatarPath[:]))
     if source == "" || !os.is_file(source) {
         return false
@@ -151,7 +151,7 @@ usePlayerAvatarImage :: proc(state: ^AppState) -> bool {
         return false
     }
 
-    avatar_path, path_err := playerAvatarPath()
+    avatar_path, path_err := playerpfpPath()
     if path_err != nil {
         return false
     }
@@ -162,7 +162,7 @@ usePlayerAvatarImage :: proc(state: ^AppState) -> bool {
     }
 
     bufferSet(state.playerAvatarPath[:], avatar_path)
-    if !loadPlayerAvatarTexture(state) {
+    if !loadPlayerpfpTex(state) {
         return false
     }
 
@@ -170,14 +170,12 @@ usePlayerAvatarImage :: proc(state: ^AppState) -> bool {
     return true
 }
 
-destroyPlayerAvatarTexture :: proc() {
+destroyPlayerpfpTex :: proc() {
     if user_pfpTex != 0 {
         gl.DeleteTextures(1, &user_pfpTex)
         user_pfpTex = 0
     }
 }
-
-
 
 titleColor :: proc(theme: Theme) -> im.Vec4 {
     if theme == .Light {
@@ -214,21 +212,21 @@ botNameColor :: proc(theme: Theme) -> im.Vec4 {
     return {0.640, 0.540, 0.940, 1.0}
 }
 
-messageBoxBgColor :: proc(theme: Theme, is_draft: bool) -> im.Vec4 {
+msgBoxBgColor :: proc(theme: Theme, is_draft: bool) -> im.Vec4 {
     if theme == .Light {
         return is_draft ? im.Vec4{0.965, 0.970, 0.982, 1} : im.Vec4{0.935, 0.942, 0.958, 1}
     }
     return is_draft ? im.Vec4{0.085, 0.092, 0.125, 1} : im.Vec4{0.055, 0.060, 0.080, 1}
 }
 
-messageBoxBorderColor :: proc(theme: Theme, is_draft: bool) -> im.Vec4 {
+msgBoxBorderColor :: proc(theme: Theme, is_draft: bool) -> im.Vec4 {
     if theme == .Light {
         return is_draft ? im.Vec4{0.720, 0.755, 0.825, 1} : im.Vec4{0.780, 0.800, 0.850, 1}
     }
     return is_draft ? im.Vec4{0.380, 0.450, 0.620, 1} : im.Vec4{0.230, 0.255, 0.330, 1}
 }
 
-messageBoxTextColor :: proc(theme: Theme) -> im.Vec4 {
+msgBoxTextColor :: proc(theme: Theme) -> im.Vec4 {
     if theme == .Light {
         return {0.080, 0.090, 0.115, 1}
     }
