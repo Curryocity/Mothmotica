@@ -4,7 +4,6 @@ import "core:c"
 import "core:strings"
 
 import im "../third_party/odin-imgui"
-import "vendor:glfw"
 
 Settings :: struct {
     version: int,
@@ -17,7 +16,7 @@ Settings :: struct {
 
 SendHotkey :: enum {
     Enter,
-    Shift_Enter,
+    ShiftEnter,
 }
 
 SubmitState :: struct {
@@ -68,11 +67,11 @@ drawSettings :: proc(state: ^AppState) {
             }
         }
         im.SameLine()
-        if im.Button("Reset", {90, 34}) {
+        if im.Button("Delete", {90, 34}) {
             destroyPlayerAvatarTexture()
             bufferSet(state.playerAvatarPath[:], "")
             state.settingsDirty = true
-            bufferSet(state.settingsStatus[:], "Reset player avatar.")
+            bufferSet(state.settingsStatus[:], "Remove player avatar.")
         }
         settings_status := bufferString(state.settingsStatus[:])
         if len(settings_status) > 0 {
@@ -86,8 +85,8 @@ drawSettings :: proc(state: ^AppState) {
             state.sendHotkey = .Enter
             state.settingsDirty = true
         }
-        if im.RadioButton("Shift + Enter", state.sendHotkey == .Shift_Enter) {
-            state.sendHotkey = .Shift_Enter
+        if im.RadioButton("Shift + Enter", state.sendHotkey == .ShiftEnter) {
+            state.sendHotkey = .ShiftEnter
             state.settingsDirty = true
         }
 
@@ -113,14 +112,4 @@ drawSettings :: proc(state: ^AppState) {
     im.EndChild()
 }
 
-updateShortcuts :: proc(window: glfw.WindowHandle, state: ^AppState) {
-    enter_down := glfw.GetKey(window, glfw.KEY_ENTER) == glfw.PRESS ||
-                  glfw.GetKey(window, glfw.KEY_KP_ENTER) == glfw.PRESS
-    shift_down := glfw.GetKey(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS ||
-                  glfw.GetKey(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
-    wants_shift := state.sendHotkey == .Shift_Enter
-    down := enter_down && (shift_down == wants_shift)
 
-    state.shiftEnterSignal = down && !state.shiftEnterQ
-    state.shiftEnterQ = down
-}

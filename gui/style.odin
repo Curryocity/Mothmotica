@@ -10,9 +10,9 @@ import im "../third_party/odin-imgui"
 import gl "vendor:OpenGL"
 import stbi "vendor:stb/image"
 
-code_font: ^im.Font
-bot_avatar_texture: u32
-player_avatar_texture: u32
+monoFont: ^im.Font
+bot_pfpTex: u32
+user_pfpTex: u32
 
 Theme :: enum {
     Dark,
@@ -28,26 +28,24 @@ loadFonts :: proc(scale: f32) {
 
     font_path_c := strings.clone_to_cstring(font_path)
     defer delete(font_path_c)
-    code_font = im.FontAtlas_AddFontFromFileTTF(io.Fonts, font_path_c, FONT_SIZE * font_scale)
+    monoFont = im.FontAtlas_AddFontFromFileTTF(io.Fonts, font_path_c, FONT_SIZE * font_scale)
 
-    if code_font != nil {
-        io.FontDefault = code_font
+    if monoFont != nil {
+        io.FontDefault = monoFont
         io.FontGlobalScale = 1 / font_scale
     }
 }
 
-pushCodeFont :: proc() -> bool {
-    if code_font != nil {
-        im.PushFont(code_font)
+pushMonoFont :: proc() -> bool {
+    if monoFont != nil {
+        im.PushFont(monoFont)
         return true
     }
     return false
 }
 
 popFontIf :: proc(pushed: bool) {
-    if pushed {
-        im.PopFont()
-    }
+    if pushed do im.PopFont()
 }
 
 resolveAssetPath :: proc(path: string) -> string {
@@ -110,13 +108,13 @@ loadTextureRGBA :: proc(path: string) -> u32 {
 }
 
 loadBotAvatarTexture :: proc() {
-    bot_avatar_texture = loadTextureRGBA(BOT_AVATAR_PATH)
+    bot_pfpTex = loadTextureRGBA(BOT_AVATAR_PATH)
 }
 
 destroyBotAvatarTexture :: proc() {
-    if bot_avatar_texture != 0 {
-        gl.DeleteTextures(1, &bot_avatar_texture)
-        bot_avatar_texture = 0
+    if bot_pfpTex != 0 {
+        gl.DeleteTextures(1, &bot_pfpTex)
+        bot_pfpTex = 0
     }
 }
 
@@ -133,7 +131,7 @@ loadPlayerAvatarTexture :: proc(state: ^AppState) -> bool {
     }
 
     destroyPlayerAvatarTexture()
-    player_avatar_texture = texture
+    user_pfpTex = texture
     return true
 }
 
@@ -173,9 +171,9 @@ usePlayerAvatarImage :: proc(state: ^AppState) -> bool {
 }
 
 destroyPlayerAvatarTexture :: proc() {
-    if player_avatar_texture != 0 {
-        gl.DeleteTextures(1, &player_avatar_texture)
-        player_avatar_texture = 0
+    if user_pfpTex != 0 {
+        gl.DeleteTextures(1, &user_pfpTex)
+        user_pfpTex = 0
     }
 }
 
@@ -195,7 +193,7 @@ mutedColor :: proc(theme: Theme) -> im.Vec4 {
     return {0.50, 0.53, 0.61, 1}
 }
 
-bookColor :: proc(theme: Theme) -> im.Vec4 {
+subTextColor :: proc(theme: Theme) -> im.Vec4 {
     if theme == .Light {
         return {0.270, 0.345, 0.500, 1}
     }

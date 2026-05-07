@@ -103,7 +103,7 @@ main :: proc() {
 
     for !glfw.WindowShouldClose(window) {
         glfw.PollEvents()
-        updateShortcuts(window, state)
+        updateSendSignal(window, state)
 
         imgui_impl_opengl3.NewFrame()
         imgui_impl_glfw.NewFrame()

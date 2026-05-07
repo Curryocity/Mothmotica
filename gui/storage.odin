@@ -85,7 +85,7 @@ loadSettings :: proc(state: ^AppState) {
     if strings.trim_space(saved.player_avatar_path) != "" {
         bufferSet(state.playerAvatarPath[:], saved.player_avatar_path)
     }
-    if saved.send_hotkey >= int(SendHotkey.Enter) && saved.send_hotkey <= int(SendHotkey.Shift_Enter) {
+    if saved.send_hotkey >= int(SendHotkey.Enter) && saved.send_hotkey <= int(SendHotkey.ShiftEnter) {
         state.sendHotkey = SendHotkey(saved.send_hotkey)
     }
     if saved.theme >= int(Theme.Dark) && saved.theme <= int(Theme.Light) {
@@ -153,7 +153,7 @@ pagePath :: proc(state: ^AppState, page: ^Page) -> (string, os.Error) {
     if len(path) > 0 {
         return strings.clone(path), nil
     }
-    return titlePagePath(state, page, pageTitle(page))
+    return titlePagePath(state, page, getTitle(page))
 }
 
 pageFilenameSlug :: proc(title: string) -> string {
@@ -211,8 +211,18 @@ titlePagePath :: proc(state: ^AppState, page: ^Page, title: string) -> (string, 
     return candidate, nil
 }
 
-renamePageFileToTitle :: proc(state: ^AppState, page: ^Page, title: string, status: []byte) {
+setPageFilename :: proc(state: ^AppState, page: ^Page, title: string, status: []byte) {
     if page == nil do return
+
+    current_title := getTitle(page)
+    new_title := strings.trim_space(title)
+    if new_title == "" {
+        bufferSet(status, "Filename cannot be empty.")
+        return
+    }
+    if new_title == current_title {
+        return
+    }
 
     old_path := bufferString(page.path[:])
     if old_path == "" && !pageHasContent(page) {
@@ -250,22 +260,6 @@ renamePageFileToTitle :: proc(state: ^AppState, page: ^Page, title: string, stat
     savePage(state, page, status)
 }
 
-setPageFilename :: proc(state: ^AppState, page: ^Page, title: string, status: []byte) {
-    if page == nil do return
-
-    current_title := pageTitle(page)
-    new_title := strings.trim_space(title)
-    if new_title == "" {
-        bufferSet(status, "Filename cannot be empty.")
-        return
-    }
-    if new_title == current_title {
-        return
-    }
-
-    renamePageFileToTitle(state, page, new_title, status)
-}
-
 freeSavedPage :: proc(saved: ^SavedPage) {
     for i in 0..<len(saved.messages) {
         delete(saved.messages[i].text)
@@ -277,7 +271,7 @@ freeSavedPage :: proc(saved: ^SavedPage) {
 pageHasContent :: proc(page: ^Page) -> bool {
     if page == nil do return false
 
-    for i in 0..<realMessageCount(page) {
+    for i in 0..<msgCount(page) {
         if strings.trim_space(bufferString(page.msgs[i].text[:])) != "" {
             return true
         }
@@ -376,7 +370,7 @@ loadPageFile :: proc(state: ^AppState, path: string) -> bool {
     page^ = Page{}
     page.id = max(saved.id, state.nextPageID)
     bufferSet(page.path[:], path)
-    bufferSet(page.title[:], pageTitle(page))
+    bufferSet(page.title[:], getTitle(page))
 
     message_count := min(len(saved.messages), len(page.msgs))
     for i in 0..<message_count {
@@ -388,7 +382,7 @@ loadPageFile :: proc(state: ^AppState, path: string) -> bool {
         msg.dirty = false
     }
     page.msgCount = message_count
-    ensureDraftMsg(page)
+    atLeastOneMsg(page)
     page.dirty = false
 
     state.pageCount += 1

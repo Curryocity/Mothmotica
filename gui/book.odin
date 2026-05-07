@@ -9,6 +9,7 @@ import "core:strings"
 import "core:path/filepath"
 
 import im "../third_party/odin-imgui"
+import "vendor:glfw"
 
 Page :: struct {
     id: int,
@@ -41,29 +42,29 @@ ChatMsg :: struct {
 }
 
 drawBookUI :: proc(state: ^AppState){
-    page := activePage(state)
+    page := getActivePage(state)
     if page == nil {
         createPage(state)
-        page = activePage(state)
+        page = getActivePage(state)
     }
 
-    ensureDraftMsg(page)
+    atLeastOneMsg(page)
 
     drawTopBar(state, page)
     body := im.GetContentRegionAvail()
     sidebar_w := min(SIDEBAR_WIDTH, max(body.x * 0.35, 180))
-    drawPageSidebar(state, {sidebar_w, body.y})
+    drawSidebar(state, {sidebar_w, body.y})
     im.SameLine()
 
     chat_w := max(body.x - sidebar_w - 12, 240)
     if im.BeginChild("ChatLog", {chat_w, body.y}, {}, {.HorizontalScrollbar}) {
         im.Indent(SIDE_PAD)
         if state.showStarred {
-            drawStarredMessages(state, page)
+            drawStarredMsg(state, page)
         } else {
             for i in 0..<page.msgCount {
-                is_draft := i == realMessageCount(page)
-                drawUserMsg(state, page, i, is_draft)
+                is_draft := (i == msgCount(page))
+                drawAllMsg(state, page, i, is_draft)
             }
         }
         im.Unindent(SIDE_PAD)
@@ -81,10 +82,10 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
 
     im.Dummy({0, 8})
     bot_name := bufferString(state.botName[:])
-    if bot_avatar_texture != 0 {
-        drawAvatarImage(bot_avatar_texture)
+    if bot_pfpTex != 0 {
+        drawAvatarImage(bot_pfpTex)
     } else {
-        bot_avatar := avatarLabel(bot_name, 'M')
+        bot_avatar := avatarLabel(bot_name)
         drawAvatar(cstring(&bot_avatar[0]), {0.27, 0.24, 0.58, 1}, {0.49, 0.42, 0.82, 1}, {0.96, 0.95, 1.0, 1})
     }
     im.Indent(AVATAR_SIZE + AVATAR_GAP)
@@ -98,23 +99,23 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
     im.PushStyleColorImVec4(im.Col.FrameBg, messageBoxBgColor(state.theme, false))
     im.PushStyleColorImVec4(im.Col.Border, messageBoxBorderColor(state.theme, false))
     im.PushStyleColorImVec4(im.Col.Text, messageBoxTextColor(state.theme))
-    pushed_code_font := pushCodeFont()
+    pushed_code_font := pushMonoFont()
     im.InputTextMultiline("##reply", cstring(&msg.reply[0]), c.size_t(len(msg.reply)), {-1, height}, {.ReadOnly})
     popFontIf(pushed_code_font)
     im.PopStyleColor(3)
     im.Unindent(AVATAR_SIZE + AVATAR_GAP)
 }
 
-drawUserMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
+drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     msg := &page.msgs[idx]
     im.PushIDInt(c.int(idx))
 
     im.Dummy({0, MESSAGE_GAP})
     player_name := bufferString(state.playerName[:])
-    if player_avatar_texture != 0 {
-        drawAvatarImage(player_avatar_texture)
+    if user_pfpTex != 0 {
+        drawAvatarImage(user_pfpTex)
     } else {
-        player_avatar := avatarLabel(player_name, 'C')
+        player_avatar := avatarLabel(player_name)
         drawAvatar(cstring(&player_avatar[0]), {0.78, 0.53, 0.16, 1}, {1.0, 0.79, 0.32, 1}, {0.07, 0.06, 0.04, 1})
     }
     im.Indent(AVATAR_SIZE + AVATAR_GAP)
@@ -144,7 +145,7 @@ drawUserMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     im.PushStyleColorImVec4(im.Col.FrameBg, messageBoxBgColor(state.theme, is_draft))
     im.PushStyleColorImVec4(im.Col.Border, messageBoxBorderColor(state.theme, is_draft))
     im.PushStyleColorImVec4(im.Col.Text, messageBoxTextColor(state.theme))
-    pushed_code_font := pushCodeFont()
+    pushed_MonoFont := pushMonoFont()
     submit := false
     cb_data := SubmitState{state = state, submitted = &submit}
     changed := im.InputTextMultiline(
@@ -153,13 +154,13 @@ drawUserMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
         c.size_t(len(msg.text)),
         {-1, height},
         {.AllowTabInput, .CallbackAlways, .CallbackCharFilter},
-        submitHotkeyCallback,
+        sendMsgCallback,
         &cb_data,
     )
     item_active := im.IsItemActive()
     item_hovered := im.IsItemHovered(im.HoveredFlags_RectOnly)
     deactivated_after_edit := im.IsItemDeactivatedAfterEdit()
-    popFontIf(pushed_code_font)
+    popFontIf(pushed_MonoFont)
     if changed {
         msg.dirty = true
         page.dirty = true
@@ -200,14 +201,13 @@ drawTopBar :: proc(state: ^AppState, page: ^Page) {
         book_name := bufferString(state.currentBookName[:])
         book_name_c := strings.clone_to_cstring(book_name)
         defer delete(book_name_c)
-        im.TextColored(bookColor(state.theme), "%s", book_name_c)
+        im.TextColored(subTextColor(state.theme), "%s", book_name_c)
 
         if state.editingTitlePage != page.id {
-            bufferSet(state.titleEdit[:], pageTitle(page))
+            bufferSet(state.titleEdit[:], getTitle(page))
             state.editingTitlePage = page.id
         }
 
-        avail := im.GetContentRegionAvail()
         im.SameLine(max(im.GetWindowWidth() - 470, SIDE_PAD))
         im.SetNextItemWidth(260)
         im.InputText("##page-title", cstring(&state.titleEdit[0]), c.size_t(len(state.titleEdit)))
@@ -216,7 +216,7 @@ drawTopBar :: proc(state: ^AppState, page: ^Page) {
         }
         im.SameLine()
 
-        all_count := messageCount(page)
+        all_count := msgCount(page)
         starred_count := starredCount(page)
 
         view_label := fmt.tprintf(state.showStarred ? "Starred (%d)" : "All Messages (%d)", 
@@ -230,129 +230,12 @@ drawTopBar :: proc(state: ^AppState, page: ^Page) {
             state.showStarred = !state.showStarred
         }
         
-        _ = avail
     }
 
     im.Separator()
 }
 
-createBookPopup :: proc(state: ^AppState) {
-    if state.showCreateBookDialog {
-        im.OpenPopup("Create Book")
-    }
-
-    if im.BeginPopupModal("Create Book", &state.showCreateBookDialog) {
-        im.SetNextItemWidth(360)
-        im.InputText("Book Name", cstring(&state.bookNameInput[0]), c.size_t(len(state.bookNameInput)))
-        can_create_book := strings.trim_space(bufferString(state.bookNameInput[:])) != ""
-        im.BeginDisabled(!can_create_book)
-        if im.Button("Create") {
-            if createBook(state) {
-                state.showCreateBookDialog = false
-                im.CloseCurrentPopup()
-            }
-        }
-        im.EndDisabled()
-        im.SameLine()
-        if im.Button("Cancel") {
-            state.showCreateBookDialog = false
-            im.CloseCurrentPopup()
-        }
-        im.EndPopup()
-    }
-
-    if state.showOpenBookDialog {
-        im.OpenPopup("Open Book")
-    }
-
-    viewport := im.GetMainViewport()
-    popup_w := min(max(viewport.Size.x * 0.62, 420), max(viewport.Size.x - 80, 280))
-    popup_h := min(max(viewport.Size.y * 0.66, 360), max(viewport.Size.y - 80, 280))
-    popup_center := im.Vec2{
-        viewport.Pos.x + viewport.Size.x * 0.5,
-        viewport.Pos.y + viewport.Size.y * 0.5,
-    }
-    im.SetNextWindowPos(popup_center, {}, {0.5, 0.5})
-    im.SetNextWindowSize({popup_w, popup_h})
-
-    if im.BeginPopupModal("Open Book", &state.showOpenBookDialog, {.NoTitleBar, .NoMove, .NoResize}) {
-        im.Dummy({0, 8})
-        im.SetWindowFontScale(1.35)
-        title_size := im.CalcTextSize("Select A Book")
-        im.SetCursorPosX(max((im.GetWindowWidth() - title_size.x) * 0.5, 16))
-        im.TextColored(titleColor(state.theme), "Select A Book")
-        im.SetWindowFontScale(1)
-        book_folder_w := f32(118)
-        im.SameLine(max(im.GetWindowWidth() - book_folder_w - 18, 16))
-        if im.Button("Book Folder", {book_folder_w, 32}) {
-            openBooksFolder(state)
-        }
-        im.Dummy({0, 8})
-        im.Separator()
-        im.Dummy({0, 8})
-
-        list_h := max(im.GetContentRegionAvail().y - 78, 120)
-        if im.BeginChild("BookList", {-1, list_h}, {.Borders}, {}) {
-            dir, dir_err := booksDir()
-            if dir_err == nil {
-                defer delete(dir)
-                _ = os.make_directory_all(dir)
-
-                found := false
-                row := 0
-                walker := os.walker_create(dir)
-                defer os.walker_destroy(&walker)
-                for info in os.walker_walk(&walker) {
-                    if _, walk_err := os.walker_error(&walker); walk_err != nil {
-                        continue
-                    }
-                    if info.type != .Directory {
-                        continue
-                    }
-
-                    found = true
-                    im.PushIDInt(c.int(row))
-                    row += 1
-                    open_label := fmt.tprintf("Open##%s", info.name)
-                    open_label_c := strings.clone_to_cstring(open_label)
-                    defer delete(open_label_c)
-                    if im.SmallButton(open_label_c) {
-                        bufferSet(state.openPath[:], info.fullpath)
-                        if openBookFromPath(state, info.fullpath) {
-                            state.showOpenBookDialog = false
-                            im.CloseCurrentPopup()
-                        }
-                        im.PopID()
-                        break
-                    }
-                    im.SameLine()
-                    name_c := strings.clone_to_cstring(info.name)
-                    defer delete(name_c)
-                    im.Text("%s", name_c)
-                    im.PopID()
-                }
-
-                if !found {
-                    im.TextColored(mutedColor(state.theme), "No books yet.")
-                }
-            } else {
-                im.TextColored({0.95, 0.42, 0.36, 1}, "Could not find books folder.")
-            }
-        }
-        im.EndChild()
-
-        im.Separator()
-        close_w := f32(100)
-        im.SetCursorPosX(max((im.GetWindowWidth() - close_w) * 0.5, 16))
-        if im.Button("Close", {close_w, 34}) {
-            state.showOpenBookDialog = false
-            im.CloseCurrentPopup()
-        }
-        im.EndPopup()
-    }
-}
-
-drawPageSidebar :: proc(state: ^AppState, size: im.Vec2) {
+drawSidebar :: proc(state: ^AppState, size: im.Vec2) {
     if state.pageCount == 0 do return
 
     if im.BeginChild("PageSidebar", size, {.Borders}, {}) {
@@ -364,7 +247,7 @@ drawPageSidebar :: proc(state: ^AppState, size: im.Vec2) {
         for i in 0..<state.pageCount {
             item_w = max(im.GetContentRegionAvail().x, 1)
             page := &state.pages[i]
-            title := pageTitle(page)
+            title := getTitle(page)
             label := fmt.tprintf("%s##page-%d", title, page.id)
             label_c := strings.clone_to_cstring(label)
             defer delete(label_c)
@@ -377,12 +260,12 @@ drawPageSidebar :: proc(state: ^AppState, size: im.Vec2) {
     im.EndChild()
 }
 
-drawStarredMessages :: proc(state: ^AppState, page: ^Page) {
+drawStarredMsg :: proc(state: ^AppState, page: ^Page) {
     found := false
-    for i in 0..<realMessageCount(page) {
+    for i in 0..<msgCount(page) {
         if !page.msgs[i].starred do continue
         found = true
-        drawUserMsg(state, page, i, false)
+        drawAllMsg(state, page, i, false)
     }
 
     if !found {
@@ -391,8 +274,8 @@ drawStarredMessages :: proc(state: ^AppState, page: ^Page) {
     }
 }
 
-avatarLabel :: proc(name: string, fallback: byte) -> [2]byte {
-    label := [2]byte{fallback, 0}
+avatarLabel :: proc(name: string) -> [2]byte {
+    label := [2]byte{' ', 0}
     trimmed := strings.trim_space(name)
     if len(trimmed) > 0 {
         label[0] = trimmed[0]
@@ -449,26 +332,26 @@ drawAvatarImage :: proc(texture: u32) {
     )
 }
 
-sendHotkeyDown :: proc(state: ^AppState) -> bool {
+sendMsgQ :: proc(state: ^AppState) -> bool {
     io := im.GetIO()
-    if state != nil && state.sendHotkey == .Shift_Enter {
+    if state != nil && state.sendHotkey == .ShiftEnter {
         return io.KeyShift
     }
     return !io.KeyShift
 }
 
-submitHotkeyCallback :: proc "c" (data: ^im.InputTextCallbackData) -> c.int {
+sendMsgCallback :: proc "c" (data: ^im.InputTextCallbackData) -> c.int {
     context = runtime.default_context()
 
     payload := cast(^SubmitState)data.UserData
     if payload == nil || payload.submitted == nil do return 0
 
-    if .CallbackAlways in data.EventFlag && sendHotkeyDown(payload.state) && im.IsKeyPressed(.Enter, false) {
+    if .CallbackAlways in data.EventFlag && sendMsgQ(payload.state) && im.IsKeyPressed(.Enter, false) {
         payload.submitted^ = true
         return 0
     }
 
-    if .CallbackCharFilter in data.EventFlag && sendHotkeyDown(payload.state) {
+    if .CallbackCharFilter in data.EventFlag && sendMsgQ(payload.state) {
         if data.EventChar == '\n' || data.EventChar == '\r' {
             payload.submitted^ = true
             data.EventChar = 0
@@ -479,7 +362,19 @@ submitHotkeyCallback :: proc "c" (data: ^im.InputTextCallbackData) -> c.int {
     return 0
 }
 
-pageTitle :: proc(page: ^Page) -> string {
+updateSendSignal :: proc(window: glfw.WindowHandle, state: ^AppState) {
+    enter_down := glfw.GetKey(window, glfw.KEY_ENTER) == glfw.PRESS ||
+                  glfw.GetKey(window, glfw.KEY_KP_ENTER) == glfw.PRESS
+    shift_down := glfw.GetKey(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS ||
+                  glfw.GetKey(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
+    wants_shift := state.sendHotkey == .ShiftEnter
+    down := enter_down && (shift_down == wants_shift)
+
+    state.shiftEnterSignal = down && !state.shiftEnterQ
+    state.shiftEnterQ = down
+}
+
+getTitle :: proc(page: ^Page) -> string {
     path := bufferString(page.path[:])
     if path != "" {
         stem := filepath.stem(path)
@@ -491,13 +386,13 @@ pageTitle :: proc(page: ^Page) -> string {
     return title
 }
 
-activePage :: proc(state: ^AppState) -> ^Page {
+getActivePage :: proc(state: ^AppState) -> ^Page {
     if state.pageCount == 0 do return nil
     state.activePage = min(max(state.activePage, 0), state.pageCount - 1)
     return &state.pages[state.activePage]
 }
 
-appendEmptyMsg :: proc(page: ^Page) {
+addEmptyMsg :: proc(page: ^Page) {
     if page.msgCount >= len(page.msgs) {
         copy(page.msgs[:len(page.msgs)-1], page.msgs[1:])
         page.msgCount = len(page.msgs) - 1
@@ -508,9 +403,9 @@ appendEmptyMsg :: proc(page: ^Page) {
     page.msgCount += 1
 }
 
-ensureDraftMsg :: proc(page: ^Page) {
+atLeastOneMsg :: proc(page: ^Page) {
     if page != nil && page.msgCount == 0 {
-        appendEmptyMsg(page)
+        addEmptyMsg(page)
     }
 }
 
@@ -538,7 +433,7 @@ createPage :: proc(state: ^AppState) -> ^Page {
     }
     bufferSet(page.title[:], fmt.tprintf("page-%d", page.id))
     state.nextPageID += 1
-    appendEmptyMsg(page)
+    addEmptyMsg(page)
     page.dirty = true
 
     state.pageCount += 1
@@ -549,30 +444,16 @@ createPage :: proc(state: ^AppState) -> ^Page {
     return page
 }
 
-openFirstPage :: proc(state: ^AppState) {
-    if state.pageCount == 0 {
-        createPage(state)
-        return
-    }
-    state.activePage = min(max(state.activePage, 0), state.pageCount - 1)
-    state.showHome = false
-    state.showStarred = false
-}
-
-realMessageCount :: proc(page: ^Page) -> int {
+msgCount :: proc(page: ^Page) -> int {
     if page == nil do return 0
     return max(page.msgCount - 1, 0)
-}
-
-messageCount :: proc(page: ^Page) -> int {
-    return realMessageCount(page)
 }
 
 starredCount :: proc(page: ^Page) -> int {
     if page == nil do return 0
 
     count := 0
-    for i in 0..<realMessageCount(page) {
+    for i in 0..<msgCount(page) {
         if page.msgs[i].starred do count += 1
     }
     return count
@@ -599,7 +480,7 @@ addMsg :: proc(state: ^AppState, page: ^Page) {
 
     bufferSet(draft.text[:], input)
     refreshMsg(draft)
-    appendEmptyMsg(page)
+    addEmptyMsg(page)
     page.dirty = true
     state.newMsgQ = true
 }
@@ -626,6 +507,6 @@ deleteMsg :: proc(page: ^Page, idx: int) {
         page.msgs[i] = page.msgs[i + 1]
     }
     page.msgCount -= 1
-    ensureDraftMsg(page)
+    atLeastOneMsg(page)
     page.dirty = true
 }
