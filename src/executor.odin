@@ -297,6 +297,26 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "outt(...)", 0, 1)
         if !argsOK do return msg, false
         return formatOutValue(prs, p, "T", f64(p.f), cmd.args[:], "outt")
+    
+    case .SetClock:
+        msg, argsOK := expectPlainArgs(cmd, "clock(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        slow, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: clock(...) argument is not a valid number"), false
+
+        rounded := math.round(slow)
+        if math.abs(slow - rounded) > 1e-15 {
+            return "Error: clock(...) argument should be an integer", false
+        }
+        p.clock = int(rounded)
+
+        return "", true
+    
+    case .OutClock:
+        msg, argsOK := expectPlainArgs(cmd, "outclock(...)", 0, 0)
+        if !argsOK do return msg, false
+        return fmt.tprintf("Clock: %d",  p.clock), true
 
     case .SetSlip:
         msg, argsOK := expectPlainArgs(cmd, "slip(...)", 1, 1)
@@ -1115,6 +1135,8 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
             return p.inertia_threshold/f64(p.ground_slip)/0.91, true
         case "getia":
             return p.inertia_threshold/0.91, true
+        case "getc", "getclock":
+            return f64(p.clock), true
         case:
             value, ok := prs.vars[expr.text]
             if !ok{
