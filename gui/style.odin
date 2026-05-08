@@ -119,7 +119,7 @@ destroyBotpfpTex :: proc() {
 }
 
 loadPlayerpfpTex :: proc(state: ^AppState) -> bool {
-    path := strings.trim_space(bufferString(state.playerAvatarPath[:]))
+    path := strings.trim_space(bufferString(state.settings.playerAvatarPath[:]))
     if path == "" {
         destroyPlayerpfpTex()
         return false
@@ -161,12 +161,12 @@ usePlayerPfp :: proc(state: ^AppState, source_path: string) -> bool {
         return false
     }
 
-    bufferSet(state.playerAvatarPath[:], avatar_path)
+    bufferSet(state.settings.playerAvatarPath[:], avatar_path)
     if !loadPlayerpfpTex(state) {
         return false
     }
 
-    state.settingsDirty = true
+    state.settings.dirty = true
     return true
 }
 

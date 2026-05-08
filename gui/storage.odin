@@ -48,7 +48,7 @@ booksDir :: proc() -> (string, os.Error) {
 }
 
 bookPagesDir :: proc(state: ^AppState) -> (string, os.Error) {
-    path := bufferString(state.curBookPath[:])
+    path := bufferString(state.book.curBookPath[:])
     if path == "" {
         return "", os.General_Error.Not_Exist
     }
@@ -97,21 +97,21 @@ loadSettings :: proc(state: ^AppState) {
     defer freeSavedSettings(&saved)
 
     if strings.trim_space(saved.player_name) != "" {
-        bufferSet(state.playerName[:], saved.player_name)
+        bufferSet(state.settings.playerName[:], saved.player_name)
     }
     if strings.trim_space(saved.bot_name) != "" {
-        bufferSet(state.botName[:], saved.bot_name)
+        bufferSet(state.settings.botName[:], saved.bot_name)
     }
     if strings.trim_space(saved.player_pfp_path) != "" {
-        bufferSet(state.playerAvatarPath[:], saved.player_pfp_path)
+        bufferSet(state.settings.playerAvatarPath[:], saved.player_pfp_path)
     }
     if saved.send_hotkey >= int(SendHotkey.Enter) && saved.send_hotkey <= int(SendHotkey.ShiftEnter) {
-        state.sendHotkey = SendHotkey(saved.send_hotkey)
+        state.settings.sendHotkey = SendHotkey(saved.send_hotkey)
     }
     if saved.theme >= int(Theme.Dark) && saved.theme <= int(Theme.Light) {
-        state.theme = Theme(saved.theme)
+        state.settings.theme = Theme(saved.theme)
     }
-    state.settingsDirty = false
+    state.settings.dirty = false
 }
 
 saveSettings :: proc(state: ^AppState) {
@@ -129,11 +129,11 @@ saveSettings :: proc(state: ^AppState) {
 
     saved := Settings {
         version = 1,
-        player_name = bufferString(state.playerName[:]),
-        bot_name = bufferString(state.botName[:]),
-        player_pfp_path = bufferString(state.playerAvatarPath[:]),
-        send_hotkey = int(state.sendHotkey),
-        theme = int(state.theme),
+        player_name = bufferString(state.settings.playerName[:]),
+        bot_name = bufferString(state.settings.botName[:]),
+        player_pfp_path = bufferString(state.settings.playerAvatarPath[:]),
+        send_hotkey = int(state.settings.sendHotkey),
+        theme = int(state.settings.theme),
     }
 
     data, marshal_err := json.marshal(saved, {pretty = true}, context.allocator)
@@ -141,12 +141,12 @@ saveSettings :: proc(state: ^AppState) {
     defer delete(data)
 
     if os.write_entire_file(path, data) == nil {
-        state.settingsDirty = false
+        state.settings.dirty = false
     }
 }
 
 saveDirtySettings :: proc(state: ^AppState) {
-    if state.settingsDirty {
+    if state.settings.dirty {
         saveSettings(state)
     }
 }
@@ -354,9 +354,9 @@ savePage :: proc(state: ^AppState, page: ^Page) {
 
 saveDirtyPages :: proc(state: ^AppState) {
     saved_any := false
-    for i in 0..<state.pageCount {
-        if state.pages[i].dirty {
-            savePage(state, &state.pages[i])
+    for i in 0..<state.book.pageCount {
+        if state.book.pages[i].dirty {
+            savePage(state, &state.book.pages[i])
             saved_any = true
         }
     }
@@ -366,7 +366,7 @@ saveDirtyPages :: proc(state: ^AppState) {
 }
 
 loadPageFile :: proc(state: ^AppState, path: string) -> bool {
-    if state.pageCount >= len(state.pages) do return false
+    if state.book.pageCount >= len(state.book.pages) do return false
 
     data, read_err := os.read_entire_file(path, context.allocator)
     if read_err != nil do return false
@@ -377,9 +377,9 @@ loadPageFile :: proc(state: ^AppState, path: string) -> bool {
     if unmarshal_err != nil do return false
     defer freeSavedPage(&saved)
 
-    page := &state.pages[state.pageCount]
+    page := &state.book.pages[state.book.pageCount]
     page^ = Page{}
-    page.id = max(saved.id, state.nextPageID)
+    page.id = max(saved.id, state.book.nextPageID)
     bufferSet(page.path[:], path)
     bufferSet(page.title[:], getTitle(page))
 
@@ -396,14 +396,14 @@ loadPageFile :: proc(state: ^AppState, path: string) -> bool {
     atLeastOneMsg(page)
     page.dirty = false
 
-    state.pageCount += 1
-    state.nextPageID = max(state.nextPageID, page.id + 1)
+    state.book.pageCount += 1
+    state.book.nextPageID = max(state.book.nextPageID, page.id + 1)
     return true
 }
 
 findOpenPageByPath :: proc(state: ^AppState, path: string) -> int {
-    for i in 0..<state.pageCount {
-        if bufferString(state.pages[i].path[:]) == path {
+    for i in 0..<state.book.pageCount {
+        if bufferString(state.book.pages[i].path[:]) == path {
             return i
         }
     }
@@ -440,8 +440,8 @@ savePagesOrder :: proc(state: ^AppState) -> bool {
     b := strings.builder_make()
     defer strings.builder_destroy(&b)
 
-    for i in 0..<state.pageCount {
-        page := &state.pages[i]
+    for i in 0..<state.book.pageCount {
+        page := &state.book.pages[i]
         page_path := bufferString(page.path[:])
         if page_path == "" {
             continue
@@ -486,7 +486,7 @@ loadPagesOrder :: proc(state: ^AppState, dir: string) -> bool {
             filename = fmt.tprintf("%s.json", filename)
         }
 
-        if state.pageCount >= MAX_PAGES {
+        if state.book.pageCount >= MAX_PAGES {
             break
         }
 
@@ -510,7 +510,7 @@ loadPagesOrder :: proc(state: ^AppState, dir: string) -> bool {
             continue
         }
 
-        bufferSet(state.pages[state.pageCount - 1].path[:], page_path)
+        bufferSet(state.book.pages[state.book.pageCount - 1].path[:], page_path)
         delete(page_path)
 
         loaded = true
@@ -522,10 +522,10 @@ loadPagesOrder :: proc(state: ^AppState, dir: string) -> bool {
 // Book folders and loaded page sets
 
 clearPages :: proc(state: ^AppState) {
-    state.pageCount = 0
-    state.activePage = 0
-    state.nextPageID = 1
-    state.editingTitlePage = 0
+    state.book.pageCount = 0
+    state.book.activePage = 0
+    state.book.nextPageID = 1
+    state.ui.editingTitlePage = 0
 }
 
 loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
@@ -550,7 +550,7 @@ loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
             continue
         }
         if loadPageFile(state, info.fullpath) {
-            bufferSet(state.pages[state.pageCount - 1].path[:], info.fullpath)
+            bufferSet(state.book.pages[state.book.pageCount - 1].path[:], info.fullpath)
             loaded = true
         }
     }
@@ -559,7 +559,7 @@ loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
         savePagesOrder(state)
     }
 
-    state.activePage = 0
+    state.book.activePage = 0
 
     return loaded
 }
@@ -574,20 +574,20 @@ openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
     }
 
     clearPages(state)
-    bufferSet(state.curBookPath[:], trimmed)
-    bufferSet(state.curBookName[:], filepath.base(trimmed))
+    bufferSet(state.book.curBookPath[:], trimmed)
+    bufferSet(state.book.curBookName[:], filepath.base(trimmed))
     loadBookPages(state, trimmed)
-    if state.pageCount == 0 {
+    if state.book.pageCount == 0 {
         createPage(state)
     }
-    state.activePage = min(state.activePage, state.pageCount - 1)
-    state.scene = .Book
-    state.showStarred = false
+    state.book.activePage = min(state.book.activePage, state.book.pageCount - 1)
+    state.ui.scene = .Book
+    state.ui.showStarred = false
     return true
 }
 
 createBook :: proc(state: ^AppState) -> bool {
-    name := strings.trim_space(bufferString(state.bookNameInput[:]))
+    name := strings.trim_space(bufferString(state.ui.bookNameInput[:]))
     if name == "" {
         return false
     }
@@ -661,7 +661,7 @@ openExternal :: proc(url: string) {
 }
 
 openCurrentBookFolder :: proc(state: ^AppState) {
-    path := bufferString(state.curBookPath[:])
+    path := bufferString(state.book.curBookPath[:])
     if path == "" || !os.is_dir(path) {
         return
     }

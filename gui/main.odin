@@ -28,21 +28,27 @@ Scene :: enum {
     Book,
 }
 
-AppState :: struct {
+BookState :: struct {
     pages: [MAX_PAGES]Page,
     pageCount: int,
     activePage: int,
     nextPageID: int,
-    pageOrderDirty: bool,
+    curBookPath: [PATH_SIZE]byte,
+    curBookName: [PAGE_TITLE_SIZE]byte,
+}
+
+UIState :: struct {
     scene: Scene,
     showStarred: bool,
     showCreateBookPopup: bool,
     showOpenBookPopup: bool,
     openPath: [PATH_SIZE]byte,
     bookNameInput: [PAGE_TITLE_SIZE]byte,
-    curBookPath: [PATH_SIZE]byte,
-    curBookName: [PAGE_TITLE_SIZE]byte,
     titleEdit: [PAGE_TITLE_SIZE]byte,
+    editingTitlePage: int,
+}
+
+UserSettings :: struct {
     playerName: [PAGE_TITLE_SIZE]byte,
     botName: [PAGE_TITLE_SIZE]byte,
     playerAvatarPath: [PATH_SIZE]byte,
@@ -51,13 +57,22 @@ AppState :: struct {
     playerAvatarStatusError: bool,
     sendHotkey: SendHotkey,
     theme: Theme,
-    settingsDirty: bool,
-    editingTitlePage: int,
+    dirty: bool,
+}
+
+RuntimeState :: struct {
     newMsgQ: bool,
     shiftEnterQ: bool,
     shiftEnterSignal: bool,
-    last_theme: Theme,
-    last_autosave: f64,
+    lastTheme: Theme,
+    lastAutosave: f64,
+}
+
+AppState :: struct {
+    book: BookState,
+    ui: UIState,
+    settings: UserSettings,
+    runtime: RuntimeState,
 }
 
 main :: proc() {
@@ -108,17 +123,17 @@ main :: proc() {
         imgui_impl_opengl3.NewFrame()
         imgui_impl_glfw.NewFrame()
         im.NewFrame()
-        if state.theme != state.last_theme {
-            applyTheme(state.theme)
-            state.last_theme = state.theme
+        if state.settings.theme != state.runtime.lastTheme {
+            applyTheme(state.settings.theme)
+            state.runtime.lastTheme = state.settings.theme
         }
 
         draw(state)
         now := im.GetTime()
-        if now - state.last_autosave >= AUTOSAVE_INTERVAL_SECONDS {
+        if now - state.runtime.lastAutosave >= AUTOSAVE_INTERVAL_SECONDS {
             saveDirtySettings(state)
             saveDirtyPages(state)
-            state.last_autosave = now
+            state.runtime.lastAutosave = now
         }
 
         im.Render()
@@ -136,17 +151,17 @@ main :: proc() {
 
 init :: proc() -> ^AppState{
     state := new(AppState)
-    state.scene = .Home
-    state.nextPageID = 1
-    state.sendHotkey = .Enter
-    state.theme = .Dark
-    bufferSet(state.playerName[:], "Me")
-    bufferSet(state.botName[:], "Mothball")
+    state.ui.scene = .Home
+    state.book.nextPageID = 1
+    state.settings.sendHotkey = .Enter
+    state.settings.theme = .Dark
+    bufferSet(state.settings.playerName[:], "Me")
+    bufferSet(state.settings.botName[:], "Mothball")
     loadSettings(state)
     loadPlayerpfpTex(state)
-    applyTheme(state.theme)
-    state.last_theme = state.theme
-    state.last_autosave = im.GetTime()
+    applyTheme(state.settings.theme)
+    state.runtime.lastTheme = state.settings.theme
+    state.runtime.lastAutosave = im.GetTime()
     ensureBooksDir(state)
 
     return state
@@ -161,7 +176,7 @@ draw :: proc(state: ^AppState) {
     if im.Begin("Mothmotica", nil, flags) {
         total := im.GetContentRegionAvail()
 
-        switch state.scene {
+        switch state.ui.scene {
         case .Settings:
             if im.BeginChild("Settings", total, {}, {}) {
                 drawSettings(state)
@@ -182,10 +197,10 @@ draw :: proc(state: ^AppState) {
 }
 
 exit :: proc(state: ^AppState) {
-    for i in 0..<state.pageCount {
-        state.pages[i].dirty = true
+    for i in 0..<state.book.pageCount {
+        state.book.pages[i].dirty = true
     }
-    state.settingsDirty = true
+    state.settings.dirty = true
     saveDirtySettings(state)
     saveDirtyPages(state)
 

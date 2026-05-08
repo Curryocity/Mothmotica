@@ -59,7 +59,7 @@ drawBookUI :: proc(state: ^AppState){
     chat_w := max(body.x - sidebar_w - 12, 240)
     if im.BeginChild("ChatLog", {chat_w, body.y}, {}, {.HorizontalScrollbar}) {
         im.Indent(SIDE_PAD)
-        if state.showStarred {
+        if state.ui.showStarred {
             drawStarredMsg(state, page)
         } else {
             for i in 0..<page.msgCount {
@@ -69,9 +69,9 @@ drawBookUI :: proc(state: ^AppState){
         }
         im.Unindent(SIDE_PAD)
 
-        if state.newMsgQ {
+        if state.runtime.newMsgQ {
             im.SetScrollHereY(1.0)
-            state.newMsgQ = false
+            state.runtime.newMsgQ = false
         }
     }
     im.EndChild()
@@ -81,7 +81,7 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
     if !msg.has_reply do return
 
     im.Dummy({0, 8})
-    bot_name := bufferString(state.botName[:])
+    bot_name := bufferString(state.settings.botName[:])
     if bot_pfpTex != 0 {
         drawAvatarImage(bot_pfpTex)
     } else {
@@ -92,13 +92,13 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
 
     bot_name_c := strings.clone_to_cstring(bot_name)
     defer delete(bot_name_c)
-    im.TextColored(botNameColor(state.theme), "%s", bot_name_c)
+    im.TextColored(botNameColor(state.settings.theme), "%s", bot_name_c)
 
     reply := bufferString(msg.reply[:])
     height := max(f32(lineCount(reply)) * im.GetTextLineHeight() + 14, 36)
-    im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.theme, false))
-    im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.theme, false))
-    im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.theme))
+    im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.settings.theme, false))
+    im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.settings.theme, false))
+    im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.settings.theme))
     pushed_code_font := pushMonoFont()
     im.InputTextMultiline("##reply", cstring(&msg.reply[0]), c.size_t(len(msg.reply)), {-1, height}, {.ReadOnly})
     popFontIf(pushed_code_font)
@@ -111,7 +111,7 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     im.PushIDInt(c.int(idx))
 
     im.Dummy({0, MESSAGE_GAP})
-    player_name := bufferString(state.playerName[:])
+    player_name := bufferString(state.settings.playerName[:])
     if user_pfpTex != 0 {
         drawAvatarImage(user_pfpTex)
     } else {
@@ -123,7 +123,7 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     im.AlignTextToFramePadding()
     player_name_c := strings.clone_to_cstring(player_name)
     defer delete(player_name_c)
-    im.TextColored(playerNameColor(state.theme), "%s", player_name_c)
+    im.TextColored(playerNameColor(state.settings.theme), "%s", player_name_c)
     if !is_draft {
         im.SameLine()
         star_label: cstring = "Unstar" if msg.starred else "Star"
@@ -142,9 +142,9 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
 
     text := bufferString(msg.text[:])
     height := max(f32(lineCount(text)) * im.GetTextLineHeight() + 14, 36)
-    im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.theme, is_draft))
-    im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.theme, is_draft))
-    im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.theme))
+    im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.settings.theme, is_draft))
+    im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.settings.theme, is_draft))
+    im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.settings.theme))
     pushed_MonoFont := pushMonoFont()
     submit := false
     cb_data := SubmitState{state = state, submitted = &submit}
@@ -172,7 +172,7 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
                        im.IsMouseClicked(.Left, false) &&
                        !item_hovered
 
-    if submit || (item_active && state.shiftEnterSignal) || deactivated_after_edit || clicked_outside {
+    if submit || (item_active && state.runtime.shiftEnterSignal) || deactivated_after_edit || clicked_outside {
         commitMsg(state, page, idx, is_draft)
     }
 
@@ -184,11 +184,11 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
 
 drawTopBar :: proc(state: ^AppState, page: ^Page) {
     if im.Button("Home") {
-        state.scene = .Home
+        state.ui.scene = .Home
     }
     im.SameLine()
     if im.Button("Switch Book") {
-        state.showOpenBookPopup = true
+        state.ui.showOpenBookPopup = true
     }
     im.SameLine()
     if im.Button("Locate Book") {
@@ -197,36 +197,36 @@ drawTopBar :: proc(state: ^AppState, page: ^Page) {
 
     if page != nil {
         im.SameLine()
-        book_name := bufferString(state.curBookName[:])
+        book_name := bufferString(state.book.curBookName[:])
         book_name_c := strings.clone_to_cstring(book_name)
         defer delete(book_name_c)
-        im.TextColored(subTextColor(state.theme), "%s", book_name_c)
+        im.TextColored(subTextColor(state.settings.theme), "%s", book_name_c)
 
-        if state.editingTitlePage != page.id {
-            bufferSet(state.titleEdit[:], getTitle(page))
-            state.editingTitlePage = page.id
+        if state.ui.editingTitlePage != page.id {
+            bufferSet(state.ui.titleEdit[:], getTitle(page))
+            state.ui.editingTitlePage = page.id
         }
 
         im.SameLine(max(im.GetWindowWidth() - 470, SIDE_PAD))
         im.SetNextItemWidth(260)
-        im.InputText("##page-title", cstring(&state.titleEdit[0]), c.size_t(len(state.titleEdit)))
+        im.InputText("##page-title", cstring(&state.ui.titleEdit[0]), c.size_t(len(state.ui.titleEdit)))
         if im.IsItemDeactivatedAfterEdit() {
-            setPageFilename(state, page, bufferString(state.titleEdit[:]))
+            setPageFilename(state, page, bufferString(state.ui.titleEdit[:]))
         }
         im.SameLine()
 
         all_count := msgCount(page)
         starred_count := starredCount(page)
 
-        view_label := fmt.tprintf(state.showStarred ? "Starred (%d)" : "All Messages (%d)", 
-            state.showStarred ? starred_count : all_count,
+        view_label := fmt.tprintf(state.ui.showStarred ? "Starred (%d)" : "All Messages (%d)", 
+            state.ui.showStarred ? starred_count : all_count,
         )
 
         view_label_c := strings.clone_to_cstring(view_label)
         defer delete(view_label_c)
 
         if im.Button(view_label_c) {
-            state.showStarred = !state.showStarred
+            state.ui.showStarred = !state.ui.showStarred
         }
         
     }
@@ -235,7 +235,7 @@ drawTopBar :: proc(state: ^AppState, page: ^Page) {
 }
 
 drawSidebar :: proc(state: ^AppState, size: im.Vec2) {
-    if state.pageCount == 0 do return
+    if state.book.pageCount == 0 do return
 
     if im.BeginChild("PageSidebar", size, {.Borders}, {}) {
         item_w := max(im.GetContentRegionAvail().x, 1)
@@ -243,16 +243,16 @@ drawSidebar :: proc(state: ^AppState, size: im.Vec2) {
             createPage(state)
         }
         im.Separator()
-        for i in 0..<state.pageCount {
+        for i in 0..<state.book.pageCount {
             item_w = max(im.GetContentRegionAvail().x, 1)
-            page := &state.pages[i]
+            page := &state.book.pages[i]
             title := getTitle(page)
             label := fmt.tprintf("%s##page-%d", title, page.id)
             label_c := strings.clone_to_cstring(label)
             defer delete(label_c)
 
-            if im.Selectable(label_c, i == state.activePage, {}, {item_w, 0}) {
-                state.activePage = i
+            if im.Selectable(label_c, i == state.book.activePage, {}, {item_w, 0}) {
+                state.book.activePage = i
             }
         }
     }
@@ -269,7 +269,7 @@ drawStarredMsg :: proc(state: ^AppState, page: ^Page) {
 
     if !found {
         im.Dummy({0, 28})
-        im.TextColored(mutedColor(state.theme), "No starred messages yet.")
+        im.TextColored(mutedColor(state.settings.theme), "No starred messages yet.")
     }
 }
 
@@ -344,9 +344,9 @@ getTitle :: proc(page: ^Page) -> string {
 }
 
 getActivePage :: proc(state: ^AppState) -> ^Page {
-    if state.pageCount == 0 do return nil
-    state.activePage = min(max(state.activePage, 0), state.pageCount - 1)
-    return &state.pages[state.activePage]
+    if state.book.pageCount == 0 do return nil
+    state.book.activePage = min(max(state.book.activePage, 0), state.book.pageCount - 1)
+    return &state.book.pages[state.book.activePage]
 }
 
 addEmptyMsg :: proc(page: ^Page) {
@@ -367,16 +367,16 @@ atLeastOneMsg :: proc(page: ^Page) {
 }
 
 createPage :: proc(state: ^AppState) -> ^Page {
-    if state.pageCount >= len(state.pages) {
-        state.activePage = len(state.pages) - 1
-        return &state.pages[state.activePage]
+    if state.book.pageCount >= len(state.book.pages) {
+        state.book.activePage = len(state.book.pages) - 1
+        return &state.book.pages[state.book.activePage]
     }
 
-    idx := state.pageCount
-    page := &state.pages[idx]
+    idx := state.book.pageCount
+    page := &state.book.pages[idx]
     page^ = Page{}
     for {
-        page.id = state.nextPageID
+        page.id = state.book.nextPageID
         path, path_err := defaultPagePath(state, page)
         if path_err != nil {
             break
@@ -386,18 +386,18 @@ createPage :: proc(state: ^AppState) -> ^Page {
         if !exists {
             break
         }
-        state.nextPageID += 1
+        state.book.nextPageID += 1
     }
     bufferSet(page.title[:], fmt.tprintf("page-%d", page.id))
-    state.nextPageID += 1
+    state.book.nextPageID += 1
     addEmptyMsg(page)
     page.dirty = true
 
-    state.pageCount += 1
-    state.activePage = idx
-    state.scene = .Book
-    state.showStarred = false
-    state.newMsgQ = true
+    state.book.pageCount += 1
+    state.book.activePage = idx
+    state.ui.scene = .Book
+    state.ui.showStarred = false
+    state.runtime.newMsgQ = true
     return page
 }
 
@@ -439,7 +439,7 @@ addMsg :: proc(state: ^AppState, page: ^Page) {
     refreshMsg(draft)
     addEmptyMsg(page)
     page.dirty = true
-    state.newMsgQ = true
+    state.runtime.newMsgQ = true
 }
 
 commitMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
@@ -470,7 +470,7 @@ deleteMsg :: proc(page: ^Page, idx: int) {
 
 sendMsgQ :: proc(state: ^AppState) -> bool {
     io := im.GetIO()
-    if state != nil && state.sendHotkey == .ShiftEnter {
+    if state != nil && state.settings.sendHotkey == .ShiftEnter {
         return io.KeyShift
     }
     return !io.KeyShift
@@ -503,9 +503,9 @@ updateSendSignal :: proc(window: glfw.WindowHandle, state: ^AppState) {
                   glfw.GetKey(window, glfw.KEY_KP_ENTER) == glfw.PRESS
     shift_down := glfw.GetKey(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS ||
                   glfw.GetKey(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
-    wants_shift := state.sendHotkey == .ShiftEnter
+    wants_shift := state.settings.sendHotkey == .ShiftEnter
     down := enter_down && (shift_down == wants_shift)
 
-    state.shiftEnterSignal = down && !state.shiftEnterQ
-    state.shiftEnterQ = down
+    state.runtime.shiftEnterSignal = down && !state.runtime.shiftEnterQ
+    state.runtime.shiftEnterQ = down
 }
