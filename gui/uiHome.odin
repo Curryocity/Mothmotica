@@ -40,7 +40,7 @@ drawHomePage :: proc(state: ^AppState) {
     im.InputTextWithHint("##book-name", "book name", cstring(&state.ui.bookNameInput[0]), c.size_t(len(state.ui.bookNameInput)))
 
     im.SetCursorPosX(max((im.GetWindowWidth() - button_w) * 0.5, SIDE_PAD))
-    can_create_book := strings.trim_space(bufferString(state.ui.bookNameInput[:])) != ""
+    can_create_book := canCreateBook(state)
     im.BeginDisabled(!can_create_book)
     if im.Button("Create Book", {button_w, button_h}) {
         createBook(state)
@@ -71,7 +71,7 @@ drawBookPopup :: proc(state: ^AppState) {
     if im.BeginPopupModal("Create Book", &state.ui.showCreateBookPopup) {
         im.SetNextItemWidth(360)
         im.InputText("Book Name", cstring(&state.ui.bookNameInput[0]), c.size_t(len(state.ui.bookNameInput)))
-        can_create_book := strings.trim_space(bufferString(state.ui.bookNameInput[:])) != ""
+        can_create_book := canCreateBook(state)
         im.BeginDisabled(!can_create_book)
         if im.Button("Create") {
             if createBook(state) {

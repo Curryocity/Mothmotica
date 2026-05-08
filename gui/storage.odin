@@ -610,18 +610,14 @@ createBook :: proc(state: ^AppState) -> bool {
     slug := pageFilenameSlug(name)
     defer delete(slug)
 
-    book_path: string
-    for n := 0; ; n += 1 {
-        folder := slug if n == 0 else fmt.tprintf("%s-%d", slug, n + 1)
-        candidate, join_err := os.join_path({root, folder}, context.allocator)
-        if join_err != nil {
-            return false
-        }
-        if !os.is_dir(candidate) {
-            book_path = candidate
-            break
-        }
-        delete(candidate)
+    book_path, join_err := os.join_path({root, slug}, context.allocator)
+    if join_err != nil {
+        return false
+    }
+
+    if os.is_dir(book_path) {
+        delete(book_path)
+        return false
     }
 
     if mkdir_err := os.make_directory_all(book_path); mkdir_err != nil && !os.is_dir(book_path) {
@@ -630,7 +626,36 @@ createBook :: proc(state: ^AppState) -> bool {
     }
     defer delete(book_path)
 
-    return openBookFromPath(state, book_path)
+    if !openBookFromPath(state, book_path) {
+        return false
+    }
+
+    bufferSet(state.ui.bookNameInput[:], "")
+    return true
+}
+
+canCreateBook :: proc(state: ^AppState) -> bool {
+    name := strings.trim_space(bufferString(state.ui.bookNameInput[:]))
+    if name == "" {
+        return false
+    }
+
+    root, root_err := booksDir()
+    if root_err != nil {
+        return false
+    }
+    defer delete(root)
+
+    slug := pageFilenameSlug(name)
+    defer delete(slug)
+
+    book_path, join_err := os.join_path({root, slug}, context.allocator)
+    if join_err != nil {
+        return false
+    }
+    defer delete(book_path)
+
+    return !os.is_dir(book_path)
 }
 
 ensureBooksDir :: proc(state: ^AppState) {
