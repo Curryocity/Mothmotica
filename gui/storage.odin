@@ -257,6 +257,7 @@ setPageFilename :: proc(state: ^AppState, page: ^Page, title: string) {
         bufferSet(page.title[:], title)
         page.dirty = true
         savePage(state, page)
+        savePagesOrder(state)
         return
     }
 
@@ -278,6 +279,7 @@ setPageFilename :: proc(state: ^AppState, page: ^Page, title: string) {
     bufferSet(page.title[:], filepath.stem(new_path))
     page.dirty = true
     savePage(state, page)
+    savePagesOrder(state)
 }
 
 // Page persistence
@@ -351,10 +353,15 @@ savePage :: proc(state: ^AppState, page: ^Page) {
 }
 
 saveDirtyPages :: proc(state: ^AppState) {
+    saved_any := false
     for i in 0..<state.pageCount {
         if state.pages[i].dirty {
             savePage(state, &state.pages[i])
+            saved_any = true
         }
+    }
+    if saved_any {
+        savePagesOrder(state)
     }
 }
 
@@ -410,32 +417,40 @@ orderFileExist :: proc(state: ^AppState) -> bool {
     if err != nil {
         return false
     }
+    defer delete(path)
     return os.is_file(path)
 }
 
 getPageOrderPath :: proc(state: ^AppState)  -> (string, os.Error) {
-    dir, err := booksDir()
+    dir, err := bookPagesDir(state)
     if err != nil {
         return "", err
     }
+    defer delete(dir)
     return os.join_path({dir, PAGE_ORDER_FILE}, context.allocator)
 }
 
-savePagesOrder :: proc(state: ^AppState) -> bool{
-
+savePagesOrder :: proc(state: ^AppState) -> bool {
     path, err := getPageOrderPath(state)
-    defer delete(path)
     if err != nil {
         return false
     }
+    defer delete(path)
 
     b := strings.builder_make()
     defer strings.builder_destroy(&b)
 
     for i in 0..<state.pageCount {
         page := &state.pages[i]
-        title := getTitle(page)
-        strings.write_string(&b, fmt.tprintf("%d: %s\n", i, title))
+        page_path := bufferString(page.path[:])
+        if page_path == "" {
+            continue
+        }
+        filename := filepath.base(page_path)
+        if filename == "" || filename == PAGE_ORDER_FILE {
+            continue
+        }
+        strings.write_string(&b, fmt.tprintf("%s\n", filename))
     }
 
     text := strings.to_string(b)
@@ -444,9 +459,65 @@ savePagesOrder :: proc(state: ^AppState) -> bool{
     return err == nil
 }
 
-// getPagesOrder :: proc(state: ^AppState) -> [MAX_PAGES]Page{
-    
-// }
+loadPagesOrder :: proc(state: ^AppState, dir: string) -> bool {
+    order_path, err := getPageOrderPath(state)
+    if err != nil {
+        return false
+    }
+    defer delete(order_path)
+
+    data, read_err := os.read_entire_file(order_path, context.allocator)
+    if read_err != nil {
+        return false
+    }
+    defer delete(data)
+
+    lines := strings.split(string(data), "\n", context.allocator)
+    defer delete(lines)
+
+    loaded := false
+
+    for line in lines {
+        filename := strings.trim_space(line)
+        if filename == "" {
+            continue
+        }
+        if !strings.has_suffix(filename, ".json") {
+            filename = fmt.tprintf("%s.json", filename)
+        }
+
+        if state.pageCount >= MAX_PAGES {
+            break
+        }
+
+        page_path, join_err := os.join_path({dir, filename}, context.allocator)
+        if join_err != nil {
+            return false
+        }
+
+        if !os.is_file(page_path) {
+            delete(page_path)
+            continue
+        }
+
+        if findOpenPageByPath(state, page_path) >= 0 {
+            delete(page_path)
+            continue
+        }
+
+        if !loadPageFile(state, page_path) {
+            delete(page_path)
+            continue
+        }
+
+        bufferSet(state.pages[state.pageCount - 1].path[:], page_path)
+        delete(page_path)
+
+        loaded = true
+    }
+
+    return loaded
+}
 
 // Book folders and loaded page sets
 
@@ -461,14 +532,21 @@ loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
     if !os.is_dir(dir) do return false
 
     loaded := false
+
+    if orderFileExist(state) {
+        loaded = loadPagesOrder(state, dir)
+    }
+
     walker := os.walker_create(dir)
     defer os.walker_destroy(&walker)
-
     for info in os.walker_walk(&walker) {
         if _, walk_err := os.walker_error(&walker); walk_err != nil {
             continue
         }
         if info.type != .Regular || !strings.has_suffix(info.name, ".json") {
+            continue
+        }
+        if findOpenPageByPath(state, info.fullpath) >= 0 {
             continue
         }
         if loadPageFile(state, info.fullpath) {
@@ -478,8 +556,11 @@ loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
     }
 
     if loaded {
-        state.activePage = 0
+        savePagesOrder(state)
     }
+
+    state.activePage = 0
+
     return loaded
 }
 
