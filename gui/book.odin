@@ -245,7 +245,8 @@ drawSidebar :: proc(state: ^AppState, size: im.Vec2) {
         im.Separator()
         for i in 0..<state.book.pageCount {
             item_w = max(im.GetContentRegionAvail().x, 1)
-            page := &state.book.pages[i]
+            page := state.book.pages[i]
+            if page == nil do continue
             title := getTitle(page)
             label := fmt.tprintf("%s##page-%d", title, page.id)
             label_c := strings.clone_to_cstring(label)
@@ -255,8 +256,39 @@ drawSidebar :: proc(state: ^AppState, size: im.Vec2) {
                 state.book.activePage = i
             }
         }
+
+        dummyH := f32(max(0, im.GetContentRegionAvail().y - 50))
+
+        im.Dummy({0, dummyH})
+
+        im.Separator()
+        if im.Button("UP", {item_w/2, 34}){
+            moveActivePage(state, -1)
+        }
+        im.SameLine()
+        if im.Button("DOWN", {item_w/2, 34}){
+            moveActivePage(state, 1)
+        }
     }
     im.EndChild()
+}
+
+moveActivePage :: proc(state: ^AppState, offset: int) {
+    oldId := state.book.activePage
+
+    newId := oldId + offset
+
+    if(newId < 0 || newId >= state.book.pageCount){
+        return
+    }
+
+    state.book.activePage = newId
+
+    temp := state.book.pages[newId]
+    state.book.pages[newId] = state.book.pages[oldId]
+    state.book.pages[oldId] = temp
+
+    savePagesOrder(state)
 }
 
 drawStarredMsg :: proc(state: ^AppState, page: ^Page) {
@@ -346,7 +378,7 @@ getTitle :: proc(page: ^Page) -> string {
 getActivePage :: proc(state: ^AppState) -> ^Page {
     if state.book.pageCount == 0 do return nil
     state.book.activePage = min(max(state.book.activePage, 0), state.book.pageCount - 1)
-    return &state.book.pages[state.book.activePage]
+    return state.book.pages[state.book.activePage]
 }
 
 addEmptyMsg :: proc(page: ^Page) {
@@ -369,11 +401,12 @@ atLeastOneMsg :: proc(page: ^Page) {
 createPage :: proc(state: ^AppState) -> ^Page {
     if state.book.pageCount >= len(state.book.pages) {
         state.book.activePage = len(state.book.pages) - 1
-        return &state.book.pages[state.book.activePage]
+        return state.book.pages[state.book.activePage]
     }
 
     idx := state.book.pageCount
-    page := &state.book.pages[idx]
+    page := new(Page)
+    state.book.pages[idx] = page
     page^ = Page{}
     for {
         page.id = state.book.nextPageID

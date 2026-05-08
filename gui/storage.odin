@@ -295,15 +295,6 @@ freeSavedPage :: proc(saved: ^SavedPage) {
 savePage :: proc(state: ^AppState, page: ^Page) {
     if page == nil do return
 
-    if !pageHasContent(page) {
-        path := bufferString(page.path[:])
-        if path != "" && os.is_file(path) {
-            _ = os.remove(path)
-        }
-        page.dirty = false
-        return
-    }
-
     dir, dir_err := bookPagesDir(state)
     if dir_err != nil {
         return
@@ -320,9 +311,12 @@ savePage :: proc(state: ^AppState, page: ^Page) {
     }
     defer delete(path)
 
-    messages := make([]SavedMessage, page.msgCount, context.allocator)
+    realCount := msgCount(page)
+
+    messages := make([]SavedMessage, realCount, context.allocator)
     defer delete(messages)
-    for i in 0..<page.msgCount {
+
+    for i in 0..<realCount {
         msg := &page.msgs[i]
         messages[i] = SavedMessage {
             text = bufferString(msg.text[:]),
@@ -355,8 +349,9 @@ savePage :: proc(state: ^AppState, page: ^Page) {
 saveDirtyPages :: proc(state: ^AppState) {
     saved_any := false
     for i in 0..<state.book.pageCount {
-        if state.book.pages[i].dirty {
-            savePage(state, &state.book.pages[i])
+        page := state.book.pages[i]
+        if page != nil && page.dirty {
+            savePage(state, page)
             saved_any = true
         }
     }
@@ -377,7 +372,8 @@ loadPageFile :: proc(state: ^AppState, path: string) -> bool {
     if unmarshal_err != nil do return false
     defer freeSavedPage(&saved)
 
-    page := &state.book.pages[state.book.pageCount]
+    page := new(Page)
+    state.book.pages[state.book.pageCount] = page
     page^ = Page{}
     page.id = max(saved.id, state.book.nextPageID)
     bufferSet(page.path[:], path)
@@ -403,7 +399,8 @@ loadPageFile :: proc(state: ^AppState, path: string) -> bool {
 
 findOpenPageByPath :: proc(state: ^AppState, path: string) -> int {
     for i in 0..<state.book.pageCount {
-        if bufferString(state.book.pages[i].path[:]) == path {
+        page := state.book.pages[i]
+        if page != nil && bufferString(page.path[:]) == path {
             return i
         }
     }
@@ -441,7 +438,10 @@ savePagesOrder :: proc(state: ^AppState) -> bool {
     defer strings.builder_destroy(&b)
 
     for i in 0..<state.book.pageCount {
-        page := &state.book.pages[i]
+        page := state.book.pages[i]
+        if page == nil {
+            continue
+        }
         page_path := bufferString(page.path[:])
         if page_path == "" {
             continue
@@ -522,6 +522,12 @@ loadPagesOrder :: proc(state: ^AppState, dir: string) -> bool {
 // Book folders and loaded page sets
 
 clearPages :: proc(state: ^AppState) {
+    for i in 0..<state.book.pageCount {
+        if state.book.pages[i] != nil {
+            free(state.book.pages[i])
+            state.book.pages[i] = nil
+        }
+    }
     state.book.pageCount = 0
     state.book.activePage = 0
     state.book.nextPageID = 1

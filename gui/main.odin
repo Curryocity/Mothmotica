@@ -29,12 +29,12 @@ Scene :: enum {
 }
 
 BookState :: struct {
-    pages: [MAX_PAGES]Page,
+    pages: [MAX_PAGES]^Page,
     pageCount: int,
-    activePage: int,
     nextPageID: int,
     curBookPath: [PATH_SIZE]byte,
     curBookName: [PAGE_TITLE_SIZE]byte,
+    activePage: int,
 }
 
 UIState :: struct {
@@ -198,11 +198,14 @@ draw :: proc(state: ^AppState) {
 
 exit :: proc(state: ^AppState) {
     for i in 0..<state.book.pageCount {
-        state.book.pages[i].dirty = true
+        if state.book.pages[i] != nil {
+            state.book.pages[i].dirty = true
+        }
     }
     state.settings.dirty = true
     saveDirtySettings(state)
     saveDirtyPages(state)
+    clearPages(state)
 
     free(state)
 }
