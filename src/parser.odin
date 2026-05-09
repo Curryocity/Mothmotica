@@ -13,6 +13,7 @@ ParserState :: struct {
     vars: map[string]f64,
     saves: map[string]Player,
     precision: u8,
+    ySilent: bool,
 }
 
 MothCtx :: enum {
@@ -75,7 +76,7 @@ CmdType :: enum {
 
     Coast, Jump, 
     SetY, OutY, SetVy, OutVy, OutYTop,
-    SetPlayerHeight, SetJumpBoost, SetSlowFall,
+    SetPlayerHeight, SetJumpBoost, SetSlowFall, SetYSilent,
 
     JumpTo, CoastTo, JumpToCeil, CoastToCeil,
     
@@ -616,12 +617,14 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .OutVy
         case "ytop":
             return .OutYTop
-        case "seth":
+        case "height":
             return .SetPlayerHeight
         case "jb", "jumpboost":
             return .SetJumpBoost
         case "slowfall", "slowfalling":
             return .SetSlowFall
+        case "silent":
+            return .SetYSilent
         case "jto", "jumpto":
             return .JumpTo
         case "cto", "coastto":
@@ -630,9 +633,9 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .JumpToCeil
         case "ctoc", "coasttoceil":
             return .CoastToCeil
-        case "ceilq", "ceilingqueue":
+        case "cq", "ceilq", "ceilingqueue":
             return .CeilQueue
-        case "slimeq", "slimequeue":
+        case "sq", "slimeq", "slimequeue":
             return .SlimeQueue
         case "land":
             return .LandInfo

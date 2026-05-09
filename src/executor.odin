@@ -88,7 +88,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
 
         switch target.text {
-        case "getx", "getz", "getvx", "getvz", "getf", "getig", "getia":
+        case "getx", "getz", "getvx", "getvz", "getf", "getig", "getia",
+             "gety", "getvy", "getytop", "geth", "getjb", "getslowfall":
             return "Error: cannot assign to pseudo variable", false
         case "bx", "px", "pi":
             return "Error: cannot assign to built-in constant", false
@@ -106,18 +107,10 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "pre(...)", 1, 1)
         if !argsOK do return msg, false
 
-        pre, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: pre(...) argument is not a valid number"), false
-        if pre < 0 || pre > 255 {
-            return "Error: pre(...) argument should be an integer between 0 and 255", false
-        }
+        pre, ok := evalU8Arg(prs, p, cmd.args[0], "pre")
+        if !ok do return parserErrorOr(prs, "Error: pre(...) argument should be an integer between 0 and 255"), false
 
-        rounded := math.round(pre)
-        if math.abs(pre - rounded) > 1e-15 {
-            return "Error: pre(...) argument should be an integer between 0 and 255", false
-        }
-
-        prs.precision = u8(rounded)
+        prs.precision = pre
         return "", true
 
     case .SetX:
@@ -321,14 +314,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "tick(...)", 1, 1)
         if !argsOK do return msg, false
 
-        tick, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: tick(...) argument is not a valid number"), false
-
-        rounded := math.round(tick)
-        if math.abs(tick - rounded) > 1e-15 {
-            return "Error: tick(...) argument should be an integer", false
-        }
-        p.tick = int(rounded)
+        tick, ok := evalIntArg(prs, p, cmd.args[0], "Error: tick(...) argument is not a valid number")
+        if !ok do return parserErrorOr(prs, "Error: tick(...) argument should be an integer"), false
+        p.tick = tick
 
         return "", true
     
@@ -368,36 +356,20 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "slow(...)", 1, 1)
         if !argsOK do return msg, false
 
-        slow, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: slow(...) argument is not a valid number"), false
-        if slow < 0 || slow > 255 {
-            return "Error: slow(...) argument should be an integer between 0 and 255", false
-        }
+        slow, ok := evalU8Arg(prs, p, cmd.args[0], "slow")
+        if !ok do return parserErrorOr(prs, "Error: slow(...) argument should be an integer between 0 and 255"), false
 
-        rounded := math.round(slow)
-        if math.abs(slow - rounded) > 1e-15 {
-            return "Error: slow(...) argument should be an integer between 0 and 255", false
-        }
-
-        p.slow = u8(rounded)
+        p.slow = slow
         return "", true
 
     case .SetSpeed:
         msg, argsOK := expectPlainArgs(cmd, "speed(...)", 1, 1)
         if !argsOK do return msg, false
 
-        speed, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: speed(...) argument is not a valid number"), false
-        if speed < 0 || speed > 255 {
-            return "Error: speed(...) argument should be an integer between 0 and 255", false
-        }
+        speed, ok := evalU8Arg(prs, p, cmd.args[0], "speed")
+        if !ok do return parserErrorOr(prs, "Error: speed(...) argument should be an integer between 0 and 255"), false
 
-        rounded := math.round(speed)
-        if math.abs(speed - rounded) > 1e-15 {
-            return "Error: speed(...) argument should be an integer between 0 and 255", false
-        }
-
-        p.speed = u8(rounded)
+        p.speed = speed
         return "", true
 
     case .PrevGround:
@@ -431,15 +403,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !ok do return parserErrorOr(prs, "Error: move(...)'s argument is not a valid number"), false
 
         if(argCounts >= 3){
-            t_f64: f64
-            t_f64, ok = eval(prs, p, cmd.args[2])
-            if !ok do return parserErrorOr(prs, "Error: move(...)'s argument is not a valid number"), false
-
-            rounded := math.round(t_f64)
-            if math.abs(t_f64 - rounded) > 1e-15 {
-                return "Error: move(...) argument should be an integer between 0 and 255", false
-            }
-            t = int(rounded)
+            t, ok = evalIntArg(prs, p, cmd.args[2], "Error: move(...)'s argument is not a valid number")
+            if !ok do return parserErrorOr(prs, "Error: move(...) argument should be an integer"), false
         }else{
             t = 1
         }
@@ -729,6 +694,145 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         return "", true
 
+    case .Coast, .Jump:
+        cmdName := cmd.type == .Coast ? "coast" : "jump"
+        msg, argsOK := expectPlainArgs(cmd, fmt.tprintf("%s(...)", cmdName), 0, 1)
+        if !argsOK do return msg, false
+
+        ticks := 1
+        if len(cmd.args) == 1 {
+            parsedTicks, ok := evalIntArg(prs, p, cmd.args[0], fmt.tprintf("Error: %s(...) argument is not a valid number", cmdName))
+            if !ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) argument should be an integer", cmdName)), false
+            if parsedTicks < 0 do return fmt.tprintf("Error: %s(...) argument should be non-negative", cmdName), false
+            ticks = parsedTicks
+        }
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        if cmd.type == .Jump && ticks > 0 {
+            hitCeil, hitSlime := moveY(p, true)
+            appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+            ticks -= 1
+        }
+
+        for _ in 0..<ticks {
+            hitCeil, hitSlime := moveY(p, false)
+            appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+        }
+        return strings.clone(string(buf[:])), true
+
+    case .SetY:
+        msg, argsOK := expectPlainArgs(cmd, "y(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        y, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: y(...) argument is not a valid number"), false
+        p.y = y
+        return "", true
+
+    case .SetVy:
+        msg, argsOK := expectPlainArgs(cmd, "vy(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        vy, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: vy(...) argument is not a valid number"), false
+        p.vy = vy
+        return "", true
+
+    case .OutY:
+        msg, argsOK := expectPlainArgs(cmd, "outy(...)", 0, 1)
+        if !argsOK do return msg, false
+        return formatOutValue(prs, p, "Y", p.y, cmd.args[:], "outy")
+
+    case .OutVy:
+        msg, argsOK := expectPlainArgs(cmd, "outvy(...)", 0, 1)
+        if !argsOK do return msg, false
+        return formatOutValue(prs, p, "Vy", p.vy, cmd.args[:], "outvy")
+
+    case .OutYTop:
+        msg, argsOK := expectPlainArgs(cmd, "outytop(...)", 0, 1)
+        if !argsOK do return msg, false
+        return formatOutValue(prs, p, "YTop", p.y + p.h, cmd.args[:], "outytop")
+
+    case .SetPlayerHeight:
+        msg, argsOK := expectPlainArgs(cmd, "height(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        h, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: height(...) argument is not a valid number"), false
+        if h < 0 do return "Error: height(...) argument should be non-negative", false
+        p.h = h
+        return "", true
+
+    case .SetJumpBoost:
+        msg, argsOK := expectPlainArgs(cmd, "jumpboost(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        jumpBoost, ok := evalU8Arg(prs, p, cmd.args[0], "jumpboost")
+        if !ok do return parserErrorOr(prs, "Error: jumpboost(...) argument should be an integer between 0 and 255"), false
+        p.jump_boost = jumpBoost
+        return "", true
+
+    case .SetSlowFall:
+        msg, argsOK := expectPlainArgs(cmd, "slowfall(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        slowFall, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: slowfall(...) argument is not a valid number"), false
+        p.slow_falling = slowFall != 0
+        return "", true
+
+    case .SetYSilent:
+        msg, argsOK := expectPlainArgs(cmd, "silent(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        silent, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: silent(...) argument is not a valid number"), false
+        prs.ySilent = silent != 0
+        return "", true
+
+    case .CeilQueue:
+        msg, argsOK := expectPlainArgs(cmd, "ceilq(...)", 1, 65536)
+        if !argsOK do return msg, false
+
+        idx := 0
+        for arg in cmd.args {
+            ceilH, ok := eval(prs, p, arg)
+            if !ok do return parserErrorOr(prs, fmt.tprintf("Error: ceilq(...)'s argument[%d] is not a valid number", idx)), false
+            qAdd(&p.ceilQueue, ceilH)
+            idx += 1
+        }
+        return "", true
+
+    case .SlimeQueue:
+        msg, argsOK := expectPlainArgs(cmd, "slimeq(...)", 1, 65536)
+        if !argsOK do return msg, false
+
+        idx := 0
+        for arg in cmd.args {
+            slimeH, ok := eval(prs, p, arg)
+            if !ok do return parserErrorOr(prs, fmt.tprintf("Error: slimeq(...)'s argument[%d] is not a valid number", idx)), false
+            qAdd(&p.slimeQueue, slimeH)
+            idx += 1
+        }
+        return "", true
+
+    case .JumpTo:
+        return "Error: jumpto(...) not implemented yet", false
+
+    case .CoastTo:
+        return "Error: coastto(...) not implemented yet", false
+
+    case .JumpToCeil:
+        return "Error: jumptoceil(...) not implemented yet", false
+
+    case .CoastToCeil:
+        return "Error: coasttoceil(...) not implemented yet", false
+
+    case .LandInfo:
+        return "Error: landinfo(...) not implemented yet", false
+
     case .XPoss, .ZPoss:
         msg, argsOK := expectCodeArgs(cmd, "(x/z)poss(...){...}", 0, 4)
         if !argsOK do return msg, false
@@ -768,15 +872,10 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
 
         if len(cmd.args) >= 4 {
-            value, ok := eval(prs, p, cmd.args[3])
-            if !ok do return parserErrorOr(prs, "Error: (x/z)poss(...) tick offset is not a valid number"), false
+            value, ok := evalIntArg(prs, p, cmd.args[3], "Error: (x/z)poss(...) tick offset is not a valid number")
+            if !ok do return parserErrorOr(prs, "Error: (x/z)poss(...) tick offset must be an integer"), false
 
-            rounded := math.round(value)
-            if math.abs(value - rounded) > 1e-15 {
-                return "Error: (x/z)poss(...) tick offset must be an integer", false
-            }
-
-            tickOffset = int(rounded)
+            tickOffset = value
         }
 
         buf: [dynamic]u8
@@ -998,6 +1097,50 @@ finalInvSim :: proc(prs: ^ParserState, p: ^Player, state: ^InvState, code: []Arg
     return strings.clone(string(buf[:])), true
 }
 
+evalIntArg :: proc(prs: ^ParserState, p: ^Player, arg: Arg, evalMsg: string) -> (int, bool) {
+    value, ok := eval(prs, p, arg)
+    if !ok {
+        failParse(prs, evalMsg)
+        return 0, false
+    }
+
+    rounded := math.round(value)
+    if math.abs(value - rounded) > 1e-15 {
+        return 0, false
+    }
+
+    return int(rounded), true
+}
+
+evalU8Arg :: proc(prs: ^ParserState, p: ^Player, arg: Arg, name: string) -> (u8, bool) {
+    value, ok := eval(prs, p, arg)
+    if !ok {
+        failParse(prs, fmt.tprintf("Error: %s(...) argument is not a valid number", name))
+        return 0, false
+    }
+    if value < 0 || value > 255 {
+        return 0, false
+    }
+
+    rounded := math.round(value)
+    if math.abs(value - rounded) > 1e-15 {
+        return 0, false
+    }
+
+    return u8(rounded), true
+}
+
+appendHitYOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, hitCeil, hitSlime: bool) {
+    if prs.ySilent do return
+
+    if hitCeil {
+        append(buf, fmt.tprintf("Hit ceiling at t = %d\n", p.tick))
+    }
+    if hitSlime {
+        append(buf, fmt.tprintf("Bounced slime at t = %d\n", p.tick))
+    }
+}
+
 measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64, bool) {
     hitbox := widenf32(0.6)
 
@@ -1020,7 +1163,7 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
         }
 
         name := cmd.name
-        if name == "" do name = measureBuiltinDefaultName(cmd.type)
+        if name == "" do name = "command"
 
         #partial switch cmd.type {
         case .SetX:
@@ -1054,42 +1197,21 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
         case. SetTick:
             value := f64(p.tick)
             return name, value, true
+        case .SetY, .OutY:
+            value := p.y
+            return name, value, true
+        case .SetVy, .OutVy:
+            value := p.vy
+            return name, value, true
+        case .OutYTop:
+            value := p.y + p.h
+            return name, value, true
         case:
-            if name == "" do name = "command"
             return fmt.tprintf("Error: measure(...) cannot measure builtin '%s'", name), 0, false
         }
 
     case:
         return "Error: measure(...) arguments must be variables or builtin values", 0, false
-    }
-}
-
-measureBuiltinDefaultName :: proc(type: CmdType) -> string {
-    #partial switch type {
-    case .SetX:
-        return "x"
-    case .SetZ:
-        return "z"
-    case .SetF:
-        return "f"
-    case .SetVx:
-        return "vx"
-    case .SetVz:
-        return "vz"
-    case .OutXBlock:
-        return "xb"
-    case .OutZBlock:
-        return "zb"
-    case .OutXMM:
-        return "xmm"
-    case .OutZMM:
-        return "zmm"
-    case .OutXLadder:
-        return "xld"
-    case .OutZLadder:
-        return "zld"
-    case:
-        return ""
     }
 }
 
@@ -1163,6 +1285,14 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
             return p.inertia_threshold/0.91, true
         case "gettick":
             return f64(p.tick), true
+        case "gety":
+            return p.y, true
+        case "getvy":
+            return p.vy, true
+        case "getytop":
+            return p.y + p.h, true
+        case "geth":
+            return p.h, true
         case:
             value, ok := prs.vars[expr.text]
             if !ok{

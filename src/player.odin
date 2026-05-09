@@ -146,6 +146,7 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
             ceilQ = true
             p.y = ceilH - p.h
             p.vy = 0
+            qPop(&p.ceilQueue)
         }
     }
 
@@ -159,6 +160,7 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
                 bounceQ = true
                 p.y = slimeH
                 p.vy = -p.vy
+                qPop(&p.slimeQueue)
             }
         }
 
@@ -168,6 +170,8 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
     }
 
     if abs(p.vy) < p.inertia_threshold && p.inertia_on do p.vy = 0
+
+    p.tick += 1
 
     return ceilQ, bounceQ
 }
