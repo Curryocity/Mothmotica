@@ -78,11 +78,9 @@ CmdType :: enum {
     SetY, OutY, SetVy, OutVy, OutYTop,
     SetPlayerHeight, SetJumpBoost, SetSlowFall, SetYSilent,
 
-    JumpTo, CoastTo, JumpToCeil, CoastToCeil,
+    JumpTo, CoastTo, LandInfo,
     
     CeilQueue, SlimeQueue,
-
-    LandInfo,
 
     Invalid,
 }
@@ -603,9 +601,9 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
 
 getYCommandType :: proc(cmdName: string) -> CmdType {
     switch cmdName {
-        case "coast", "c":
+        case "c", "coast":
             return .Coast
-        case "jump", "j":
+        case "j", "jump":
             return .Jump
         case "y":
             return .SetY
@@ -621,7 +619,7 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .SetPlayerHeight
         case "jb", "jumpboost":
             return .SetJumpBoost
-        case "slowfall", "slowfalling":
+        case "sf", "slowfall", "slowfalling":
             return .SetSlowFall
         case "silent":
             return .SetYSilent
@@ -629,11 +627,7 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .JumpTo
         case "cto", "coastto":
             return .CoastTo
-        case "jtoc", "jumptoceil":
-            return .JumpToCeil
-        case "ctoc", "coasttoceil":
-            return .CoastToCeil
-        case "cq", "ceilq", "ceilingqueue":
+        case "cq", "ceilq", "ceilqueue":
             return .CeilQueue
         case "sq", "slimeq", "slimequeue":
             return .SlimeQueue

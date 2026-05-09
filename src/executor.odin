@@ -818,20 +818,39 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
         return "", true
 
-    case .JumpTo:
-        return "Error: jumpto(...) not implemented yet", false
+    case .JumpTo, .CoastTo:
+        cmdName := cmd.type == .Coast ? "coast" : "jump"
+        msg, argsOK := expectPlainArgs(cmd, fmt.tprintf("%s(...)", cmdName), 0, 1)
+        if !argsOK do return msg, false
 
-    case .CoastTo:
-        return "Error: coastto(...) not implemented yet", false
+        ticks := 1
+        if len(cmd.args) == 1 {
+            parsedTicks, ok := evalIntArg(prs, p, cmd.args[0], fmt.tprintf("Error: %s(...) argument is not a valid number", cmdName))
+            if !ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) argument should be an integer", cmdName)), false
+            if parsedTicks < 0 do return fmt.tprintf("Error: %s(...) argument should be non-negative", cmdName), false
+            ticks = parsedTicks
+        }
 
-    case .JumpToCeil:
-        return "Error: jumptoceil(...) not implemented yet", false
+        buf: [dynamic]u8
+        defer delete(buf)
 
-    case .CoastToCeil:
-        return "Error: coasttoceil(...) not implemented yet", false
+        if cmd.type == .Jump && ticks > 0 {
+            hitCeil, hitSlime := moveY(p, true)
+            appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+            ticks -= 1
+        }
+
+        for _ in 0..<ticks {
+            hitCeil, hitSlime := moveY(p, false)
+            appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+        }
+        return strings.clone(string(buf[:])), true
 
     case .LandInfo:
-        return "Error: landinfo(...) not implemented yet", false
+        msg, argsOK := expectPlainArgs(cmd, "land", 0, 0)
+        if !argsOK do return msg, false
+
+        return fmt.tprintf("Landing ground Y: (%s, %s)", formatNum(prs, p.y), formatNum(prs, p.y + p.vy),), true
 
     case .XPoss, .ZPoss:
         msg, argsOK := expectCodeArgs(cmd, "(x/z)poss(...){...}", 0, 4)
