@@ -292,7 +292,20 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !argsOK do return msg, false
         speed := math.sqrt(p.vx * p.vx + p.vz * p.vz)
         angle := math.atan2(-p.vx, p.vz) * 180 / PId
-        return fmt.tprintf("(Speed/Angle) (%s, %s)", formatNum(prs, speed), formatNum(prs, angle)), true
+        return fmt.tprintf("(Speed/Angle) = (%s, %s)", formatNum(prs, speed), formatNum(prs, angle)), true
+
+    case .Polar:
+        msg, argsOK := expectPlainArgs(cmd, "polor(...)", 2, 2)
+        if !argsOK do return msg, false
+        x, ok1 := eval(prs, p, cmd.args[0])
+        if !ok1 do return parserErrorOr(prs, "Error: polar(...)'s x argument is not a valid number"), false
+
+        z, ok2 := eval(prs, p, cmd.args[1])
+        if !ok2 do return parserErrorOr(prs, "Error: polar(...)'s z argument is not a valid number"), false
+
+        norm := math.sqrt(x * x + z * z)
+        angle := math.atan2(-x, z) * 180 / PId
+        return fmt.tprintf("(Norm/Angle) = (%s, %s)", formatNum(prs, norm), formatNum(prs, angle)), true
 
     case .OutF:
         msg, argsOK := expectPlainArgs(cmd, "outf(...)", 0, 1)

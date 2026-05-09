@@ -33,7 +33,7 @@ CmdType :: enum {
     Plus, Minus, Mul, Div, 
     Abs, Sqrt, Sin, Cos, Tan, Atan,
 
-    Print, Printn, Measure,
+    Print, Printn, Measure, Polar,
 
     SetX, SetZ, SetPos, 
     SetVz, SetVx, SetVel,
@@ -426,6 +426,8 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .Printn
         case "mes", "measure":
             return .Measure
+        case "polar":
+            return .Polar
         case "set":
             return .SetVar
         case "pre", "precision":
