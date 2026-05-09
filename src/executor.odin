@@ -915,7 +915,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     case .Define:
         return "Error: define(...) not implemented yet", false
 
-    case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan:
+    case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
         return "Error: operator/computation call cannot be executed as a top-level statement", false
 
     case .Invalid:
@@ -1228,6 +1228,19 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
                 sum += arg * arg
             }
             return math.sqrt(sum), true
+        }else if cmd.type == .ArgAngle {
+            if len(cmd.args) != 2 {
+                failParse(prs, "Error: arg(...) should have exactly two parameters")
+                return 0, false
+            }
+
+            x, ok1 := eval(prs, p, cmd.args[0])
+            if !ok1 do return 0, false
+
+            z, ok2 := eval(prs, p, cmd.args[1])
+            if !ok2 do return 0, false
+
+            return math.atan2(-x, z) * 180 / PId, true
         }else if cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
             if len(cmd.args) != 1 {
                 failParse(prs, "Error: computing function should have exactly one parameter")

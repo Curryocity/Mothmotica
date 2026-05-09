@@ -31,7 +31,7 @@ MoveFunc :: struct {
 
 CmdType :: enum {
     Plus, Minus, Mul, Div, 
-    Abs, Sqrt, Sin, Cos, Tan, Atan,
+    Abs, Sqrt, Sin, Cos, Tan, Atan, ArgAngle,
 
     Print, Printn, Measure, Polar,
 
@@ -252,7 +252,7 @@ canContinueExpr :: proc(arg: Arg) -> bool {
     case .Call:
         if arg.expr == nil do return false
         #partial switch arg.expr.type {
-        case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan:
+        case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
             return true
         case:
             return false
@@ -532,6 +532,8 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .Tan
         case "atan":
             return .Atan
+        case "arg":
+            return .ArgAngle
         case "aq", "anglequeue":
             return .AngleQueue
         case "tq", "turnqueue":
