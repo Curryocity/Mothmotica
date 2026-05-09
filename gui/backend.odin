@@ -6,16 +6,16 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 
-runMothball :: proc(input: string, output: []byte) {
+runMothball :: proc(input: string, output: []byte) -> bool {
     if input == "" {
-        bufferSet(output, "Nothing to run.")
-        return
+        bufferSet(output, "")
+        return false
     }
 
     stdin_file, temp_err := os.create_temp_file("", "mothmotica-input-*.txt")
     if temp_err != nil {
         bufferSet(output, "Could not create temporary input file.")
-        return
+        return true
     }
 
     temp_name := strings.clone(os.name(stdin_file))
@@ -27,14 +27,14 @@ runMothball :: proc(input: string, output: []byte) {
     _, write_err := os.write(stdin_file, transmute([]byte)stdin_text)
     if write_err != nil {
         bufferSet(output, "Could not write temporary input file.")
-        return
+        return true
     }
     os.seek(stdin_file, 0, .Start)
 
     exe_dir, exe_dir_err := os.get_executable_directory(context.allocator)
     if exe_dir_err != nil {
         bufferSet(output, "Could not find the GUI executable directory.")
-        return
+        return true
     }
     defer delete(exe_dir)
 
@@ -46,11 +46,11 @@ runMothball :: proc(input: string, output: []byte) {
     cli_path, join_err := os.join_path({exe_dir, cli_name}, context.allocator)
     if join_err != nil {
         bufferSet(output, "Could not resolve mothmotica-cli path.")
-        return
+        return true
     }
     defer delete(cli_path)
 
-    command := []string{cli_path}
+    command := []string{cli_path, "--once"}
     desc := os.Process_Desc {
         working_dir = exe_dir,
         command = command,
@@ -63,20 +63,22 @@ runMothball :: proc(input: string, output: []byte) {
 
     if proc_err != nil {
         bufferSet(output, "Could not run mothmotica-cli. Build it with `make gui`.")
-        return
+        return true
     }
 
     if len(stderr) > 0 {
         bufferSet(output, string(stderr))
-        return
+        return true
     }
 
     if !proc_state.success {
         bufferSet(output, fmt.tprintf("Mothmotica exited with code %d.", proc_state.exit_code))
-        return
+        return true
     }
 
-    bufferSet(output, cliOutput(string(stdout)))
+    result := strings.trim_space(string(stdout))
+    bufferSet(output, result)
+    return result != ""
 }
 
 cliOutput :: proc(stdout: string) -> string {

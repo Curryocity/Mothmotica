@@ -451,12 +451,10 @@ starredCount :: proc(page: ^Page) -> int {
 
 refreshMsg :: proc(msg: ^ChatMsg) {
     input := strings.trim_space(bufferString(msg.text[:]))
-    if strings.has_prefix(input, ";s") {
+    if runMothball(input, msg.reply[:]) {
         msg.has_reply = true
-        runMothball(input, msg.reply[:])
     } else {
         msg.has_reply = false
-        bufferSet(msg.reply[:], "")
     }
     msg.dirty = false
 }
