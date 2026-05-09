@@ -128,7 +128,7 @@ But there is so much more you can do with savestates.
 | `vz(n)` | Set `Vz = n` |
 | `vel(n, m)` | Set `(Vx,Vz) = (n, m)` |
 | `f(n)` | Set `facing = n` degrees |
-| `t(n)` | Turn facing by `n` degrees |
+| `tu(n)` | Turn facing by `n` degrees |
 | `xr` / `outx` | Output `X` |
 | `zr` / `outz` | Output `Z` |
 | `xb` | Output `X` offset outward by `bx` |
@@ -252,6 +252,7 @@ In mothmotica, we can do `set(a, getx)` and it will be silent. Or even `set(b, g
 | `getf` | Get `F` |
 | `getig` | Get ground inertia: `inertia / ground_slip / 0.91` |
 | `getia` | Get air inertia: `inertia / 0.91` |
+| `getclock` | Get current `clock` value |
 
 These built-in constants are also read-only:
 

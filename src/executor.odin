@@ -195,11 +195,11 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         p.f = f32(f)
         return "", true
     case .SetTurn:
-        msg, argsOK := expectPlainArgs(cmd, "t(...)", 1, 1)
+        msg, argsOK := expectPlainArgs(cmd, "tu(...)", 1, 1)
         if !argsOK do return msg, false
 
         t, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: t(...) argument is not a valid number"), false
+        if !ok do return parserErrorOr(prs, "Error: tu(...) argument is not a valid number"), false
         p.f += f32(t)
         return "", true
 
@@ -294,9 +294,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return formatOutValue(prs, p, "F", f64(p.f), cmd.args[:], "outf")
 
     case .OutTurn:
-        msg, argsOK := expectPlainArgs(cmd, "outt(...)", 0, 1)
+        msg, argsOK := expectPlainArgs(cmd, "outtu(...)", 0, 1)
         if !argsOK do return msg, false
-        return formatOutValue(prs, p, "T", f64(p.f), cmd.args[:], "outt")
+        return formatOutValue(prs, p, "T", f64(p.f), cmd.args[:], "outtu")
     
     case .SetClock:
         msg, argsOK := expectPlainArgs(cmd, "clock(...)", 1, 1)
@@ -1030,6 +1030,9 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
             return name, value, true
         case .OutZLadder:
             value := (p.z >= 0) ? p.z + hitbox/2 : p.z - hitbox/2
+            return name, value, true
+        case. SetClock:
+            value := f64(p.clock)
             return name, value, true
         case:
             if name == "" do name = "command"

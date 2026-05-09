@@ -468,9 +468,9 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetF
         case "outf":
             return .OutF
-        case "t":
+        case "tu", "turn":
             return .SetTurn
-        case "outt":
+        case "outtu", "outturn":
             return .OutTurn
         case "clock":
             return .SetClock
