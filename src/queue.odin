@@ -1,35 +1,35 @@
 package main
 
-Queue :: struct {
-    data: [dynamic]f32,
+Queue :: struct($T: typeid) {
+    data: [dynamic]T,
     head: int,
 }
 
-qLen :: proc(q: ^Queue) -> int {
+qLen :: proc(q: ^Queue($T)) -> int {
     return len(q.data) - q.head
 }
 
-qEmpty :: proc(q: ^Queue) -> bool {
+qEmpty :: proc(q: ^Queue($T)) -> bool {
     return len(q.data) == q.head
 }
 
-qAdd :: proc(q: ^Queue, xs: ..f32){
+qAdd :: proc(q: ^Queue($T), xs: ..T) {
     append(&q.data, ..xs)
 }
 
-qPeek :: proc(q: ^Queue) -> (f32, bool) {
+qPeek :: proc(q: ^Queue($T)) -> (T, bool) {
     if q.head >= len(q.data) {
-        return 0, false
+        return T{}, false
     }
 
     return q.data[q.head], true
 }
 
-qPop :: proc(q: ^Queue) -> (f32, bool){
+qPop :: proc(q: ^Queue($T)) -> (T, bool) {
     if q.head >= len(q.data) {
         resize(&q.data, 0)
         q.head = 0
-        return 0, false
+        return T{}, false
     }
 
     val := q.data[q.head]
@@ -43,18 +43,18 @@ qPop :: proc(q: ^Queue) -> (f32, bool){
     return val, true
 }
 
-qClear :: proc(q: ^Queue){
+qClear :: proc(q: ^Queue($T)) {
     q.head = 0
     resize(&q.data, 0)
 }
 
-qDelete :: proc(q: ^Queue) {
+qDelete :: proc(q: ^Queue($T)) {
     delete(q.data)
     q.data = nil
     q.head = 0
 }
 
-qCompact :: proc(q: ^Queue) {
+qCompact :: proc(q: ^Queue($T)) {
     if q.head <= 0 do return
 
     n := qLen(q)
@@ -73,8 +73,8 @@ qCompact :: proc(q: ^Queue) {
     resize(&q.data, n)
 }
 
-cloneQueue :: proc(q: Queue) -> Queue {
-    out: Queue
+cloneQueue :: proc(q: Queue($T)) -> Queue(T) {
+    out: Queue(T)
     out.head = q.head
     for x in q.data {
         append(&out.data, x)
@@ -82,7 +82,7 @@ cloneQueue :: proc(q: Queue) -> Queue {
     return out
 }
 
-loadQueue :: proc(dst: ^Queue, src: Queue) {
+loadQueue :: proc(dst: ^Queue($T), src: Queue(T)) {
     qClear(dst)
     dst.head = src.head
     for x in src.data {
@@ -90,7 +90,7 @@ loadQueue :: proc(dst: ^Queue, src: Queue) {
     }
 }
 
-qTailOr :: proc(q: ^Queue, fallback: f32) -> f32 {
+qTailOr :: proc(q: ^Queue($T), fallback: T) -> T {
     if qLen(q) <= 0 do return fallback
     return q.data[len(q.data) - 1]
 }

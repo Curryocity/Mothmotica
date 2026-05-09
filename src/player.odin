@@ -22,15 +22,25 @@ Player :: struct {
     inertia_on: bool,
     posRec: bool,
     posStorage: [dynamic] vec2,
-    angleQueue: Queue,
+    angleQueue: Queue(f32),
     tick: int,
+
+    // y states
+    y: f64,
+    vy: f64,
+    jump_boost: u8,
+    slow_falling: bool,
+    ceilQueue: Queue(f64),
+    slimeQueue: Queue(f64),
+    h: f64,
 }
 
 makePlayer :: proc() -> Player {
-    return Player{ground_slip = 0.6, prev_slip = -1, inertia_threshold = 0.005, sprint_delay = true, inertia_on = true}
+    return Player{ground_slip = 0.6, prev_slip = -1, inertia_threshold = 0.005, sprint_delay = true, inertia_on = true, h = 1.8}
 }
 
-move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false)
+
+move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false) 
 {
 
     if angle, ok := qPop(&p.angleQueue); ok {
@@ -123,6 +133,45 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     p.tick += 1
 }
 
+// Return (ceilq, bounceQ)
+moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){ 
+
+    ceilQ, bounceQ: bool
+    originalY := p.y
+    p.y += p.vy
+
+    if !qEmpty(&p.ceilQueue) {
+        ceilH, _ := qPeek(&p.ceilQueue)
+        if(p.y + p.h >= ceilH && originalY + p.h < ceilH){
+            ceilQ = true
+            p.y = ceilH - p.h
+            p.vy = 0
+        }
+    }
+
+    if jump {
+        jb_signed := transmute(i8)p.jump_boost
+        p.vy = 0.42 + 0.1 * f64(jb_signed)
+    } else {
+        if !qEmpty(&p.slimeQueue){
+            slimeH, _ := qPeek(&p.slimeQueue)
+            if(originalY > slimeH && p.y <= slimeH){
+                bounceQ = true
+                p.y = slimeH
+                p.vy = -p.vy
+            }
+        }
+
+        gravity := p.slow_falling? 0.01 : 0.08
+        p.vy = (p.vy - gravity) * 0.98
+  
+    }
+
+    if abs(p.vy) < p.inertia_threshold && p.inertia_on do p.vy = 0
+
+    return ceilQ, bounceQ
+}
+
 prevGround :: proc(p: ^Player) {
     p.prev_slip = p.ground_slip
 }
@@ -134,6 +183,8 @@ prevAir :: proc(p: ^Player) {
 saveState :: proc(p: Player) -> Player {
     copy := p
     copy.angleQueue = cloneQueue(p.angleQueue)
+    copy.ceilQueue = cloneQueue(p.ceilQueue)
+    copy.slimeQueue = cloneQueue(p.slimeQueue)
     copy.posStorage = nil
     for sto in p.posStorage{
         append(&copy.posStorage, sto)
@@ -144,11 +195,15 @@ saveState :: proc(p: Player) -> Player {
 
 loadState :: proc(dst: ^Player, src: Player) {
     qDelete(&dst.angleQueue)
+    qDelete(&dst.ceilQueue)
+    qDelete(&dst.slimeQueue)
     delete(dst.posStorage)
 
     dst^ = src
 
     dst.angleQueue = cloneQueue(src.angleQueue)
+    dst.ceilQueue = cloneQueue(src.ceilQueue)
+    dst.slimeQueue = cloneQueue(src.slimeQueue)
 
     dst.posStorage = nil
     for sto in src.posStorage {
@@ -158,6 +213,8 @@ loadState :: proc(dst: ^Player, src: Player) {
 
 deletePlayerState :: proc(p: ^Player) {
     qDelete(&p.angleQueue)
+    qDelete(&p.ceilQueue)
+    qDelete(&p.slimeQueue)
     delete(p.posStorage)
     p.posStorage = nil
 }

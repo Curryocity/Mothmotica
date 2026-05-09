@@ -6,12 +6,17 @@ import "core:strings"
 import "core:math"
 
 ParserState :: struct {
+    ctx: MothCtx,
     lex: Lexer,
     ok: bool,
     errMsg: string,
     vars: map[string]f64,
     saves: map[string]Player,
     precision: u8,
+}
+
+MothCtx :: enum {
+    XZsim, Ysim, Invalid,
 }
 
 MoveFunc :: struct {
@@ -66,6 +71,18 @@ CmdType :: enum {
 
     Loop, SetVar, Define, Save, Load,
 
+    // Y commands
+
+    Coast, Jump, 
+    SetY, OutY, SetVy, OutVy, OutYTop,
+    SetPlayerHeight, SetJumpBoost, SetSlowFall,
+
+    JumpTo, CoastTo, JumpToCeil, CoastToCeil,
+    
+    CeilQueue, SlimeQueue,
+
+    LandInfo,
+
     Invalid,
 }
 
@@ -104,13 +121,21 @@ parseMothball :: proc(input: string) -> string {
     buf: [dynamic]u8
     defer delete(buf)
 
-    COMMAND_PREFIX :: ";s"
-    prefix := COMMAND_PREFIX
-    prefix_len := len(prefix)
+    prefix_len := 2
+    if len(input) < prefix_len do return ""
 
-    if len(input) < prefix_len || input[:prefix_len] != prefix do return ""
+    ctx: MothCtx
+    switch input[:prefix_len] {
+        case ";s":
+            ctx = .XZsim
+        case ";y":
+            ctx = .Ysim
+        case:
+            return ""
+    }
 
     prs := ParserState{
+        ctx = ctx,
         lex = Lexer{
             data = input,
             pos = prefix_len,
@@ -315,7 +340,7 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
     mf, isMf := checkMoveFunc(tok.content)
     if isMf do return parseMoveFunc(prs, p, &mf, tok)
 
-    cmd_type := getCommandType(tok.content)
+    cmd_type := getCommandType(prs, tok.content)
     if cmd_type == .Invalid {
         if lexerPeek(&prs.lex).type == .LParen || lexerPeek(&prs.lex).type == .LBrace {
             failParse(prs, fmt.tprintf("Error: unknown command '%s'", tok.content))
@@ -418,7 +443,22 @@ parseIdentifier :: proc(prs: ^ParserState, p: ^Player, tok: Token) -> Arg {
     }
 }
 
-getCommandType :: proc(cmdName: string) -> CmdType {
+getCommandType :: proc(prs: ^ParserState, cmdName: string) -> CmdType {
+    if cmd := getCommonCommandType(cmdName); cmd != .Invalid {
+        return cmd
+    }
+
+    #partial switch prs.ctx {
+        case .XZsim:
+            return getXZCommandType(cmdName)
+        case .Ysim:
+            return getYCommandType(cmdName)
+    }
+
+    return .Invalid
+}
+
+getCommonCommandType :: proc(cmdName: string) -> CmdType {
     switch cmdName {
         case "print":
             return .Print
@@ -432,6 +472,42 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetVar
         case "pre", "precision":
             return .SetPrecision
+        case "tick":
+            return .SetTick
+        case "outtick":
+            return .OutTick
+        case "inertia":
+            return .SetInertia
+        case "abs":
+            return .Abs
+        case "sqrt":
+            return .Sqrt
+        case "sin":
+            return .Sin
+        case "cos":
+            return .Cos
+        case "tan":
+            return .Tan
+        case "atan":
+            return .Atan
+        case "arg":
+            return .ArgAngle
+        case "r", "loop", "repeat":
+            return .Loop
+        case "def", "define":
+            return .Define
+        case "save":
+            return .Save
+        case "load":
+            return .Load
+        case:
+            return .Invalid
+    }
+    return .Invalid
+}
+
+getXZCommandType :: proc(cmdName: string) -> CmdType {
+    switch cmdName {
         case "x":
             return .SetX
         case "z":
@@ -476,14 +552,8 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .OutTurn
         case "outa":
             return .OutAngle
-        case "tick":
-            return .SetTick
-        case "outtick":
-            return .OutTick
         case "slip":
             return .SetSlip
-        case "inertia":
-            return .SetInertia
         case "slow", "slowness":
             return .SetSlow
         case "speed":
@@ -520,35 +590,56 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .Move
         case "taps":
             return .Taps
-        case "abs":
-            return .Abs
-        case "sqrt":
-            return .Sqrt
-        case "sin":
-            return .Sin
-        case "cos":
-            return .Cos
-        case "tan":
-            return .Tan
-        case "atan":
-            return .Atan
-        case "arg":
-            return .ArgAngle
         case "aq", "anglequeue":
             return .AngleQueue
         case "tq", "turnqueue":
             return .TurnQueue
-        case "r", "loop", "repeat":
-            return .Loop
-        case "def", "define":
-            return .Define
-        case "save":
-            return .Save
-        case "load":
-            return .Load
         case:
             return .Invalid
     }
+    return .Invalid
+}
+
+getYCommandType :: proc(cmdName: string) -> CmdType {
+    switch cmdName {
+        case "coast", "c":
+            return .Coast
+        case "jump", "j":
+            return .Jump
+        case "y":
+            return .SetY
+        case "outy", "yr":
+            return .OutY
+        case "vy":
+            return .SetVy
+        case "outvy":
+            return .OutVy
+        case "ytop":
+            return .OutYTop
+        case "seth":
+            return .SetPlayerHeight
+        case "jb", "jumpboost":
+            return .SetJumpBoost
+        case "slowfall", "slowfalling":
+            return .SetSlowFall
+        case "jto", "jumpto":
+            return .JumpTo
+        case "cto", "coastto":
+            return .CoastTo
+        case "jtoc", "jumptoceil":
+            return .JumpToCeil
+        case "ctoc", "coasttoceil":
+            return .CoastToCeil
+        case "ceilq", "ceilingqueue":
+            return .CeilQueue
+        case "slimeq", "slimequeue":
+            return .SlimeQueue
+        case "land":
+            return .LandInfo
+        case:
+            return .Invalid
+    }
+    return .Invalid
 }
 
 checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){

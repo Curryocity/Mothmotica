@@ -29,7 +29,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
     hitbox := widenf32(0.6)
 
-    switch cmd.type {
+    #partial switch cmd.type {
     case .Print, .Printn:
         msg, argsOK := expectPlainArgs(cmd, "print(...) or printn(...)", 1, 65536)
         if !argsOK do return msg, false
