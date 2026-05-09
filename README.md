@@ -252,7 +252,7 @@ In mothmotica, we can do `set(a, getx)` and it will be silent. Or even `set(b, g
 | `getf` | Get `F` |
 | `getig` | Get ground inertia: `inertia / ground_slip / 0.91` |
 | `getia` | Get air inertia: `inertia / 0.91` |
-| `getclock` | Get current `clock` value |
+| `gettick` | Get current `tick` value |
 
 These built-in constants are also read-only:
 

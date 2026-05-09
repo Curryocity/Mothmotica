@@ -24,7 +24,7 @@ Player :: struct {
     posStorage: [dynamic] vec2,
     angleQueue: Queue,
     turnQueue: Queue,
-    clock: int,
+    tick: int,
 }
 
 makePlayer :: proc() -> Player {
@@ -124,7 +124,7 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     if p.posRec {
         append(&p.posStorage, vec2{x = p.x, z = p.z})
     }
-    p.clock += 1
+    p.tick += 1
 }
 
 prevGround :: proc(p: ^Player) {

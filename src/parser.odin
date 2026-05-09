@@ -46,7 +46,7 @@ CmdType :: enum {
 
     SetF, OutF, SetTurn, OutTurn,
 
-    SetClock, OutClock,
+    SetTick, OutTick,
 
     Move, Taps,
 
@@ -472,10 +472,10 @@ getCommandType :: proc(cmdName: string) -> CmdType {
             return .SetTurn
         case "outtu", "outturn":
             return .OutTurn
-        case "clock":
-            return .SetClock
-        case "outclock", "outc":
-            return .OutClock
+        case "tick":
+            return .SetTick
+        case "outtick":
+            return .OutTick
         case "slip":
             return .SetSlip
         case "inertia":

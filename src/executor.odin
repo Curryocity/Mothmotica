@@ -298,25 +298,25 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !argsOK do return msg, false
         return formatOutValue(prs, p, "T", f64(p.f), cmd.args[:], "outtu")
     
-    case .SetClock:
-        msg, argsOK := expectPlainArgs(cmd, "clock(...)", 1, 1)
+    case .SetTick:
+        msg, argsOK := expectPlainArgs(cmd, "tick(...)", 1, 1)
         if !argsOK do return msg, false
 
-        slow, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: clock(...) argument is not a valid number"), false
+        tick, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: tick(...) argument is not a valid number"), false
 
-        rounded := math.round(slow)
-        if math.abs(slow - rounded) > 1e-15 {
-            return "Error: clock(...) argument should be an integer", false
+        rounded := math.round(tick)
+        if math.abs(tick - rounded) > 1e-15 {
+            return "Error: tick(...) argument should be an integer", false
         }
-        p.clock = int(rounded)
+        p.tick = int(rounded)
 
         return "", true
     
-    case .OutClock:
-        msg, argsOK := expectPlainArgs(cmd, "outclock(...)", 0, 0)
+    case .OutTick:
+        msg, argsOK := expectPlainArgs(cmd, "outtick(...)", 0, 0)
         if !argsOK do return msg, false
-        return fmt.tprintf("Clock: %d",  p.clock), true
+        return fmt.tprintf("Tick: %d",  p.tick), true
 
     case .SetSlip:
         msg, argsOK := expectPlainArgs(cmd, "slip(...)", 1, 1)
@@ -1031,8 +1031,8 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
         case .OutZLadder:
             value := (p.z >= 0) ? p.z + hitbox/2 : p.z - hitbox/2
             return name, value, true
-        case. SetClock:
-            value := f64(p.clock)
+        case. SetTick:
+            value := f64(p.tick)
             return name, value, true
         case:
             if name == "" do name = "command"
@@ -1138,8 +1138,8 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
             return p.inertia_threshold/f64(p.ground_slip)/0.91, true
         case "getia":
             return p.inertia_threshold/0.91, true
-        case "getc", "getclock":
-            return f64(p.clock), true
+        case "gettick":
+            return f64(p.tick), true
         case:
             value, ok := prs.vars[expr.text]
             if !ok{
