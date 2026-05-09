@@ -183,7 +183,7 @@ Output:
 It accepts multiple variables like `mes(var1, var2, var3)`
 And it outputs like `(var1, var2, var3) = (3.5, -4, 0.67)` in a single line.
 
-Apart from variables, you can put in built-in identifier `x/xb/xmm/xld/z/zb/zmm/zld/vx/vz/f/t` to measure the state of the player. Like:
+Apart from variables, you can put in built-in identifier `x/xb/xmm/xld/z/zb/zmm/zld/vx/vz/f/tick` to measure the state of the player. Like:
 
 ```
 ;s f(15) wj.wd sa.wd(11) s.wd mes(x,z,vx,vz)
