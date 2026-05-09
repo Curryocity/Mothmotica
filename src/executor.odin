@@ -281,11 +281,17 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !argsOK do return msg, false
         return formatOutValue(prs, p, "Vz", p.vz, cmd.args[:], "outvz")
 
+    case .OutAngle:
+        msg, argsOK := expectPlainArgs(cmd, "outa(...)", 0, 1)
+        if !argsOK do return msg, false
+        angle := math.atan2(-p.vx, p.vz) * 180 / PId
+        return formatOutValue(prs, p, "Angle", angle, cmd.args[:], "outa")
+
     case .OutVec:
         msg, argsOK := expectPlainArgs(cmd, "vec", 0, 0)
         if !argsOK do return msg, false
         speed := math.sqrt(p.vx * p.vx + p.vz * p.vz)
-        angle := math.atan2(p.vz, -p.vx) * 180 / PId
+        angle := math.atan2(-p.vx, p.vz) * 180 / PId
         return fmt.tprintf("(Speed/Angle) (%s, %s)", formatNum(prs, speed), formatNum(prs, angle)), true
 
     case .OutF:
@@ -1135,6 +1141,9 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
             return p.vz, true
         case "getf":
             return f64(p.f), true
+        case "geta":
+            angle := math.atan2(-p.vx, p.vz) * 180 / PId
+            return angle, true
         case "getig":
             return p.inertia_threshold/f64(p.ground_slip)/0.91, true
         case "getia":

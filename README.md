@@ -140,6 +140,7 @@ But there is so much more you can do with savestates.
 | `outvx` | Output `Vx` |
 | `outvz` | Output `Vz` |
 | `vec` | Output speed and angle |
+| `outa` | Output movement angle |
 | `outf` | Output facing |
 | `outt` | Output turn/facing |
 
@@ -233,7 +234,7 @@ Vz: 0.192659
 
 > Note: `zr` (Z Raw) is an alias to `outz`
 
-### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`,`getig`,`getia`
+### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`,`geta`,`getig`,`getia`
 
 In mothball, although you can do `var(a, outx)` to store the current x position into variable `a`. But the `outx` command also executes and prints the line. Which is a really stupid design.
 
@@ -250,6 +251,7 @@ In mothmotica, we can do `set(a, getx)` and it will be silent. Or even `set(b, g
 | `getvx` | Get `Vx` |
 | `getvz` | Get `Vz` |
 | `getf` | Get `F` |
+| `geta` | Get movement angle |
 | `getig` | Get ground inertia: `inertia / ground_slip / 0.91` |
 | `getia` | Get air inertia: `inertia / 0.91` |
 | `gettick` | Get current `tick` value |
