@@ -819,32 +819,42 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return "", true
 
     case .JumpTo, .CoastTo:
-        cmdName := cmd.type == .Coast ? "coast" : "jump"
-        msg, argsOK := expectPlainArgs(cmd, fmt.tprintf("%s(...)", cmdName), 0, 1)
+        cmdName := cmd.type == .CoastTo ? "coastto" : "jumpto"
+        msg, argsOK := expectPlainArgs(cmd, fmt.tprintf("%s(...)", cmdName), 1, 1)
         if !argsOK do return msg, false
 
-        ticks := 1
-        if len(cmd.args) == 1 {
-            parsedTicks, ok := evalIntArg(prs, p, cmd.args[0], fmt.tprintf("Error: %s(...) argument is not a valid number", cmdName))
-            if !ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) argument should be an integer", cmdName)), false
-            if parsedTicks < 0 do return fmt.tprintf("Error: %s(...) argument should be non-negative", cmdName), false
-            ticks = parsedTicks
-        }
+        yLevel, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) argument is not a valid number", cmdName)), false
 
+        ticks := 0
         buf: [dynamic]u8
         defer delete(buf)
 
-        if cmd.type == .Jump && ticks > 0 {
+        if cmd.type == .JumpTo {
             hitCeil, hitSlime := moveY(p, true)
             appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
-            ticks -= 1
+            ticks += 1
+
+            if p.y >= yLevel && p.y + p.vy < yLevel {
+                append(&buf, fmt.tprintf("Landed y = %s (+%dt)", formatNum(prs, yLevel), ticks))
+                return strings.clone(string(buf[:])), true
+            }
         }
 
-        for _ in 0..<ticks {
+        for _ in 0..<4096 {
             hitCeil, hitSlime := moveY(p, false)
             appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+            ticks += 1
+
+            if p.y >= yLevel && p.y + p.vy < yLevel {
+                append(&buf, fmt.tprintf("Landed y = %s (+%dt)", formatNum(prs, yLevel), ticks))
+                return strings.clone(string(buf[:])), true
+            }
         }
+
+        append(&buf, fmt.tprintf("Ground y = %s unreachable", formatNum(prs, yLevel)))
         return strings.clone(string(buf[:])), true
+
 
     case .LandInfo:
         msg, argsOK := expectPlainArgs(cmd, "land", 0, 0)
