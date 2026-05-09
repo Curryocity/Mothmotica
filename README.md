@@ -268,7 +268,10 @@ Sometimes you hate movement branching or just want to test what if next tick hit
 
 ### Handy math functions: `abs()`,`sqrt()`,`sin()`,`cos()`,`tan()`,`atan()`
 
-I don't think I need to explain anything of it except that **the unit of angle is always in degrees.**
+Notes:
+1. **the unit of angle is always in degrees.**
+
+2. **`abs(...)`** can take in multiple values and treat it as the **norm** of the vector.
 
 ## A Few Examples (Guide/Wiki WIP):
 

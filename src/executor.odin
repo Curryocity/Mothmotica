@@ -1187,7 +1187,26 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
                 failParse(prs, "Error: expression cannot be evaluated as a number")
                 return 0, false
             }
-        }else if cmd.type == .Abs || cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
+        }else if cmd.type == .Abs {
+            if len(cmd.args) < 1 {
+                failParse(prs, "Error: abs(...) should have at least one parameter")
+                return 0, false
+            }
+
+            if len(cmd.args) == 1 {
+                arg, ok := eval(prs, p, cmd.args[0])
+                if !ok do return 0, false
+                return abs(arg), true
+            }
+
+            sum := 0.0
+            for argExpr in cmd.args {
+                arg, ok := eval(prs, p, argExpr)
+                if !ok do return 0, false
+                sum += arg * arg
+            }
+            return math.sqrt(sum), true
+        }else if cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
             if len(cmd.args) != 1 {
                 failParse(prs, "Error: computing function should have exactly one parameter")
                 return 0, false
@@ -1216,8 +1235,6 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
                 case .Atan:
                     rad := math.atan(arg)
                     return rad * 180/PId, true
-                case .Abs:
-                    return abs(arg), true
                 case:
                     failParse(prs, "Error: expression cannot be evaluated as a number")
                     return 0, false
