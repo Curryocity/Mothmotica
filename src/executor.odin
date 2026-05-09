@@ -89,7 +89,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         switch target.text {
         case "getx", "getz", "getvx", "getvz", "getf", "getig", "getia",
-             "gety", "getvy", "getytop", "geth", "getjb", "getslowfall":
+             "gety", "getvy", "getytop", "geth":
             return "Error: cannot assign to pseudo variable", false
         case "bx", "px", "pi":
             return "Error: cannot assign to built-in constant", false
@@ -338,9 +338,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "sprintdelay(...)", 1, 1)
         if !argsOK do return msg, false
 
-        v, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: sprintdelay(...) argument is not a valid number"), false
-        p.sprint_delay = v != 0
+        v, ok := evalBoolArg(prs, p, cmd.args[0], "sprintdelay")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("sprintdelay")), false
+        p.sprint_delay = v
         return "", true
 
     case .SetInertia:
@@ -778,9 +778,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "slowfall(...)", 1, 1)
         if !argsOK do return msg, false
 
-        slowFall, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: slowfall(...) argument is not a valid number"), false
-        p.slow_falling = slowFall != 0
+        slowFall, ok := evalBoolArg(prs, p, cmd.args[0], "slowfall")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("slowfall")), false
+        p.slow_falling = slowFall
         return "", true
 
     case .SetYSilent:
@@ -1147,6 +1147,22 @@ evalU8Arg :: proc(prs: ^ParserState, p: ^Player, arg: Arg, name: string) -> (u8,
     }
 
     return u8(rounded), true
+}
+
+evalBoolArg :: proc(prs: ^ParserState, p: ^Player, arg: Arg, name: string) -> (bool, bool) {
+    value, ok := eval(prs, p, arg)
+    if !ok {
+        failParse(prs, fmt.tprintf("Error: %s(...) argument is not a valid number", name))
+        return false, false
+    }
+
+    if value == 0 do return false, true
+    if value == 1 do return true, true
+    return false, false
+}
+
+evalBoolArgError :: proc(name: string) -> string {
+    return fmt.tprintf("Error: %s(...) argument should be 0 or 1", name)
 }
 
 appendHitYOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, hitCeil, hitSlime: bool) {
