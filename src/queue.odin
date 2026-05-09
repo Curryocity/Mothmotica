@@ -89,3 +89,8 @@ loadQueue :: proc(dst: ^Queue, src: Queue) {
         append(&dst.data, x)
     }
 }
+
+qTailOr :: proc(q: ^Queue, fallback: f32) -> f32 {
+    if qLen(q) <= 0 do return fallback
+    return q.data[len(q.data) - 1]
+}

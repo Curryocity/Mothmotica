@@ -703,7 +703,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         for arg in cmd.args {
             turn, ok := eval(prs, p, arg)
             if !ok do return parserErrorOr(prs, fmt.tprintf("Error: tq(...)'s argument[%d] is not a valid number", idx)), false
-            qAdd(&p.turnQueue, f32(turn))
+            angle := qTailOr(&p.angleQueue, p.f) + f32(turn)
+            qAdd(&p.angleQueue, angle)
             idx += 1
         }
 

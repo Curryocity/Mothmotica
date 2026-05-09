@@ -23,7 +23,6 @@ Player :: struct {
     posRec: bool,
     posStorage: [dynamic] vec2,
     angleQueue: Queue,
-    turnQueue: Queue,
     tick: int,
 }
 
@@ -34,9 +33,6 @@ makePlayer :: proc() -> Player {
 move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false)
 {
 
-    if turn, ok := qPop(&p.turnQueue); ok {
-        p.f += turn
-    }
     if angle, ok := qPop(&p.angleQueue); ok {
         p.f = angle
     }
@@ -138,7 +134,6 @@ prevAir :: proc(p: ^Player) {
 saveState :: proc(p: Player) -> Player {
     copy := p
     copy.angleQueue = cloneQueue(p.angleQueue)
-    copy.turnQueue = cloneQueue(p.turnQueue)
     copy.posStorage = nil
     for sto in p.posStorage{
         append(&copy.posStorage, sto)
@@ -149,13 +144,11 @@ saveState :: proc(p: Player) -> Player {
 
 loadState :: proc(dst: ^Player, src: Player) {
     qDelete(&dst.angleQueue)
-    qDelete(&dst.turnQueue)
     delete(dst.posStorage)
 
     dst^ = src
 
     dst.angleQueue = cloneQueue(src.angleQueue)
-    dst.turnQueue  = cloneQueue(src.turnQueue)
 
     dst.posStorage = nil
     for sto in src.posStorage {
@@ -165,7 +158,6 @@ loadState :: proc(dst: ^Player, src: Player) {
 
 deletePlayerState :: proc(p: ^Player) {
     qDelete(&p.angleQueue)
-    qDelete(&p.turnQueue)
     delete(p.posStorage)
     p.posStorage = nil
 }
