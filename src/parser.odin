@@ -13,7 +13,7 @@ ParserState :: struct {
     vars: map[string]f64,
     saves: map[string]Player,
     precision: u8,
-    ySilent: bool,
+    yObserve: bool,
 }
 
 MothCtx :: enum {
@@ -76,9 +76,9 @@ CmdType :: enum {
 
     Coast, Jump, 
     SetY, OutY, SetVy, OutVy, OutYTop,
-    SetPlayerHeight, SetJumpBoost, SetSlowFall, SetYSilent,
+    SetPlayerHeight, SetJumpBoost, SetSlowFall, SetYObserve,
 
-    JumpTo, CoastTo, LandInfo,
+    JumpTo, CoastTo, tier,
     
     CeilQueue, SlimeQueue,
 
@@ -145,6 +145,7 @@ parseMothball :: proc(input: string) -> string {
         vars = make(map[string]f64),
         saves = make(map[string]Player),
         precision = 6,
+        yObserve = true,
     }
     defer deleteParserState(&prs)
 
@@ -621,8 +622,8 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .SetJumpBoost
         case "sf", "slowfall", "slowfalling":
             return .SetSlowFall
-        case "silent":
-            return .SetYSilent
+        case "observe":
+            return .SetYObserve
         case "jto", "jumpto":
             return .JumpTo
         case "cto", "coastto":
@@ -631,8 +632,8 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .CeilQueue
         case "sq", "slimeq", "slimequeue":
             return .SlimeQueue
-        case "land":
-            return .LandInfo
+        case "tier":
+            return .tier
         case:
             return .Invalid
     }

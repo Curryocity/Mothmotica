@@ -28,6 +28,7 @@ Player :: struct {
     // y states
     y: f64,
     vy: f64,
+    prev_vy: f64,
     jump_boost: u8,
     slow_falling: bool,
     ceilQueue: Queue(f64),
@@ -139,6 +140,8 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
     ceilQ, bounceQ: bool
     originalY := p.y
     p.y += p.vy
+
+    p.prev_vy = p.vy
 
     if !qEmpty(&p.ceilQueue) {
         ceilH, _ := qPeek(&p.ceilQueue)

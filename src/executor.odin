@@ -712,13 +712,13 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         if cmd.type == .Jump && ticks > 0 {
             hitCeil, hitSlime := moveY(p, true)
-            appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+            yObserverOut(prs, p, &buf, hitCeil, hitSlime)
             ticks -= 1
         }
 
         for _ in 0..<ticks {
             hitCeil, hitSlime := moveY(p, false)
-            appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+            yObserverOut(prs, p, &buf, hitCeil, hitSlime)
         }
         return strings.clone(string(buf[:])), true
 
@@ -738,6 +738,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         vy, ok := eval(prs, p, cmd.args[0])
         if !ok do return parserErrorOr(prs, "Error: vy(...) argument is not a valid number"), false
         p.vy = vy
+        p.prev_vy = 0
         return "", true
 
     case .OutY:
@@ -783,13 +784,13 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         p.slow_falling = slowFall
         return "", true
 
-    case .SetYSilent:
-        msg, argsOK := expectPlainArgs(cmd, "silent(...)", 1, 1)
+    case .SetYObserve:
+        msg, argsOK := expectPlainArgs(cmd, "observe(...)", 1, 1)
         if !argsOK do return msg, false
 
-        silent, ok := eval(prs, p, cmd.args[0])
-        if !ok do return parserErrorOr(prs, "Error: silent(...) argument is not a valid number"), false
-        prs.ySilent = silent != 0
+        observe, ok := evalBoolArg(prs, p, cmd.args[0], "observe")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("observe")), false
+        prs.yObserve = observe
         return "", true
 
     case .CeilQueue:
@@ -832,10 +833,10 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         if cmd.type == .JumpTo {
             hitCeil, hitSlime := moveY(p, true)
-            appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+            yObserverOut(prs, p, &buf, hitCeil, hitSlime)
             ticks += 1
 
-            if p.y >= yLevel && p.y + p.vy < yLevel {
+            if p.y >= yLevel && p.y + p.vy < yLevel && qEmpty(&p.slimeQueue){
                 append(&buf, fmt.tprintf("Landed y = %s (+%dt)", formatNum(prs, yLevel), ticks))
                 return strings.clone(string(buf[:])), true
             }
@@ -843,10 +844,10 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         for _ in 0..<4096 {
             hitCeil, hitSlime := moveY(p, false)
-            appendHitYOut(prs, p, &buf, hitCeil, hitSlime)
+            yObserverOut(prs, p, &buf, hitCeil, hitSlime)
             ticks += 1
 
-            if p.y >= yLevel && p.y + p.vy < yLevel {
+            if p.y >= yLevel && p.y + p.vy < yLevel && qEmpty(&p.slimeQueue){
                 append(&buf, fmt.tprintf("Landed y = %s (+%dt)", formatNum(prs, yLevel), ticks))
                 return strings.clone(string(buf[:])), true
             }
@@ -856,11 +857,11 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return strings.clone(string(buf[:])), true
 
 
-    case .LandInfo:
-        msg, argsOK := expectPlainArgs(cmd, "land", 0, 0)
+    case .tier:
+        msg, argsOK := expectPlainArgs(cmd, "tier", 0, 0)
         if !argsOK do return msg, false
 
-        return fmt.tprintf("Landing ground Y: (%s, %s)", formatNum(prs, p.y), formatNum(prs, p.y + p.vy),), true
+        return fmt.tprintf("Tier Y-Range: (%s, %s)", formatNum(prs, p.y), formatNum(prs, p.y + p.vy),), true
 
     case .XPoss, .ZPoss:
         msg, argsOK := expectCodeArgs(cmd, "(x/z)poss(...){...}", 0, 4)
@@ -1175,14 +1176,19 @@ evalBoolArgError :: proc(name: string) -> string {
     return fmt.tprintf("Error: %s(...) argument should be 0 or 1", name)
 }
 
-appendHitYOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, hitCeil, hitSlime: bool) {
-    if prs.ySilent do return
+yObserverOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, hitCeil, hitSlime: bool) {
+    if !prs.yObserve do return
 
     if hitCeil {
-        append(buf, fmt.tprintf("Hit ceiling at t = %d\n", p.tick))
+        append(buf, fmt.tprintf("Ceil y = %s (t = %d)\n", formatNum(prs, p.y + p.h), p.tick))
     }
     if hitSlime {
-        append(buf, fmt.tprintf("Bounced slime at t = %d\n", p.tick))
+        append(buf, fmt.tprintf("Slime y = %s (t = %d)\n", formatNum(prs, p.y), p.tick))
+    }
+
+    peaked := !hitCeil && p.vy <= 0 && p.prev_vy > 0
+    if peaked {
+        append(buf, fmt.tprintf("Peak y = %s (t = %d)\n", formatNum(prs, p.y), p.tick))
     }
 }
 
