@@ -95,12 +95,27 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
     im.TextColored(botNameColor(state.settings.theme), "%s", bot_name_c)
 
     reply := bufferString(msg.reply[:])
-    height := max(f32(lineCount(reply)) * im.GetTextLineHeight() + 14, 36)
+    reply_c := strings.clone_to_cstring(reply)
+    defer delete(reply_c)
+
     im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.settings.theme, false))
     im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.settings.theme, false))
     im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.settings.theme))
     pushed_code_font := pushMonoFont()
-    im.InputTextMultiline("##reply", cstring(&msg.reply[0]), c.size_t(len(msg.reply)), {-1, height}, {.ReadOnly})
+
+    style := im.GetStyle()
+    reply_w := max(im.GetContentRegionAvail().x, 1)
+    wrap_w := max(reply_w - style.FramePadding.x * 2 - 16, 1)
+    text_size := im.CalcTextSize(reply_c, nil, false, wrap_w)
+    height := max(text_size.y + style.FramePadding.y * 2, 30)
+
+    im.InputTextMultiline(
+        "##reply",
+        reply_c,
+        len(reply) + 1,
+        {-1, height},
+        {.ReadOnly, .WordWrap, .NoHorizontalScroll},
+    )
     popFontIf(pushed_code_font)
     im.PopStyleColor(3)
     im.Unindent(AVATAR_SIZE + AVATAR_GAP)
@@ -329,10 +344,13 @@ drawAvatar :: proc(label: cstring, bg, ring, text_col: im.Vec4) {
     text_x := center.x - text_size.x * 0.5
     if font != nil && label != nil {
         label_bytes := cast(^u8)label
-        glyph := im.Font_FindGlyph(font, im.Wchar(label_bytes^))
-        if glyph != nil && font.FontSize > 0 {
-            scale := font_size / font.FontSize
-            text_x = center.x - (glyph.X0 + glyph.X1) * 0.5 * scale
+        baked := im.Font_GetFontBaked(font, font_size)
+        if baked != nil {
+            glyph := im.FontBaked_FindGlyphNoFallback(baked, im.Wchar(label_bytes^))
+            if glyph != nil && baked.Size > 0 {
+                scale := font_size / baked.Size
+                text_x = center.x - (glyph.X0 + glyph.X1) * 0.5 * scale
+            }
         }
     }
 
@@ -352,7 +370,7 @@ drawAvatarImage :: proc(texture: u32) {
 
     im.DrawList_AddImageRounded(
         draw_list,
-        im.TextureID(texture),
+        im.TextureRef{_TexID = im.TextureID(texture)},
         p_min,
         p_max,
         {0, 0},
@@ -494,8 +512,10 @@ commitMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     if is_draft {
         addMsg(state, page)
     } else {
-        refreshMsg(msg)
-        page.dirty = true
+        if msg.dirty {
+            refreshMsg(msg)
+            page.dirty = true
+        }
     }
 }
 

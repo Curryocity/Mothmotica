@@ -34,6 +34,27 @@ lineCount :: proc(text: string) -> int {
     return n
 }
 
+wrappedLineCount :: proc(text: string, max_cols: int) -> int {
+    if len(text) == 0 do return 1
+    if max_cols <= 0 do return lineCount(text)
+
+    lines := 1
+    col := 0
+    for ch in text {
+        if ch == '\n' {
+            lines += 1
+            col = 0
+            continue
+        }
+
+        col += 1
+        if col > max_cols {
+            lines += 1
+            col = 1
+        }
+    }
+    return lines
+}
 
 
 

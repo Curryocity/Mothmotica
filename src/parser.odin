@@ -39,7 +39,7 @@ CmdType :: enum {
     Plus, Minus, Mul, Div, 
     Abs, Sqrt, Sin, Cos, Tan, Atan, ArgAngle,
 
-    Print, Printn, Measure, Polar,
+    Print, Printn, PrintRaw, Measure, Polar,
 
     SetX, SetZ, SetPos, 
     SetVz, SetVx, SetVel,
@@ -167,7 +167,7 @@ parseMothball :: proc(input: string) -> string {
 
         if(s != ""){
             append(&buf, s)
-            if s[len(s) - 1] != '\n'{\
+            if !isRawOutputArg(cmd) && s[len(s) - 1] != '\n'{\
                 append(&buf, "\n")
             }
         }
@@ -465,6 +465,8 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
             return .Print
         case "printn":
             return .Printn
+        case "printr":
+            return .PrintRaw
         case "mes", "measure":
             return .Measure
         case "polar":

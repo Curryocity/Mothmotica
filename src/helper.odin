@@ -181,6 +181,51 @@ isCall :: proc(arg: ^Arg) -> bool {
     return arg.type == .Call || arg.type == .MoveCall
 }
 
+isRawPrintArg :: proc(arg: Arg) -> bool {
+    return arg.type == .Call && arg.expr != nil && arg.expr.type == .PrintRaw
+}
+
+isRawOutputArg :: proc(arg: Arg) -> bool {
+    if isRawPrintArg(arg) do return true
+
+    if arg.type == .Call && arg.expr != nil && arg.expr.type == .Loop {
+        return codeEndsRawOutput(arg.expr.code[:])
+    }
+
+    return false
+}
+
+codeEndsRawOutput :: proc(code: []Arg) -> bool {
+    for i := len(code) - 1; i >= 0; i -= 1 {
+        arg := code[i]
+        if isRawOutputArg(arg) do return true
+        if argMayOutput(arg) do return false
+    }
+    return false
+}
+
+argMayOutput :: proc(arg: Arg) -> bool {
+    if arg.type != .Call do return arg.type != .MoveCall
+    if arg.expr == nil do return true
+
+    #partial switch arg.expr.type {
+    case .SetVar, .SetPrecision,
+         .SetX, .SetZ, .SetPos, .SetVx, .SetVz, .SetVel,
+         .SetF, .SetTurn, .SetFSJ, .SetTick,
+         .SetSlip, .SetSprintDelay, .SetInertia, .SetSlow, .SetSpeed,
+         .PrevGround, .PrevAir,
+         .ForceInertiaX, .ForceInertiaZ,
+         .AngleQueue, .TurnQueue,
+         .Save, .Load,
+         .SetY, .SetVy, .SetPlayerHeight, .SetJumpBoost, .SetSlowFall, .SetYObserve,
+         .CeilQueue, .SlimeQueue,
+         .SetWeb, .SetLadder, .SetBlock, .SetSoulSand:
+        return false
+    case:
+        return true
+    }
+}
+
 argToString :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
     switch arg.type {
     case .Text:

@@ -30,8 +30,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     hitbox := widenf32(0.6)
 
     #partial switch cmd.type {
-    case .Print, .Printn:
-        msg, argsOK := expectPlainArgs(cmd, "print(...) or printn(...)", 1, 65536)
+    case .Print, .Printn, .PrintRaw:
+        msg, argsOK := expectPlainArgs(cmd, "print(...) or printn(...) or printr(...)", 1, 65536)
         if !argsOK do return msg, false
 
         buf: [dynamic]u8
@@ -41,7 +41,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             s, ok := argToString(prs, p, arg)
             if !ok do return s, false
 
-            if i > 0 && cmd.type != .Printn{
+            if i > 0 && cmd.type == .Print{
                 append(&buf, " ")
             }
 
@@ -475,7 +475,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
             if s != "" {
                 append(&buf, s)
-                if s[len(s) - 1] != '\n'{
+                if !codeEndsRawOutput(cmd.code[:]) && s[len(s) - 1] != '\n'{
                     append(&buf, "\n")
                 }
             }
@@ -1084,7 +1084,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
             if s != "" {
                 append(&buf, s)
-                if s[len(s) - 1] != '\n'{
+                if !codeEndsRawOutput(cmd.code[:]) && s[len(s) - 1] != '\n'{
                     append(&buf, "\n")
                 }
             }
@@ -1117,7 +1117,7 @@ exeCode :: proc(prs: ^ParserState, p: ^Player, code: []Arg, silent: bool) -> (st
 
         if !silent && s != "" {
             append(&buf, s)
-            if s[len(s) - 1] != '\n'{
+            if !isRawOutputArg(arg) && s[len(s) - 1] != '\n'{
                 append(&buf, "\n")
             }
         }

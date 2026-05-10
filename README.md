@@ -230,7 +230,6 @@ Z: 1.3125
 Vz: 0.192659
 ```
 
-> Note: `zr` (Z Raw) is an alias to `outz`
 
 ### Read only variables:
 

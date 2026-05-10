@@ -29,16 +29,16 @@ loadFonts :: proc(scale: f32) {
     font_path_c := strings.clone_to_cstring(font_path)
     defer delete(font_path_c)
     monoFont = im.FontAtlas_AddFontFromFileTTF(io.Fonts, font_path_c, FONT_SIZE * font_scale)
+    im.GetStyle().FontScaleMain = 1 / font_scale
 
     if monoFont != nil {
         io.FontDefault = monoFont
-        io.FontGlobalScale = 1 / font_scale
     }
 }
 
 pushMonoFont :: proc() -> bool {
     if monoFont != nil {
-        im.PushFont(monoFont)
+        im.PushFontFloat(monoFont, monoFont.LegacySize)
         return true
     }
     return false
@@ -46,6 +46,14 @@ pushMonoFont :: proc() -> bool {
 
 popFontIf :: proc(pushed: bool) {
     if pushed do im.PopFont()
+}
+
+pushTextScale :: proc(scale: f32) {
+    im.PushFontFloat(nil, im.GetStyle().FontSizeBase * scale)
+}
+
+popTextScale :: proc() {
+    im.PopFont()
 }
 
 resolveAssetPath :: proc(path: string) -> string {

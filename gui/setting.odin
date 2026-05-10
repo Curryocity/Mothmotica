@@ -33,11 +33,11 @@ drawSettings :: proc(state: ^AppState) {
     total := im.GetContentRegionAvail()
     im.Dummy({0, max(total.y * 0.12, 28)})
 
-    im.SetWindowFontScale(1.7)
+    pushTextScale(1.7)
     title_size := im.CalcTextSize("Settings")
     im.SetCursorPosX(max((im.GetWindowWidth() - title_size.x) * 0.5, SIDE_PAD))
     im.TextColored(titleColor(state.settings.theme), "Settings")
-    im.SetWindowFontScale(1)
+    popTextScale()
 
     panel_w := min(max(total.x * 0.48, 320), 520)
     im.Dummy({0, 18})

@@ -10,12 +10,12 @@ import im "../third_party/odin-imgui"
 drawTitle :: proc() {
     im.Dummy({0, 24})
 
-    im.SetWindowFontScale(2.2)
+    pushTextScale(2.2)
     title_size := im.CalcTextSize("Mothmotica")
     title_x := max((im.GetWindowWidth() - title_size.x) * 0.5, SIDE_PAD)
     im.SetCursorPosX(title_x)
     im.TextColored(titleColor(.Dark), "Mothmotica")
-    im.SetWindowFontScale(1)
+    popTextScale()
 
     im.Dummy({0, 14})
     im.Separator()
@@ -26,11 +26,11 @@ drawHomePage :: proc(state: ^AppState) {
     total := im.GetContentRegionAvail()
     im.Dummy({0, max(total.y * 0.18, 36)})
 
-    im.SetWindowFontScale(2.1)
+    pushTextScale(2.1)
     title_size := im.CalcTextSize("Mothmotica")
     im.SetCursorPosX(max((im.GetWindowWidth() - title_size.x) * 0.5, SIDE_PAD))
     im.TextColored(titleColor(state.settings.theme), "Mothmotica")
-    im.SetWindowFontScale(1)
+    popTextScale()
 
     im.Dummy({0, 20})
     button_w := min(max(total.x * 0.35, 240), 340)
@@ -104,11 +104,11 @@ drawBookPopup :: proc(state: ^AppState) {
 
     if im.BeginPopupModal("Open Book", &state.ui.showOpenBookPopup, {.NoTitleBar, .NoMove, .NoResize}) {
         im.Dummy({0, 8})
-        im.SetWindowFontScale(1.35)
+        pushTextScale(1.35)
         title_size := im.CalcTextSize("Select A Book")
         im.SetCursorPosX(max((im.GetWindowWidth() - title_size.x) * 0.5, 16))
         im.TextColored(titleColor(state.settings.theme), "Select A Book")
-        im.SetWindowFontScale(1)
+        popTextScale()
         book_folder_w := f32(118)
         im.SameLine(max(im.GetWindowWidth() - book_folder_w - 18, 16))
         if im.Button("Book Folder", {book_folder_w, 32}) {
