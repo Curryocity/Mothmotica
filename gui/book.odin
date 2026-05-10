@@ -439,6 +439,17 @@ msgCount :: proc(page: ^Page) -> int {
     return max(page.msgCount - 1, 0)
 }
 
+savedMsgCount :: proc(page: ^Page) -> int {
+    count := msgCount(page)
+    if page == nil || page.msgCount == 0 do return count
+
+    draft := &page.msgs[page.msgCount - 1]
+    if strings.trim_space(bufferString(draft.text[:])) != "" {
+        count += 1
+    }
+    return count
+}
+
 starredCount :: proc(page: ^Page) -> int {
     if page == nil do return 0
 

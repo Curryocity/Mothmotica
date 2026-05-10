@@ -311,7 +311,7 @@ savePage :: proc(state: ^AppState, page: ^Page) {
     }
     defer delete(path)
 
-    realCount := msgCount(page)
+    realCount := savedMsgCount(page)
 
     messages := make([]SavedMessage, realCount, context.allocator)
     defer delete(messages)
@@ -389,7 +389,7 @@ loadPageFile :: proc(state: ^AppState, path: string) -> bool {
         msg.dirty = false
     }
     page.msgCount = message_count
-    atLeastOneMsg(page)
+    addEmptyMsg(page)
     page.dirty = false
 
     state.book.pageCount += 1

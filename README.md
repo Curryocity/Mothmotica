@@ -31,9 +31,7 @@ In the example above, the entire `sj(3) s.wa sa(8) outz outx x(0)` is treated as
 In **Mothmotica**:
 
 ```
-r(times){
-    strat 
-}
+r(times) {strat}
 
 Example:
 r(50){
@@ -43,7 +41,7 @@ r(50){
 
 ### Explicit `inv()`:
 
-Mothmotica keeps `inv(n){...}` as the base inverse command. It also keeps `bwmm(n){...}` as a historical Mothball shortcut:
+Mothmotica uses `inv(n){...}` as the base inverse command. It also keeps `bwmm(n){...}` as a historical Mothball shortcut:
 
 | Command | Expands to |
 | --- | --- |
@@ -142,7 +140,7 @@ But there is so much more you can do with savestates.
 | `vec` | Output speed and angle |
 | `outa` | Output movement angle |
 | `outf` | Output facing |
-| `outt` | Output turn/facing |
+| `outtu` | Output turn/facing |
 
 ### `print()/printn()` and `mes()`
 
@@ -234,15 +232,15 @@ Vz: 0.192659
 
 > Note: `zr` (Z Raw) is an alias to `outz`
 
-### Read only variables: `getx`,`getz`,`getvx`,`getvz`,`getf`,`geta`,`getig`,`getia`
+### Read only variables:
 
 In mothball, although you can do `var(a, outx)` to store the current x position into variable `a`. But the `outx` command also executes and prints the line. Which is a really stupid design.
 
-> I quit making a number guessing game in mothball because that outx/z cannot shut up
+> I remember quiting to make a number guessing game in mothball because that outx/z cannot shut up
 
 (Note that mothmotica uses `set()` instead of `var()`)
 
-In mothmotica, we can do `set(a, getx)` and it will be silent. Or even `set(b, getx * getz + getz)`. Just treat it as a variable that you cannot modify it with `set()`.
+In mothmotica, we can do `set(a, getx)` and it will be silent.
 
 | Variable | Meaning |
 | --- | --- |
