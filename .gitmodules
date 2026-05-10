@@ -1,4 +1,4 @@
 [submodule "third_party/odin-imgui"]
 	path = third_party/odin-imgui
-	url = https://gitlab.com/L-4/odin-imgui.git
+	url = https://github.com/Curryocity/odin-imgui.git
 	ignore = untracked
