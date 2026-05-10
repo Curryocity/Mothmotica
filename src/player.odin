@@ -24,6 +24,11 @@ Player :: struct {
     posStorage: [dynamic] vec2,
     angleQueue: Queue(f32),
     tick: int,
+    blockQ: bool,
+    soulSandQ: bool,
+    ladderQ: bool,
+    webQ: bool,
+    prev_webQ: bool,
 
     // y states
     y: f64,
@@ -56,17 +61,23 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     strafe: f32 = a
 
     slip: f32 = airborne ? 1.0 : p.ground_slip
-    
+
     p.x += p.vx
     p.z += p.vz
+
+    // I don't know if it is accurate
+    if p.soulSandQ {
+        p.vx *= 0.4
+        p.vz *= 0.4
+    }
 
     if p.prev_slip == -1 do p.prev_slip = slip
 
     p.vx *= f64(f32(0.91) * p.prev_slip)
     p.vz *= f64(f32(0.91) * p.prev_slip)
 
-    if (abs(p.vx) < p.inertia_threshold && p.inertia_on) || p.forceInertiaX do p.vx = 0
-    if (abs(p.vz) < p.inertia_threshold && p.inertia_on) || p.forceInertiaZ do p.vz = 0
+    if (abs(p.vx) < p.inertia_threshold && p.inertia_on) || p.forceInertiaX || p.prev_webQ do p.vx = 0
+    if (abs(p.vz) < p.inertia_threshold && p.inertia_on) || p.forceInertiaZ || p.prev_webQ do p.vz = 0
 
     // only force for one tick
     p.forceInertiaX = false
@@ -106,6 +117,11 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
         // I believe sinr(rad) returns a runtime f32 value so it'll be fine
     }
 
+    if p.blockQ {
+        forward *= f32(0.2)
+        strafe  *= f32(0.2)
+    }
+
     if sneak {
         forward *= f32(0.3)
         strafe  *= f32(0.3)
@@ -125,8 +141,19 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     p.vx += f64(strafe * cos(rot) - forward * sin(rot))
     p.vz += f64(forward * cos(rot) + strafe * sin(rot))
 
+    if p.webQ {
+        p.vx /= 4
+        p.vz /= 4
+    }
+
+    if p.ladderQ {
+        p.vx = clamp(p.vx, -0.15, 0.15)
+        p.vz = clamp(p.vz, -0.15, 0.15)
+    }
+
     p.prev_slip = slip
     p.prev_sprint = sprint
+    p.prev_webQ = p.webQ
 
     if p.posRec {
         append(&p.posStorage, vec2{x = p.x, z = p.z})

@@ -793,6 +793,42 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         prs.yObserve = observe
         return "", true
 
+    case .SetWeb:
+        msg, argsOK := expectPlainArgs(cmd, "web(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        web, ok := evalBoolArg(prs, p, cmd.args[0], "web")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("web")), false
+        p.webQ = web
+        return "", true
+
+    case .SetLadder:
+        msg, argsOK := expectPlainArgs(cmd, "ladder(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        ladder, ok := evalBoolArg(prs, p, cmd.args[0], "ladder")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("ladder")), false
+        p.ladderQ = ladder
+        return "", true
+
+    case .SetBlock:
+        msg, argsOK := expectPlainArgs(cmd, "block(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        block, ok := evalBoolArg(prs, p, cmd.args[0], "block")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("block")), false
+        p.blockQ = block
+        return "", true
+
+    case .SetSoulSand:
+        msg, argsOK := expectPlainArgs(cmd, "soulsand(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        soulSand, ok := evalBoolArg(prs, p, cmd.args[0], "soulsand")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("soulsand")), false
+        p.soulSandQ = soulSand
+        return "", true
+
     case .CeilQueue:
         msg, argsOK := expectPlainArgs(cmd, "ceilq(...)", 1, 65536)
         if !argsOK do return msg, false

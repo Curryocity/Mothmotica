@@ -77,6 +77,7 @@ CmdType :: enum {
     Coast, Jump, 
     SetY, OutY, SetVy, OutVy, OutYTop,
     SetPlayerHeight, SetJumpBoost, SetSlowFall, SetYObserve,
+    SetWeb, SetLadder, SetBlock, SetSoulSand,
 
     JumpTo, CoastTo, tier,
     
@@ -594,6 +595,14 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
             return .AngleQueue
         case "tq", "turnqueue":
             return .TurnQueue
+        case "web":
+            return .SetWeb
+        case "ld", "ladder":
+            return .SetLadder
+        case "bl", "block":
+            return .SetBlock
+        case "ss", "soulsand":
+            return .SetSoulSand
         case:
             return .Invalid
     }
