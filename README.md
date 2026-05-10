@@ -1,7 +1,5 @@
 # Mothmotica 
 
-> State: Work In Progress, GUI is experimental
-
 Mothball awakened, this project won't be mothballed.
 
 **This is a Mothball language editor, Credits:**
@@ -12,6 +10,10 @@ Mothball awakened, this project won't be mothballed.
 Mothmotica adds more stratfinding features to the existing mothball, the syntax was also modified to make more sense in a PC editor (the original mothball syntax is more suitable for discord/mobile users)
 
 Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, simplicity, and **the joy of Mothballing.**
+
+![](readmeResource/image/prime_mothball.png)
+
+> **Please use** Mothball to simulate minecraft movement. **Do not** use Mothball to find prime numbers. I am **warning you**, Curryocity.
 
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
 

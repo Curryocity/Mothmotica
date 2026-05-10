@@ -249,3 +249,81 @@ argToString :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
         return "Error: print(...) argument cannot be printed", false
     }
 }
+
+formatTextArg :: proc(prs: ^ParserState, p: ^Player, text: string) -> (string, bool) {
+    buf: [dynamic]u8
+    defer delete(buf)
+
+    i := 0
+    for i < len(text) {
+        ch := text[i]
+
+        if ch == '{' {
+            if i + 1 < len(text) && text[i + 1] == '{' {
+                append(&buf, "{")
+                i += 2
+                continue
+            }
+
+            expr_start := i + 1
+            expr_end := expr_start
+            for expr_end < len(text) && text[expr_end] != '}' {
+                expr_end += 1
+            }
+
+            if expr_end >= len(text) {
+                return "Error: unmatched '{' in formatted string", false
+            }
+            if expr_end == expr_start {
+                return "Error: empty formatted expression", false
+            }
+
+            expr_text := text[expr_start:expr_end]
+            inner := cloneParserState(prs)
+            defer deleteParserState(&inner)
+            inner.lex = Lexer{
+                data = expr_text,
+                pos = 0,
+                nextOk = false,
+            }
+            inner.ok = true
+            inner.errMsg = ""
+
+            expr := parseArg(&inner, p, 0, .Default)
+            if !inner.ok do return inner.errMsg, false
+            if lexerPeek(&inner.lex).type != .EOF {
+                return fmt.tprintf("Error: unexpected token %s in formatted expression", tokenToMessage(lexerPeek(&inner.lex))), false
+            }
+
+            value, ok := eval(&inner, p, expr)
+            if !ok do return parserErrorOr(&inner, "Error: formatted expression cannot be evaluated"), false
+            append(&buf, formatNum(prs, value))
+
+            i = expr_end + 1
+            continue
+        }
+
+        if ch == '}' {
+            if i + 1 < len(text) && text[i + 1] == '}' {
+                append(&buf, "}")
+                i += 2
+                continue
+            }
+
+            return "Error: unmatched '}' in formatted string", false
+        }
+
+        append(&buf, text[i:i+1])
+        i += 1
+    }
+
+    return strings.clone(string(buf[:])), true
+}
+
+argToPrintString :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
+    if arg.type == .Text {
+        return formatTextArg(prs, p, arg.text)
+    }
+
+    return argToString(prs, p, arg)
+}

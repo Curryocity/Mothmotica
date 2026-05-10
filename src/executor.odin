@@ -39,7 +39,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         defer delete(buf)
 
         for arg, i in cmd.args {
-            s, ok := argToString(prs, p, arg)
+            s, ok := argToPrintString(prs, p, arg)
             if !ok do return s, false
 
             if i > 0 {
