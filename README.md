@@ -15,6 +15,39 @@ Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, sim
 
 > **Please use** Mothball to simulate minecraft movement. **Do not** use Mothball to find prime numbers. I am **warning you**, Curryocity.
 
+## Installation
+
+Download the latest release for your platform, then extract the archive.
+
+Each artifact contains the GUI app, the CLI, assets, README, and license.
+
+### Launching
+
+On Windows:
+
+1. Download `mothmotica-v0.1.0-windows-x86_64`.
+2. Extract the archive.
+3. Open the extracted folder.
+4. Run `mothmotica-gui.exe`.
+
+On Linux:
+
+1. Download `mothmotica-v0.1.0-linux-x86_64`.
+2. Extract the archive.
+3. Open a terminal in the extracted folder.
+4. Run `./mothmotica-gui`.
+
+On macOS:
+
+1. Download `mothmotica-v0.1.0-macos-arm64` for Apple Silicon, or `mothmotica-v0.1.0-macos-x86_64` for Intel.
+2. Extract the archive.
+3. Open the extracted folder.
+4. Right-click `Mothmotica.app`, choose **Open**, then confirm.
+
+The macOS app is ad-hoc signed for packaging, not notarized, so the right-click **Open** step may be needed on first launch.
+
+For CLI use, run the bundled `mothmotica-cli` binary from a terminal.
+
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
 
 ### Use `{}` for code block:
