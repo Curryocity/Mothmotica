@@ -24,7 +24,7 @@ jobs:
             platform: windows-x86_64
             gui: mothmotica-gui.exe
             cli: mothmotica-cli.exe
-          - os: macos-13
+          - os: macos-15-intel
             platform: macos-x86_64
             gui: mothmotica-gui
             cli: mothmotica-cli
@@ -100,6 +100,26 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: make -C "$(odin root)/vendor/stb/src"
+
+      - name: Build Linux GLFW shared library
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="$PWD/third_party/odin-imgui/backend_deps/glfw-install"
+          cmake -S third_party/odin-imgui/backend_deps/glfw -B third_party/odin-imgui/backend_deps/glfw-build \
+            -DBUILD_SHARED_LIBS=ON \
+            -DGLFW_BUILD_EXAMPLES=OFF \
+            -DGLFW_BUILD_TESTS=OFF \
+            -DGLFW_BUILD_DOCS=OFF \
+            -DCMAKE_INSTALL_PREFIX="$prefix" \
+            -DCMAKE_INSTALL_LIBDIR=lib
+          cmake --build third_party/odin-imgui/backend_deps/glfw-build --target install
+          {
+            echo "LIBRARY_PATH=$prefix/lib:${LIBRARY_PATH:-}"
+            echo "LD_LIBRARY_PATH=$prefix/lib:${LD_LIBRARY_PATH:-}"
+            echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          } >> "$GITHUB_ENV"
 
       - name: Build Odin STB libraries
         if: runner.os == 'Windows'
