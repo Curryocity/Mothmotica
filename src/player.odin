@@ -29,6 +29,8 @@ Player :: struct {
     ladderQ: bool,
     webQ: bool,
     prev_webQ: bool,
+    use_fsj: bool,
+    fsj: f32,
 
     // y states
     y: f64,
@@ -48,13 +50,19 @@ makePlayer :: proc() -> Player {
 
 move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false) 
 {
-
+    // aq, tq overwrites f globally
     if angle, ok := qPop(&p.angleQueue); ok {
         p.f = angle
     }
 
-    rot := tempRot
-    if !usedRot do rot = p.f
+    rot := p.f
+    // fsj override f locally on sj-ticks
+    if p.use_fsj && sprint && jump {
+        rot = p.fsj
+    }
+    // tempRot override f and fsj locally
+    if usedRot do rot = tempRot
+    // 45 always applies (it is not possible to have sj and 45 at the same tick tho)
     if temp45 do rot += 45
 
     forward: f32 = w

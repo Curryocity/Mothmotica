@@ -309,6 +309,22 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "outtu(...)", 0, 1)
         if !argsOK do return msg, false
         return formatOutValue(prs, p, "T", f64(p.f), cmd.args[:], "outtu")
+
+    case .SetFSJ:
+        msg, argsOK := expectPlainArgs(cmd, "fsj(...)", 0, 1)
+        if !argsOK do return msg, false
+
+        if len(cmd.args) == 0 {
+            p.fsj = 0
+            p.use_fsj = false
+        }else {
+            fsj, ok := eval(prs, p, cmd.args[0])
+            if !ok do return parserErrorOr(prs, "Error: fsj(...) argument is not a valid number"), false
+            p.fsj = f32(fsj)
+            p.use_fsj = true
+        }
+        
+        return "", true
     
     case .SetTick:
         msg, argsOK := expectPlainArgs(cmd, "tick(...)", 1, 1)
