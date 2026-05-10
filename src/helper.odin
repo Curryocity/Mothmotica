@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:strings"
 
 makeCallPtr :: proc(type: CmdType, entries: ..Arg) -> ^Command {
     cmd := new(Command)
@@ -36,25 +37,30 @@ cloneParserState :: proc(prs: ^ParserState) -> ParserState {
     cloned := prs^
     cloned.vars = cloneVars(prs.vars)
     cloned.saves = cloneSaves(prs.saves)
+    cloned.printSep = strings.clone(prs.printSep)
     return cloned
 }
 
 loadParserState :: proc(dst: ^ParserState, src: ParserState) {
     oldVars := dst.vars
     oldSaves := dst.saves
+    oldPrintSep := dst.printSep
 
     dst^ = src
 
     dst.vars = cloneVars(src.vars)
     dst.saves = cloneSaves(src.saves)
+    dst.printSep = strings.clone(src.printSep)
 
     delete(oldVars)
     deleteSaves(oldSaves)
+    delete(oldPrintSep)
 }
 
 deleteParserState :: proc(prs: ^ParserState) {
     delete(prs.vars)
     deleteSaves(prs.saves)
+    delete(prs.printSep)
 }
 
 trimTrailingZeros :: proc(s: string) -> string {
@@ -182,7 +188,7 @@ isCall :: proc(arg: ^Arg) -> bool {
 }
 
 isRawPrintArg :: proc(arg: Arg) -> bool {
-    return arg.type == .Call && arg.expr != nil && arg.expr.type == .PrintRaw
+    return arg.type == .Call && arg.expr != nil && arg.expr.type == .Print
 }
 
 isRawOutputArg :: proc(arg: Arg) -> bool {
@@ -209,7 +215,7 @@ argMayOutput :: proc(arg: Arg) -> bool {
     if arg.expr == nil do return true
 
     #partial switch arg.expr.type {
-    case .SetVar, .SetPrecision,
+    case .SetVar, .SetPrecision, .SetPrintSep,
          .SetX, .SetZ, .SetPos, .SetVx, .SetVz, .SetVel,
          .SetF, .SetTurn, .SetFSJ, .SetTick,
          .SetSlip, .SetSprintDelay, .SetInertia, .SetSlow, .SetSpeed,

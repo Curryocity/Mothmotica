@@ -30,8 +30,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     hitbox := widenf32(0.6)
 
     #partial switch cmd.type {
-    case .Print, .Printn, .PrintRaw:
-        msg, argsOK := expectPlainArgs(cmd, "print(...) or printn(...) or printr(...)", 1, 65536)
+    case .Print, .Println:
+        cmdName := cmd.type == .Print ? "print" : "println"
+        msg, argsOK := expectPlainArgs(cmd, fmt.tprintf("%s(...)", cmdName), 1, 65536)
         if !argsOK do return msg, false
 
         buf: [dynamic]u8
@@ -41,14 +42,29 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             s, ok := argToString(prs, p, arg)
             if !ok do return s, false
 
-            if i > 0 && cmd.type == .Print{
-                append(&buf, " ")
+            if i > 0 {
+                append(&buf, prs.printSep)
             }
 
             append(&buf, s)
         }
 
         return strings.clone(string(buf[:])), true
+
+    case .SetPrintSep:
+        msg, argsOK := expectPlainArgs(cmd, "sep(...)", 0, 1)
+        if !argsOK do return msg, false
+
+        sep := " "
+        if len(cmd.args) == 1 {
+            s, ok := argToString(prs, p, cmd.args[0])
+            if !ok do return s, false
+            sep = s
+        }
+
+        delete(prs.printSep)
+        prs.printSep = strings.clone(sep)
+        return "", true
 
     case .Measure:
         msg, argsOK := expectPlainArgs(cmd, "measure(...)", 1, 65536)

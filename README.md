@@ -142,23 +142,26 @@ But there is so much more you can do with savestates.
 | `outf` | Output facing |
 | `outtu` | Output turn/facing |
 
-### `print()/printn()` and `mes()`
+### `print()/println()`, `sep()`, and `mes()`
 
-`print()` accepts multiple arguments and prints their text or values separated by a `' '` char.
+`print()` accepts multiple arguments and prints their text or values without adding a newline.
 
-`printn()`'s separator char is empty, allowing more flexible formatting.
+`println()` does the same thing and adds a newline.
+
+Arguments are separated by `sep()`, which defaults to a single space. `sep()` resets the separator to a single space, and `sep("")` removes the separator.
 
 Like:
 
 ```
 ;s 
 set(i,0) set(a,0) set(b,1) 
-printn(i,"th fibonacci: ",a)
+sep("")
+println(i,"th fibonacci: ",a)
 set(i,i+1)
-printn(i,"th fibonacci: ",b) 
+println(i,"th fibonacci: ",b) 
 r(8){
     set(i,i+1) set(c,a+b) 
-    printn(i,"th fibonacci: ",c) 
+    println(i,"th fibonacci: ",c) 
     set(a,b) set(b,c)
 }
 ```

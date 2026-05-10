@@ -13,6 +13,7 @@ ParserState :: struct {
     vars: map[string]f64,
     saves: map[string]Player,
     precision: u8,
+    printSep: string,
     yObserve: bool,
 }
 
@@ -39,7 +40,7 @@ CmdType :: enum {
     Plus, Minus, Mul, Div, 
     Abs, Sqrt, Sin, Cos, Tan, Atan, ArgAngle,
 
-    Print, Printn, PrintRaw, Measure, Polar,
+    Print, Println, SetPrintSep, Measure, Polar,
 
     SetX, SetZ, SetPos, 
     SetVz, SetVx, SetVel,
@@ -146,6 +147,7 @@ parseMothball :: proc(input: string) -> string {
         vars = make(map[string]f64),
         saves = make(map[string]Player),
         precision = 6,
+        printSep = strings.clone(" "),
         yObserve = true,
     }
     defer deleteParserState(&prs)
@@ -167,7 +169,7 @@ parseMothball :: proc(input: string) -> string {
 
         if(s != ""){
             append(&buf, s)
-            if !isRawOutputArg(cmd) && s[len(s) - 1] != '\n'{\
+            if !isRawOutputArg(cmd) && s[len(s) - 1] != '\n'{
                 append(&buf, "\n")
             }
         }
@@ -463,10 +465,10 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
     switch cmdName {
         case "print":
             return .Print
-        case "printn":
-            return .Printn
-        case "printr":
-            return .PrintRaw
+        case "println":
+            return .Println
+        case "sep":
+            return .SetPrintSep
         case "mes", "measure":
             return .Measure
         case "polar":
