@@ -67,8 +67,18 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return "", true
 
     case .Measure:
-        msg, argsOK := expectPlainArgs(cmd, "measure(...)", 1, 65536)
+        msg, argsOK := expectPlainArgs(cmd, "measure(...)", 0, 65535)
         if !argsOK do return msg, false
+
+        if len(cmd.args) == 0 {
+            if prs.ctx == .XZsim{
+                return fmt.tprintf("(x, z, vx, vz) = (%s, %s, %s, %s)", formatNum(prs, p.x), formatNum(prs, p.z), formatNum(prs, p.vx), formatNum(prs, p.vz)), true
+            }else if prs.ctx == .Ysim {
+                return fmt.tprintf("(y, vy) = (%s, %s)", formatNum(prs, p.y), formatNum(prs, p.vy)), true
+            }else {
+                return "No context, how do you even get here?", true
+            }
+        }
 
         names: [dynamic]u8
         values: [dynamic]u8
