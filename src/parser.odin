@@ -637,7 +637,7 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .SetJumpBoost
         case "sf", "slowfall", "slowfalling":
             return .SetSlowFall
-        case "observe":
+        case "obs", "observe":
             return .SetYObserve
         case "jto", "jumpto":
             return .JumpTo

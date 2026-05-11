@@ -15,6 +15,10 @@ Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, sim
 
 > **Please use** Mothball to simulate minecraft movement. **Do not** use Mothball to find prime numbers. I am **warning you**, Curryocity.
 
+![](readmeResource/image/good_job_curry.png)
+
+> Good job, Curryocity
+
 ## Installation
 
 Download the latest release for your platform, then extract the archive.
@@ -400,33 +404,3 @@ Notes:
 1. **the unit of angle is always in degrees.**
 
 2. **`abs(...)`** can take in multiple values and treat it as the **norm** of the vector.
-
-## A Few Examples (Guide/Wiki WIP):
-
-**1.1875bm jumps**
-```
-Chat:
-;s wj.s(2) wa.sa(2) wa.s(8) w.s zmm(-1.1875) | sj45(12) zmm(1.1875) | poss(0.02){ sj45(25)}
-
-Mothball:
-Zmm: -1.1875 + 0.403479
-Zmm: 1.1875 - 0.000008
-Poss: (t = 1...25, thres = 0.02)
-t = 1: 0.8125 + 0.015714
-t = 12: 4.4375 + 0.013197
-t = 13: 4.75 + 0.000981
-t = 17: 5.9375 + 0.005244
-t = 20: 6.8125 + 0.016381
-t = 24: 8 + 0.003147
-```
-
-**slowness I 1.5bm 6-1 to ladder**
-```
-Chat:
-;s pre(9) f(45.01) slow(1) inv(@mm 1.5){ sj(1,0) sa.wa(11) zmm} | sj(1,0) sa.wa(14) zld(5)
-
-Mothball:
-Lerped Vz: -0.127684424
-Zmm: 1.5
-Zld: 5 + 0.000000137
-```
