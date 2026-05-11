@@ -10,6 +10,8 @@ jobs:
   build:
     name: mothmotica-${{ matrix.version }}-${{ matrix.target.platform }}
     runs-on: ${{ matrix.target.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
 
     strategy:
       fail-fast: false
@@ -94,7 +96,7 @@ jobs:
           python build.py
 
       - name: Build CLI
-        run: odin build src -o:size -out:${{ matrix.target.cli }}
+        run: odin build src -o:size -minimum-os-version:14.0 -out:${{ matrix.target.cli }}
 
       - name: Build Odin STB libraries
         if: runner.os != 'Windows'
@@ -113,7 +115,7 @@ jobs:
           }
 
       - name: Build GUI
-        run: odin build gui -o:size -out:${{ matrix.target.gui }}
+        run: odin build gui -o:size -minimum-os-version:14.0 -out:${{ matrix.target.gui }}
 
       - name: Strip release binaries
         if: runner.os != 'Windows'
@@ -209,7 +211,7 @@ jobs:
             <key>CFBundleVersion</key>
             <string>${app_version}</string>
             <key>LSMinimumSystemVersion</key>
-            <string>10.13</string>
+            <string>14.0</string>
             <key>NSHighResolutionCapable</key>
             <true/>
           </dict>

@@ -74,6 +74,10 @@ r(50){
 }
 ```
 
+### Better `;y`
+
+> WIP
+
 ### Explicit `inv()`:
 
 Mothmotica uses `inv(n){...}` as the base inverse command. It also keeps `bwmm(n){...}` as a historical Mothball shortcut:
