@@ -11,6 +11,9 @@ Mothmotica adds more stratfinding features to the existing mothball, the syntax 
 
 Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, simplicity, and **the joy of Mothballing.**
 
+> If you encounter any bugs or want to request a feature, contact me on Discord: `Curryocity#0601`.
+
+
 ![](readmeResource/image/prime_mothball.png)
 
 > **Please use** Mothball to simulate minecraft movement. **Do not** use Mothball to find prime numbers. I am **warning you**, Curryocity.
