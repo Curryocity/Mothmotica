@@ -17,7 +17,7 @@ Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, sim
 
 ![](readmeResource/image/good_job_curry.png)
 
-> Good job, Curryocity
+> Thank you.
 
 ## Installation
 
