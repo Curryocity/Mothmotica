@@ -76,7 +76,94 @@ r(50){
 
 ### Better `;y`
 
-> WIP
+Mothmotica gives vertical movement its own `;y` mode instead of mixing it into the X/Z simulator. The Y simulator tracks height, vertical velocity, jump boost, slow falling, ceilings, slime bounces, and landing checks.
+
+| Command | What it does |
+| --- | --- |
+| `j(n)` / `jump(n)` | Jump on first tick, coast for rest. |
+| `c(n)` / `coast(n)` | Coast for `n` ticks. |
+| `y(n)` | Set feet Y |
+| `vy(n)` | Set vertical velocity |
+| `outy` / `yr` | Output feet Y |
+| `outvy` | Output vertical velocity |
+| `ytop` | Output head/top Y, i.e. `y + height` |
+| `height(n)` | Set player height (default 1.8) |
+| `jb(n)` / `jumpboost(n)` | Set jump boost level |
+| `sf(0/1)` / `slowfall(0/1)` | Disable/enable slow falling |
+| `observe(0/1)` | Disable/enable automatic peak, ceiling, and slime messages |
+| `jto(n)` / `jumpto(n)` | Jump, then simulate until landing on ground Y `n` |
+| `cto(n)` / `coastto(n)` | Coast until landing on ground Y `n` |
+| `cq(...)` / `ceilq(...)` | Queue ceiling heights |
+| `sq(...)` / `slimeq(...)` | Queue slime block heights |
+| `tier` | Output the current Y range for the next tick |
+
+Finding the airtime for -1 and -5 drop, and the height ranges that has the same airtime:
+
+```
+;y jto(-1) tier cto(-5) tier
+```
+
+Output:
+
+```
+Peak y = 1.249187 (t = 6)
+Landed y = -1 (+14t)
+Tier Y-Range: (-0.860365, -1.445374)
+Landed y = -5 (+5t)
+Tier Y-Range: (-4.439201, -5.344633)
+```
+
+**Ceilings and slime blocks are queued events.**
+
+For `jto/cto` command, the landing is only registered if slime queue is empty .
+
+Mothmotica expects player to finish bouncing before landing.
+
+jump at y = 1.5, bounce at y = 0 and y = 0.0625, coast until landing at y = 1.5
+
+```
+;y y(1.5) slimeq(0, 0.0625) jto(1.5) outy(1.5)
+```
+
+Output:
+
+```
+Peak y = 2.749187 (t = 6)
+Slime y = 0 (t = 16)
+Peak y = 2.101691 (t = 23)
+Slime y = 0.0625 (t = 31)
+Peak y = 1.509956 (t = 37)
+Landed y = 1.5 (+37t)
+Y: 1.5 + 0.009956
+```
+
+If you think it is too noisy, do `observe(0)`.
+
+```
+;y observe(0) y(1.5) slimeq(0, 0.0625) jto(1.5) outy(1.5)
+```
+
+Output:
+
+```
+Landed y = 1.5 (+37t)
+Y: 1.5 + 0.009956
+```
+
+
+Test the airtime of 3bc -0:
+
+```
+;y cq(3) jto(0) mes
+```
+
+Output:
+
+```
+Ceil y = 3 (t = 6)
+Landed y = 0 (+11t)
+(y, vy) = (0.054893, -0.447498)
+```
 
 ### Explicit `inv()`:
 
