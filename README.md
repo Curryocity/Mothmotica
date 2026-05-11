@@ -50,30 +50,6 @@ For CLI use, run the bundled `mothmotica-cli` binary from a terminal.
 
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
 
-### Use `{}` for code block:
-
-In original mothball, the repeat function `r(...)` had such syntax:
-
-```
-r(strat, times)
-
-Example:
-r(sj(3) s.wa sa(8) outz outx x(0), 50)
-```
-
-In the example above, the entire `sj(3) s.wa sa(8) outz outx x(0)` is treated as an argument, strat. However, it consists of several commands, and several "identifiers" should really be separated by comma. But they are separated by spaces here, it is clearly a different structure.
-
-In **Mothmotica**:
-
-```
-r(times) {strat}
-
-Example:
-r(50){
-    sj(3) s.wa sa(8) outz outx x(0)
-}
-```
-
 ### Better `;y`
 
 Mothmotica gives vertical movement its own `;y` mode instead of mixing it into the X/Z simulator. The Y simulator tracks height, vertical velocity, jump boost, slow falling, ceilings, slime bounces, and landing checks.
@@ -163,6 +139,30 @@ Output:
 Ceil y = 3 (t = 6)
 Landed y = 0 (+11t)
 (y, vy) = (0.054893, -0.447498)
+```
+
+### Use `{}` for code block:
+
+In original mothball, the repeat function `r(...)` had such syntax:
+
+```
+r(strat, times)
+
+Example:
+r(sj(3) s.wa sa(8) outz outx x(0), 50)
+```
+
+In the example above, the entire `sj(3) s.wa sa(8) outz outx x(0)` is treated as an argument, strat. However, it consists of several commands, and several "identifiers" should really be separated by comma. But they are separated by spaces here, it is clearly a different structure.
+
+In **Mothmotica**:
+
+```
+r(times) {strat}
+
+Example:
+r(50){
+    sj(3) s.wa sa(8) outz outx x(0)
+}
 ```
 
 ### Explicit `inv()`:
