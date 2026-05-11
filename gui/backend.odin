@@ -12,7 +12,7 @@ runMothball :: proc(input: string, output: []byte) -> bool {
         return false
     }
 
-    stdin_file, temp_err := os.create_temp_file("", "mothmotica-input-*.txt")
+    stdin_file, temp_err := os.create_temp_file("", "mothmotica-input-*.txt", {.Inheritable})
     if temp_err != nil {
         bufferSet(output, "Could not create temporary input file.")
         return true
@@ -62,7 +62,7 @@ runMothball :: proc(input: string, output: []byte) -> bool {
     defer delete(stderr)
 
     if proc_err != nil {
-        bufferSet(output, "Could not run mothmotica-cli. Build it with `make gui`.")
+        bufferSet(output, fmt.tprintf("Could not run mothmotica-cli: %v", proc_err))
         return true
     }
 
@@ -77,8 +77,17 @@ runMothball :: proc(input: string, output: []byte) -> bool {
     }
 
     result := strings.trim_space(string(stdout))
+    if result == "" {
+        if strings.has_prefix(input, ";s") || strings.has_prefix(input, ";y") {
+            bufferSet(output, "Mothmotica returned no output.")
+            return true
+        }
+        bufferSet(output, "")
+        return false
+    }
+
     bufferSet(output, result)
-    return result != ""
+    return true
 }
 
 cliOutput :: proc(stdout: string) -> string {
