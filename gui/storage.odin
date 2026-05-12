@@ -589,6 +589,8 @@ openBookFromPath :: proc(state: ^AppState, path: string) -> bool {
     state.book.activePage = min(state.book.activePage, state.book.pageCount - 1)
     state.ui.scene = .Book
     state.ui.showStarred = false
+    state.runtime.chatPageID = -1
+    state.runtime.scrollBottomFrames = 3
     return true
 }
 

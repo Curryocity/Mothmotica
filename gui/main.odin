@@ -62,6 +62,9 @@ UserSettings :: struct {
 
 RuntimeState :: struct {
     newMsgQ: bool,
+    scrollBottomFrames: int,
+    chatPageID: int,
+    chatShowStarred: bool,
     shiftEnterQ: bool,
     shiftEnterSignal: bool,
     lastTheme: Theme,

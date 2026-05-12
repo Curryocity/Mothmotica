@@ -57,7 +57,19 @@ drawBookUI :: proc(state: ^AppState){
     im.SameLine()
 
     chat_w := max(body.x - sidebar_w - 12, 240)
+    chat_view_changed := state.runtime.chatPageID != page.id ||
+                         state.runtime.chatShowStarred != state.ui.showStarred
+    if chat_view_changed {
+        state.runtime.chatPageID = page.id
+        state.runtime.chatShowStarred = state.ui.showStarred
+        state.runtime.scrollBottomFrames = 3
+    }
+
     if im.BeginChild("ChatLog", {chat_w, body.y}, {}, {.HorizontalScrollbar}) {
+        scroll_y := im.GetScrollY()
+        scroll_max_y := im.GetScrollMaxY()
+        pinned_to_bottom := scroll_max_y <= 0 || scroll_y >= scroll_max_y - 4
+
         im.Indent(SIDE_PAD)
         if state.ui.showStarred {
             drawStarredMsg(state, page)
@@ -70,8 +82,15 @@ drawBookUI :: proc(state: ^AppState){
         im.Unindent(SIDE_PAD)
 
         if state.runtime.newMsgQ {
-            im.SetScrollHereY(1.0)
+            state.runtime.scrollBottomFrames = 3
             state.runtime.newMsgQ = false
+        }
+
+        if state.runtime.scrollBottomFrames > 0 || pinned_to_bottom {
+            im.SetScrollY(im.GetScrollMaxY())
+            if state.runtime.scrollBottomFrames > 0 {
+                state.runtime.scrollBottomFrames -= 1
+            }
         }
     }
     im.EndChild()
