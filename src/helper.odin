@@ -327,3 +327,26 @@ argToPrintString :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bo
 
     return argToString(prs, p, arg)
 }
+
+wasdToVec :: proc(wasd: string) -> (f32, f32, bool){
+        s := wasd
+        if len(s) == 0 do return 0, 0, false
+
+        w, a: f32
+
+        if len(s) > 0 && (s[0] == 'w' || s[0] == 's'){
+            w = (s[0] == 'w')? 1 : -1
+            s = s[1:]
+        }
+
+        if len(s) > 0 && (s[0] == 'a' || s[0] == 'd'){
+            a = (s[0] == 'a')? 1 : -1
+            s = s[1:]
+        }
+
+        if len(s) > 0 {
+            return 0, 0, false
+        }
+
+        return w, a, true
+}

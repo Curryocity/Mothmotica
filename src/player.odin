@@ -31,6 +31,9 @@ Player :: struct {
     prev_webQ: bool,
     use_fsj: bool,
     fsj: f32,
+    offset45: f32,
+    w45: f32,
+    a45: f32,
 
     // y states
     y: f64,
@@ -44,7 +47,17 @@ Player :: struct {
 }
 
 makePlayer :: proc() -> Player {
-    return Player{ground_slip = 0.6, prev_slip = -1, inertia_threshold = 0.005, sprint_delay = true, inertia_on = true, h = 1.8}
+    return Player{
+        ground_slip = 0.6,
+        prev_slip = -1, 
+        inertia_threshold = 0.005, 
+        sprint_delay = true, 
+        inertia_on = true, 
+        offset45 = 45,
+        w45 = 1,
+        a45 = 1,
+        h = 1.8,
+    }
 }
 
 
@@ -55,6 +68,9 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
         p.f = angle
     }
 
+    forward: f32 = w
+    strafe: f32 = a
+    
     rot := p.f
     // fsj override f locally on sj-ticks
     if p.use_fsj && sprint && jump {
@@ -63,11 +79,12 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     // tempRot override f and fsj locally
     if usedRot do rot = tempRot
     // 45 always applies (it is not possible to have sj and 45 at the same tick tho)
-    if temp45 do rot += 45
-
-    forward: f32 = w
-    strafe: f32 = a
-
+    if temp45 {
+        rot += p.offset45
+        forward = p.w45
+        strafe = p.a45
+    }
+    
     slip: f32 = airborne ? 1.0 : p.ground_slip
 
     p.x += p.vx

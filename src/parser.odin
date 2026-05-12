@@ -51,7 +51,7 @@ CmdType :: enum {
 
     OutVx, OutVz, OutAngle, OutVec,
 
-    SetF, OutF, SetTurn, OutTurn, SetFSJ,
+    SetF, OutF, SetTurn, OutTurn, SetFSJ, Set45,
 
     SetTick, OutTick,
 
@@ -557,6 +557,8 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
             return .OutTurn
         case "fsj":
             return .SetFSJ
+        case "set45":
+            return .Set45
         case "outa":
             return .OutAngle
         case "slip":
@@ -712,27 +714,15 @@ parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) 
             return Arg{}
         }
 
-        s := inputTok.content
+        w, a, ok := wasdToVec(inputTok.content)
 
-        if len(s) == 0 {
-            failParse(prs, "Error: movement input cannot be empty")
-            return Arg{}
-        }
-
-        if len(s) > 0 && (s[0] == 'w' || s[0] == 's'){
-            mf.w = (s[0] == 'w')? 1 : -1
-            s = s[1:]
-        }
-
-        if len(s) > 0 && (s[0] == 'a' || s[0] == 'd'){
-            mf.a = (s[0] == 'a')? 1 : -1
-            s = s[1:]
-        }
-
-        if len(s) > 0 {
+        if !ok {
             failParse(prs, fmt.tprintf("Error: invalid movement input '%s'", inputTok.content))
             return Arg{}
         }
+
+        mf.w, mf.a = w, a
+
     } else if !mf.stop{
         mf.w = 1
     }

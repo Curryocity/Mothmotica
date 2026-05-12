@@ -351,7 +351,34 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
         
         return "", true
-    
+
+    case .Set45:
+        msg, argsOK := expectPlainArgs(cmd, "set45(...)", 0, 2)
+        if !argsOK do return msg, false
+
+        p.offset45 = 45
+        p.w45 = 1
+        p.a45 = 1
+
+        if(len(cmd.args) >= 1){
+            off45, ok := eval(prs, p, cmd.args[0])
+            if !ok do return parserErrorOr(prs, "Error: set45(...) 1st argument is not a valid number"), false
+            p.offset45 = f32(off45)
+        }
+
+        if(len(cmd.args) == 2){
+            key := cmd.args[1].text
+            if cmd.args[1].type == .MoveCall {
+                key = cmd.args[1].mvfunc.name
+            }
+            w, a, ok := wasdToVec(key)
+            if !ok do  return parserErrorOr(prs, "Error: set45(...) 2nd argument is not a valid keystroke"), false
+            p.w45 = w
+            p.a45 = a
+        }
+
+        return "", true
+
     case .SetTick:
         msg, argsOK := expectPlainArgs(cmd, "tick(...)", 1, 1)
         if !argsOK do return msg, false
