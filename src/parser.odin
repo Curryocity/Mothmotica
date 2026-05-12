@@ -51,7 +51,7 @@ CmdType :: enum {
 
     OutVx, OutVz, OutAngle, OutVec,
 
-    SetF, OutF, SetTurn, OutTurn, SetFSJ, Set45,
+    SetF, OutF, SetTurn, OutTurn, Set45,
 
     SetTick, OutTick,
 
@@ -555,9 +555,7 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
             return .SetTurn
         case "outtu", "outturn":
             return .OutTurn
-        case "fsj":
-            return .SetFSJ
-        case "set45":
+        case "how45":
             return .Set45
         case "outa":
             return .OutAngle

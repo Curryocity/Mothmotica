@@ -29,8 +29,6 @@ Player :: struct {
     ladderQ: bool,
     webQ: bool,
     prev_webQ: bool,
-    use_fsj: bool,
-    fsj: f32,
     offset45: f32,
     w45: f32,
     a45: f32,
@@ -70,15 +68,10 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
 
     forward: f32 = w
     strafe: f32 = a
-    
+
     rot := p.f
-    // fsj override f locally on sj-ticks
-    if p.use_fsj && sprint && jump {
-        rot = p.fsj
-    }
-    // tempRot override f and fsj locally
+
     if usedRot do rot = tempRot
-    // 45 always applies (it is not possible to have sj and 45 at the same tick tho)
     if temp45 {
         rot += p.offset45
         forward = p.w45

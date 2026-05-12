@@ -217,7 +217,7 @@ argMayOutput :: proc(arg: Arg) -> bool {
     #partial switch arg.expr.type {
     case .SetVar, .SetPrecision, .SetPrintSep,
          .SetX, .SetZ, .SetPos, .SetVx, .SetVz, .SetVel,
-         .SetF, .SetTurn, .SetFSJ, .SetTick,
+         .SetF, .SetTurn, .SetTick,
          .SetSlip, .SetSprintDelay, .SetInertia, .SetSlow, .SetSpeed,
          .PrevGround, .PrevAir,
          .ForceInertiaX, .ForceInertiaZ,

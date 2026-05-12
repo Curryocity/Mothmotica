@@ -336,24 +336,8 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !argsOK do return msg, false
         return formatOutValue(prs, p, "T", f64(p.f), cmd.args[:], "outtu")
 
-    case .SetFSJ:
-        msg, argsOK := expectPlainArgs(cmd, "fsj(...)", 0, 1)
-        if !argsOK do return msg, false
-
-        if len(cmd.args) == 0 {
-            p.fsj = 0
-            p.use_fsj = false
-        }else {
-            fsj, ok := eval(prs, p, cmd.args[0])
-            if !ok do return parserErrorOr(prs, "Error: fsj(...) argument is not a valid number"), false
-            p.fsj = f32(fsj)
-            p.use_fsj = true
-        }
-        
-        return "", true
-
     case .Set45:
-        msg, argsOK := expectPlainArgs(cmd, "set45(...)", 0, 2)
+        msg, argsOK := expectPlainArgs(cmd, "how45(...)", 0, 2)
         if !argsOK do return msg, false
 
         p.offset45 = 45
@@ -362,7 +346,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         if(len(cmd.args) >= 1){
             off45, ok := eval(prs, p, cmd.args[0])
-            if !ok do return parserErrorOr(prs, "Error: set45(...) 1st argument is not a valid number"), false
+            if !ok do return parserErrorOr(prs, "Error: how45(...) 1st argument is not a valid number"), false
             p.offset45 = f32(off45)
         }
 
@@ -372,7 +356,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
                 key = cmd.args[1].mvfunc.name
             }
             w, a, ok := wasdToVec(key)
-            if !ok do  return parserErrorOr(prs, "Error: set45(...) 2nd argument is not a valid keystroke"), false
+            if !ok do  return parserErrorOr(prs, "Error: how45(...) 2nd argument is not a valid keystroke"), false
             p.w45 = w
             p.a45 = a
         }
