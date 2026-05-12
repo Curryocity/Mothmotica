@@ -106,8 +106,14 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
         if accel < 0 do accel = 0
     }
 
-    if (sprint && (!airborne || !p.sprint_delay)) || (p.prev_sprint && p.sprint_delay && airborne) {
+    // [Sprint]
+    // Air:    accel += accel * 0.3
+    // Ground: accel *= 1 + 0.3f (!= 1.3f btw)
+
+    if !airborne && sprint {
         accel *= 1 + widenf32(0.3) // f64(1 + f32(0.3)))
+    }else if airborne && (p.prev_sprint && p.sprint_delay || sprint && !p.sprint_delay){
+        accel += accel * 0.3
     }
 
     accelf := f32(accel)
