@@ -18,7 +18,7 @@ Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, sim
 
 > **Please use** Mothball to simulate minecraft movement. **Do not** use Mothball to find prime numbers. I am **warning you**, Curryocity.
 
-![](readmeResource/image/good_job_curry.png)
+![](readmeResource/image/thxCurry.png)
 
 > Thank you.
 
