@@ -797,6 +797,28 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
         return strings.clone(string(buf[:])), true
 
+    case .LadderHold:
+        msg, argsOK := expectPlainArgs(cmd, "hold(...)", 0, 1)
+        if !argsOK do return msg, false
+
+        ticks := 1
+        if len(cmd.args) == 1 {
+            parsedTicks, ok := evalIntArg(prs, p, cmd.args[0], "Error: hold(...) argument is not a valid number")
+            if !ok do return parserErrorOr(prs, "Error: hold(...) argument should be an integer"), false
+            if parsedTicks < 0 do return "Error: hold(...) argument should be non-negative", false
+            ticks = parsedTicks
+        }
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        for _ in 0..<ticks {
+            hitCeil, ok := ladderHold(p)
+            if !ok do return "Error: hold(...) requires an active ladder state", false
+            yObserverOut(prs, p, &buf, hitCeil, false)
+        }
+        return strings.clone(string(buf[:])), true
+
     case .SetY:
         msg, argsOK := expectPlainArgs(cmd, "y(...)", 1, 1)
         if !argsOK do return msg, false

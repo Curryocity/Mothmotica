@@ -623,6 +623,8 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .Jump
         case "up":
             return .UpAction
+        case "hold":
+            return .LadderHold
         case "y":
             return .SetY
         case "outy", "yr":

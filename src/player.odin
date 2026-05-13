@@ -215,10 +215,8 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
         }
     }
 
-    // See the note in the player struct
-    if p.prev_webQ {
-        p.vy = 0
-    }
+    // See the note in the player struct.
+    if p.prev_webQ do p.vy = 0
 
     if jump {
         jb_signed := transmute(i8)p.jump_boost
@@ -274,9 +272,7 @@ moveUp :: proc(p: ^Player) -> (bool, bool) {
     }
 
     // See the note in the player struct.
-    if p.prev_webQ {
-        p.vy = 0
-    }
+    if p.prev_webQ do p.vy = 0
 
     if p.ladderQ {
         p.vy = (widenf32(0.2) - widenf32(0.08)) * widenf32(0.98)
@@ -294,6 +290,33 @@ moveUp :: proc(p: ^Player) -> (bool, bool) {
     p.tick += 1
 
     return ceilQ, ok
+}
+
+// Return (ceilq, ok)
+ladderHold :: proc(p: ^Player) -> (bool, bool) {
+    if !p.ladderQ {
+        p.tick += 1
+        return false, false
+    }
+
+    // See the note in the player struct.
+    if p.prev_webQ do p.vy = 0
+
+    if p.vy > 0 {
+        ceilQ, _ := moveY(p, false)
+        return ceilQ, true
+    }
+
+    p.prev_vy = p.vy
+    p.vy = 0
+    gravity := p.slow_falling ? widenf32(0.01) : widenf32(0.08)
+    p.vy = (p.vy - gravity) * widenf32(0.98)
+    if abs(p.vy) < p.inertia_threshold && p.inertia_on {
+        p.vy = 0
+    }
+    p.prev_webQ = p.webQ
+    p.tick += 1
+    return false, true
 }
 
 
