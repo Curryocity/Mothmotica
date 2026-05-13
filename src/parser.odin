@@ -483,6 +483,10 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
             return .OutTick
         case "inertia":
             return .SetInertia
+        case "web":
+            return .SetWeb
+        case "ld", "ladder":
+            return .SetLadder
         case "abs":
             return .Abs
         case "sqrt":
@@ -601,10 +605,6 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
             return .AngleQueue
         case "tq", "turnqueue":
             return .TurnQueue
-        case "web":
-            return .SetWeb
-        case "ld", "ladder":
-            return .SetLadder
         case "bl", "block":
             return .SetBlock
         case "ss", "soulsand":

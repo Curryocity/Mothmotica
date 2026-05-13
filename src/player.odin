@@ -1,10 +1,10 @@
 package main
 
-import "core:fmt"
 import "core:math"
 
 
 Player :: struct {
+    // xz states
     x: f64,
     z: f64,
     vx: f64,
@@ -15,23 +15,17 @@ Player :: struct {
     prev_sprint: bool,
     speed: u8,
     slow: u8,
-    inertia_threshold: f64,
     sprint_delay: bool,
     forceInertiaX: bool,
     forceInertiaZ: bool,
-    inertia_on: bool,
     posRec: bool,
     posStorage: [dynamic] vec2,
     angleQueue: Queue(f32),
-    tick: int,
-    blockQ: bool,
-    soulSandQ: bool,
-    ladderQ: bool,
-    webQ: bool,
-    prev_webQ: bool,
     offset45: f32,
     w45: f32,
     a45: f32,
+    blockQ: bool,
+    soulSandQ: bool,
 
     // y states
     y: f64,
@@ -42,7 +36,24 @@ Player :: struct {
     ceilQueue: Queue(f64),
     slimeQueue: Queue(f64),
     h: f64,
+
+    // common states
+    tick: int,
+    inertia_threshold: f64,
+    inertia_on: bool,
+    webQ: bool, // todo in ;y
+    prev_webQ: bool, 
+    ladderQ: bool, // todo in ;y
+
+    /*
+    Note about the prev_webQ:
+        It doesn't exist in Minecraft's src code.
+        It is used to display the velocity "correctly"(the difference of positions)
+        It is confusing to see the webbed player constantly moving with 0 velocity.
+    */
+    
 }
+
 
 makePlayer :: proc() -> Player {
     return Player{
@@ -166,8 +177,8 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
     p.vz += f64(forward * cos(rot) + strafe * sin(rot))
 
     if p.webQ {
-        p.vx /= 4
-        p.vz /= 4
+        p.vx *= 0.25
+        p.vz *= 0.25
     }
 
     if p.ladderQ {
@@ -204,11 +215,16 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
         }
     }
 
+    // See the note in the player struct
+    if p.prev_webQ {
+        p.vy = 0
+    }
+
     if jump {
         jb_signed := transmute(i8)p.jump_boost
         p.vy = 0.42 + 0.1 * f64(jb_signed)
     } else {
-        if !qEmpty(&p.slimeQueue){
+        if !qEmpty(&p.slimeQueue) && !p.webQ{
             slimeH, _ := qPeek(&p.slimeQueue)
             if(originalY > slimeH && p.y <= slimeH){
                 bounceQ = true
@@ -225,6 +241,11 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
 
     if abs(p.vy) < p.inertia_threshold && p.inertia_on do p.vy = 0
 
+    if p.webQ {
+        p.vy *= 0.05
+    }
+
+    p.prev_webQ = p.webQ
     p.tick += 1
 
     return ceilQ, bounceQ
