@@ -220,7 +220,7 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
 
     if jump {
         jb_signed := transmute(i8)p.jump_boost
-        p.vy = 0.42 + 0.1 * f64(jb_signed)
+        p.vy = widenf32(0.42) + widenf32(0.1) * f64(jb_signed)
     } else {
         if !qEmpty(&p.slimeQueue) && !p.webQ{
             slimeH, _ := qPeek(&p.slimeQueue)
@@ -232,19 +232,19 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
             }
         }
 
-        gravity := p.slow_falling? 0.01 : 0.08
-        p.vy = (p.vy - gravity) * 0.98
+        gravity := p.slow_falling ? widenf32(0.01) : widenf32(0.08)
+        p.vy = (p.vy - gravity) * widenf32(0.98)
   
     }
 
     if p.ladderQ {
-        p.vy = max(p.vy, -0.15)
+        p.vy = max(p.vy, -widenf32(0.15))
     }
 
     if abs(p.vy) < p.inertia_threshold && p.inertia_on do p.vy = 0
 
     if p.webQ {
-        p.vy *= 0.05
+        p.vy *= widenf32(0.05)
     }
 
     p.prev_webQ = p.webQ
@@ -275,7 +275,7 @@ moveUp :: proc(p: ^Player) -> (bool, bool) {
     if p.prev_webQ do p.vy = 0
 
     if p.ladderQ {
-        p.vy = (widenf32(0.2) - widenf32(0.08)) * widenf32(0.98)
+        p.vy = (0.2 - widenf32(0.08)) * widenf32(0.98)
         ok = true
     } else {
         // invalid up action, unless water and lava is implemented
@@ -298,7 +298,7 @@ ladderHold :: proc(p: ^Player) -> (bool, bool) {
         p.tick += 1
         return false, false
     }
-
+    
     // See the note in the player struct.
     if p.prev_webQ do p.vy = 0
 
@@ -307,13 +307,10 @@ ladderHold :: proc(p: ^Player) -> (bool, bool) {
         return ceilQ, true
     }
 
+    p.y += p.vy
     p.prev_vy = p.vy
+
     p.vy = 0
-    gravity := p.slow_falling ? widenf32(0.01) : widenf32(0.08)
-    p.vy = (p.vy - gravity) * widenf32(0.98)
-    if abs(p.vy) < p.inertia_threshold && p.inertia_on {
-        p.vy = 0
-    }
     p.prev_webQ = p.webQ
     p.tick += 1
     return false, true
