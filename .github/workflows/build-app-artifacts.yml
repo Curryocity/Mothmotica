@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [v0.1.0]
+        version: [v0.2.0]
         target:
           - os: ubuntu-latest
             platform: linux-x86_64
