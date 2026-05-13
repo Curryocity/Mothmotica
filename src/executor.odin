@@ -775,6 +775,28 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
         return strings.clone(string(buf[:])), true
 
+    case .UpAction:
+        msg, argsOK := expectPlainArgs(cmd, "up(...)", 0, 1)
+        if !argsOK do return msg, false
+
+        ticks := 1
+        if len(cmd.args) == 1 {
+            parsedTicks, ok := evalIntArg(prs, p, cmd.args[0], "Error: up(...) argument is not a valid number")
+            if !ok do return parserErrorOr(prs, "Error: up(...) argument should be an integer"), false
+            if parsedTicks < 0 do return "Error: up(...) argument should be non-negative", false
+            ticks = parsedTicks
+        }
+
+        buf: [dynamic]u8
+        defer delete(buf)
+
+        for _ in 0..<ticks {
+            hitCeil, ok := moveUp(p)
+            if !ok do return "Error: up(...) requires an active climb/swim state", false
+            yObserverOut(prs, p, &buf, hitCeil, false)
+        }
+        return strings.clone(string(buf[:])), true
+
     case .SetY:
         msg, argsOK := expectPlainArgs(cmd, "y(...)", 1, 1)
         if !argsOK do return msg, false

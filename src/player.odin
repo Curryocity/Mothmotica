@@ -239,6 +239,10 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
   
     }
 
+    if p.ladderQ {
+        p.vy = max(p.vy, -0.15)
+    }
+
     if abs(p.vy) < p.inertia_threshold && p.inertia_on do p.vy = 0
 
     if p.webQ {
@@ -250,6 +254,48 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
 
     return ceilQ, bounceQ
 }
+
+// Return (ceilq, ok)
+moveUp :: proc(p: ^Player) -> (bool, bool) {
+    ceilQ, ok: bool
+
+    originalY := p.y
+    p.y += p.vy
+    p.prev_vy = p.vy
+
+    if !qEmpty(&p.ceilQueue) {
+        ceilH, _ := qPeek(&p.ceilQueue)
+        if p.y + p.h >= ceilH && originalY + p.h < ceilH {
+            ceilQ = true
+            p.y = ceilH - p.h
+            p.vy = 0
+            qPop(&p.ceilQueue)
+        }
+    }
+
+    // See the note in the player struct.
+    if p.prev_webQ {
+        p.vy = 0
+    }
+
+    if p.ladderQ {
+        p.vy = (widenf32(0.2) - widenf32(0.08)) * widenf32(0.98)
+        ok = true
+    } else {
+        // invalid up action, unless water and lava is implemented
+        ok = false
+    }
+
+    if abs(p.vy) < p.inertia_threshold && p.inertia_on {
+        p.vy = 0
+    }
+
+    p.prev_webQ = p.webQ
+    p.tick += 1
+
+    return ceilQ, ok
+}
+
 
 prevGround :: proc(p: ^Player) {
     p.prev_slip = p.ground_slip

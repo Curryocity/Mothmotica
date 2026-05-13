@@ -75,7 +75,7 @@ CmdType :: enum {
 
     // Y commands
 
-    Coast, Jump, 
+    Coast, Jump, UpAction, DownAction, LadderHold,
     SetY, OutY, SetVy, OutVy, OutYTop,
     SetPlayerHeight, SetJumpBoost, SetSlowFall, SetYObserve,
     SetWeb, SetLadder, SetBlock, SetSoulSand,
@@ -621,6 +621,8 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .Coast
         case "j", "jump":
             return .Jump
+        case "up":
+            return .UpAction
         case "y":
             return .SetY
         case "outy", "yr":
