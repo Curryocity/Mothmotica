@@ -59,7 +59,7 @@ For CLI use, run the bundled `mothmotica-cli` binary from a terminal.
 
 ### Better `;y`
 
-Mothmotica gives vertical movement its own `;y` mode instead of mixing it into the X/Z simulator. The Y simulator tracks height, vertical velocity, jump boost, slow falling, ceilings, slime bounces, and landing checks.
+By starting the command with `;y` instead of `;s`. The mothball context is set to the Y simulator. Here are the common `;y` command and its meaning:
 
 | Command | What it does |
 | --- | --- |
@@ -73,7 +73,7 @@ Mothmotica gives vertical movement its own `;y` mode instead of mixing it into t
 | `height(n)` | Set player height (default 1.8) |
 | `jb(n)` / `jumpboost(n)` | Set jump boost level |
 | `sf(0/1)` / `slowfall(0/1)` | Disable/enable slow falling |
-| `observe(0/1)` | Disable/enable automatic peak, ceiling, and slime messages |
+| `obs(0/1)` / `observe(0/1)` | Disable/enable automatic peak, ceiling, and slime messages |
 | `jto(n)` / `jumpto(n)` | Jump, then simulate until landing on ground Y `n` |
 | `cto(n)` / `coastto(n)` | Coast until landing on ground Y `n` |
 | `cq(...)` / `ceilq(...)` | Queue ceiling heights |
@@ -120,10 +120,10 @@ Landed y = 1.5 (+37t)
 Y: 1.5 + 0.009956
 ```
 
-If you think it is too noisy, do `observe(0)`.
+If you think it is too noisy, do `observe(0)` ( alias `obs(...)`).
 
 ```
-;y observe(0) y(1.5) slimeq(0, 0.0625) jto(1.5) outy(1.5)
+;y obs(0) y(1.5) slimeq(0, 0.0625) jto(1.5) outy(1.5)
 ```
 
 Output:
@@ -329,6 +329,8 @@ Output:
 (x, z, vx, vz) = (-1.507294, 0.870365, -0.274478, 0.158493)
 ```
 
+**`mes` without arguments is equivalent to `mes(x,z,vx,vz)` in `;s` context. And `mes(y,vy)` in `;y` context.**
+
 ### Explicit speed-type support: `gnd` and `air`
 
 From the original mothball README:
@@ -396,6 +398,33 @@ These built-in constants are also read-only:
 | `bx` | Player hitbox width: `0.60000002384185791` |
 | `px` | Pixel size: `0.0625` |
 | `pi` | Pi |
+
+### Redefine 45 strafe via `how45(...)`
+
+`how45(offset, keys)` changes how `sj45`, `sa45`, and other `45` movement functions behave. By default, 45 strafe is:
+
+```
+how45(45, wa)
+```
+
+The first argument is the facing offset. The second argument is the movement input used by the 45 strafe, such as `wa` or `wd`.
+
+This is useful for 45.01 strafe or half angle strafes
+
+Example: 12.25bm 8-8 via 315 half angle strafes:
+
+```
+;s how45(315, wd) f(180) r(3){sj(12)} s zmm(-12.25) | 
+sj(1,45) f(0) sa45(11) r(3){sj45(12)} zmm(12.25) | sj45(22) zb
+```
+
+Output:
+
+```
+Zmm: -12.25 + 1.745395
+Zmm: 12.25 - 0.030922
+Zb: 8.00006
+```
 
 ### Force inertia next tick with `ix` and `iz`
 
