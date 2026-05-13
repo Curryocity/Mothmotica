@@ -32,21 +32,21 @@ Each artifact contains the GUI app, the CLI, assets, README, and license.
 
 On Windows:
 
-1. Download `mothmotica-v0.1.0-windows-x86_64`.
+1. Download `mothmotica-vX.X.X-windows-x86_64`.
 2. Extract the archive.
 3. Open the extracted folder.
 4. Run `mothmotica-gui.exe`.
 
 On Linux:
 
-1. Download `mothmotica-v0.1.0-linux-x86_64`.
+1. Download `mothmotica-vX.X.X-linux-x86_64`.
 2. Extract the archive.
 3. Open a terminal in the extracted folder.
 4. Run `./mothmotica-gui`.
 
 On macOS:
 
-1. Download `mothmotica-v0.1.0-macos-arm64` for Apple Silicon, or `mothmotica-v0.1.0-macos-x86_64` for Intel.
+1. Download `mothmotica-vX.X.X-macos-arm64` for Apple Silicon, or `mothmotica-vX.X.X-macos-x86_64` for Intel.
 2. Extract the archive.
 3. Open the extracted folder.
 4. Right-click `Mothmotica.app`, choose **Open**, then confirm.
@@ -367,7 +367,6 @@ Lerped Vz: 0.057208
 Z: 1.3125
 Vz: 0.192659
 ```
-
 
 ### Read only variables:
 
