@@ -15,6 +15,7 @@ ParserState :: struct {
     precision: u8,
     printSep: string,
     yObserve: bool,
+    silent: bool,
 }
 
 MothCtx :: enum {
@@ -40,7 +41,7 @@ CmdType :: enum {
     Plus, Minus, Mul, Div, 
     Abs, Sqrt, Sin, Cos, Tan, Atan, ArgAngle,
 
-    Print, Println, SetPrintSep, Measure, Polar,
+    Print, Println, SetPrintSep, SetSilent, Measure, Polar,
 
     SetX, SetZ, SetPos, 
     SetVz, SetVx, SetVel,
@@ -149,6 +150,7 @@ parseMothball :: proc(input: string) -> string {
         precision = 6,
         printSep = strings.clone(" "),
         yObserve = true,
+        silent = false,
     }
     defer deleteParserState(&prs)
 
@@ -469,6 +471,8 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
             return .Println
         case "sep":
             return .SetPrintSep
+        case "silent":
+            return .SetSilent
         case "mes", "measure":
             return .Measure
         case "polar":

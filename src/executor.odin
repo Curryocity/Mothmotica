@@ -66,6 +66,15 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         prs.printSep = strings.clone(sep)
         return "", true
 
+    case .SetSilent:
+        msg, argsOK := expectPlainArgs(cmd, "silent(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        silent, ok := evalBoolArg(prs, p, cmd.args[0], "silent")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("silent")), false
+        prs.silent = silent
+        return "", true
+
     case .Measure:
         msg, argsOK := expectPlainArgs(cmd, "measure(...)", 0, 65535)
         if !argsOK do return msg, false
@@ -970,7 +979,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             ticks += 1
 
             if p.y >= yLevel && p.y + p.vy < yLevel && qEmpty(&p.slimeQueue){
-                append(&buf, fmt.tprintf("Landed y = %s (+%dt)", formatNum(prs, yLevel), ticks))
+                if !prs.silent do append(&buf, fmt.tprintf("Landed y = %s (+%dt)", formatNum(prs, yLevel), ticks))
                 return strings.clone(string(buf[:])), true
             }
         }
@@ -981,12 +990,12 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             ticks += 1
 
             if p.y >= yLevel && p.y + p.vy < yLevel && qEmpty(&p.slimeQueue){
-                append(&buf, fmt.tprintf("Landed y = %s (+%dt)", formatNum(prs, yLevel), ticks))
+                if !prs.silent do append(&buf, fmt.tprintf("Landed y = %s (+%dt)", formatNum(prs, yLevel), ticks))
                 return strings.clone(string(buf[:])), true
             }
         }
 
-        append(&buf, fmt.tprintf("Ground y = %s unreachable", formatNum(prs, yLevel)))
+        if !prs.silent do append(&buf, fmt.tprintf("Ground y = %s unreachable", formatNum(prs, yLevel)))
         return strings.clone(string(buf[:])), true
 
 
@@ -1253,8 +1262,10 @@ finalInvSim :: proc(prs: ^ParserState, p: ^Player, state: ^InvState, code: []Arg
     buf: [dynamic]u8
     defer delete(buf)
 
-    if printVx do append(&buf, fmt.tprintf("Lerped Vx: %s\n", formatNum(prs, vx)))
-    if printVz do append(&buf, fmt.tprintf("Lerped Vz: %s\n", formatNum(prs, vz)))
+    if !prs.silent {
+        if printVx do append(&buf, fmt.tprintf("Lerped Vx: %s\n", formatNum(prs, vx)))
+        if printVz do append(&buf, fmt.tprintf("Lerped Vz: %s\n", formatNum(prs, vz)))
+    }
     append(&buf, output)
 
     return strings.clone(string(buf[:])), true
@@ -1310,6 +1321,7 @@ evalBoolArgError :: proc(name: string) -> string {
 }
 
 yObserverOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, hitCeil, hitSlime: bool) {
+    if prs.silent do return
     if !prs.yObserve do return
 
     if hitCeil {

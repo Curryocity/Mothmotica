@@ -275,13 +275,15 @@ But there is so much more you can do with savestates.
 | `outf` | Output facing |
 | `outtu` | Output turn/facing |
 
-### `print()/println()`, `sep()`, and `mes()`
+### `print()/println()`, `sep()`, `silent()`, and `mes()`
 
 `print()` accepts multiple arguments and prints their text or values without adding a newline.
 
 `println()` does the same thing and adds a newline.
 
 Arguments are separated by `sep()`, which defaults to a single space. `sep()` resets the separator to a single space, and `sep("")` removes the separator.
+
+`silent(1)` suppresses generated helper messages such as inverse lerp results and Y-sim landing/observer messages. Intentional output commands like `print(...)`, `println(...)`, `outvy`, and other `out...` commands still print. Use `silent(0)` to turn those helper messages back on.
 
 Like:
 
