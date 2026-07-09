@@ -123,7 +123,7 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
     pushed_code_font := pushMonoFont()
 
     style := im.GetStyle()
-    reply_w := max(im.GetContentRegionAvail().x, 1)
+    reply_w := max(im.GetContentRegionAvail().x - MESSAGE_BOX_RIGHT_PAD, 1)
     wrap_w := max(reply_w - style.FramePadding.x * 2 - 16, 1)
     text_size := im.CalcTextSize(reply_c, nil, false, wrap_w)
     height := max(text_size.y + style.FramePadding.y * 2, 30)
@@ -132,7 +132,7 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
         "##reply",
         reply_c,
         len(reply) + 1,
-        {-1, height},
+        {reply_w, height},
         {.ReadOnly, .WordWrap, .NoHorizontalScroll},
     )
     popFontIf(pushed_code_font)
@@ -174,8 +174,11 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
         }
     }
 
-    text := bufferString(msg.text[:])
-    height := max(f32(lineCount(text)) * im.GetTextLineHeight() + 14, 36)
+    style := im.GetStyle()
+    text_w := max(im.GetContentRegionAvail().x - MESSAGE_BOX_RIGHT_PAD, 1)
+    wrap_w := max(text_w - style.FramePadding.x * 2 - 16, 1)
+    text_size := im.CalcTextSize(cstring(&msg.text[0]), nil, false, wrap_w)
+    height := max(text_size.y + style.FramePadding.y * 2, 36)
     im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.settings.theme, is_draft))
     im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.settings.theme, is_draft))
     im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.settings.theme))
@@ -186,8 +189,8 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
         "##message",
         cstring(&msg.text[0]),
         c.size_t(len(msg.text)),
-        {-1, height},
-        {.AllowTabInput, .CallbackAlways, .CallbackCharFilter},
+        {text_w, height},
+        {.AllowTabInput, .CallbackAlways, .CallbackCharFilter, .WordWrap, .NoHorizontalScroll},
         sendMsgCallback,
         &cb_data,
     )
