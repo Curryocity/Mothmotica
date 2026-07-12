@@ -16,6 +16,7 @@ ParserState :: struct {
     printSep: string,
     yObserve: bool,
     silent: bool,
+    macro: Macro,
 }
 
 MothCtx :: enum {

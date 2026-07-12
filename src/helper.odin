@@ -26,6 +26,12 @@ cloneSaves :: proc(saves: map[string]Player) -> map[string]Player {
     return cloned
 }
 
+cloneMacro :: proc(macro: Macro) -> Macro {
+    cloned: Macro
+    append(&cloned.ticks, ..macro.ticks[:])
+    return cloned
+}
+
 deleteSaves :: proc(saves: map[string]Player) {
     for _, &state in saves {
         deletePlayerState(&state)
@@ -38,6 +44,7 @@ cloneParserState :: proc(prs: ^ParserState) -> ParserState {
     cloned.vars = cloneVars(prs.vars)
     cloned.saves = cloneSaves(prs.saves)
     cloned.printSep = strings.clone(prs.printSep)
+    cloned.macro = cloneMacro(prs.macro)
     return cloned
 }
 
@@ -45,22 +52,26 @@ loadParserState :: proc(dst: ^ParserState, src: ParserState) {
     oldVars := dst.vars
     oldSaves := dst.saves
     oldPrintSep := dst.printSep
+    oldMacro := dst.macro
 
     dst^ = src
 
     dst.vars = cloneVars(src.vars)
     dst.saves = cloneSaves(src.saves)
     dst.printSep = strings.clone(src.printSep)
+    dst.macro = cloneMacro(src.macro)
 
     delete(oldVars)
     deleteSaves(oldSaves)
     delete(oldPrintSep)
+    delete(oldMacro.ticks)
 }
 
 deleteParserState :: proc(prs: ^ParserState) {
     delete(prs.vars)
     deleteSaves(prs.saves)
     delete(prs.printSep)
+    delete(prs.macro.ticks)
 }
 
 trimTrailingZeros :: proc(s: string) -> string {
