@@ -10,7 +10,7 @@ exeArg :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
         return exeCommand(prs, p, arg.expr)
 
     case .MoveCall:
-        exeMoveFunc(p, arg.mvfunc)
+        exeMoveFunc(prs, p, arg.mvfunc)
         return "", true
 
     case .Number:
@@ -516,7 +516,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             if !codeOK do return s, false
 
             for p.vx != 0 || p.vz != 0 {
-                move(p, 0, 0, false, false, false, false)
+                move(&prs.macro, p, 0, 0, false, false, false, false)
             }
 
             if s != "" {
@@ -1611,37 +1611,37 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
     return 0, false
 }
 
-exeMoveFunc :: proc(p: ^Player, mf: MoveFunc){
+exeMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: MoveFunc){
 
     if mf.strafe45 {
         if mf.jump {
             // jump tick
             if mf.sprint { // sprint jump at f0
-                move(p, 1, 0, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed)
+                move(&prs.macro, p, 1, 0, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed)
             }else {
-                move(p, 1, 1, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed, true)
+                move(&prs.macro, p, 1, 1, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed, true)
             } // add support for snsj45 angle
             
             for _ in 0..<(mf.t - 1) {
                 // air ticks
-                move(p, 1, 1, true, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed, true)
+                move(&prs.macro, p, 1, 1, true, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed, true)
             }
         }else {
             for _ in 0..<mf.t {
-                move(p, 1, 1, mf.airborne, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed, true)
+                move(&prs.macro, p, 1, 1, mf.airborne, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed, true)
             }
         }
     }else {
         if mf.jump {
             // jump tick
-            move(p, mf.w, mf.a, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed)
+            move(&prs.macro, p, mf.w, mf.a, false, mf.sprint, mf.sneak, true, mf.rot, mf.rotUsed)
             for _ in 0..<(mf.t - 1) {
                 // air ticks
-                move(p, mf.w, mf.a, true, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed)
+                move(&prs.macro, p, mf.w, mf.a, true, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed)
             }
         }else {
             for _ in 0..<mf.t {
-                move(p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed)
+                move(&prs.macro, p, mf.w, mf.a, mf.airborne, mf.sprint, mf.sneak, false, mf.rot, mf.rotUsed)
             }
         }
     }

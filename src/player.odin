@@ -70,7 +70,7 @@ makePlayer :: proc() -> Player {
 }
 
 
-move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false) 
+move :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false)
 {
     // aq, tq overwrites f globally
     if angle, ok := qPop(&p.angleQueue); ok {
@@ -88,6 +88,8 @@ move :: proc(p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bo
         forward = p.w45
         strafe = p.a45
     }
+
+    recordMacroTick(macro, forward, strafe, jump, sprint, sneak, rot)
     
     slip: f32 = airborne ? 1.0 : p.ground_slip
 
