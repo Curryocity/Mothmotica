@@ -23,6 +23,19 @@ MothCtx :: enum {
     XZsim, Ysim, Invalid,
 }
 
+ParseResult :: struct {
+    output: string,
+    macro: Macro,
+    ctx: MothCtx,
+    ok: bool,
+}
+
+deleteParseResult :: proc(result: ^ParseResult) {
+    delete(result.output)
+    delete(result.macro.ticks)
+    result^ = {}
+}
+
 MoveFunc :: struct {
     name: string,
     sprint: bool,
@@ -120,12 +133,12 @@ ArgContext :: enum {
 }
 
 // ENTRY !!!!!
-parseMothball :: proc(input: string) -> string {
+parseMothballResult :: proc(input: string) -> ParseResult {
     buf: [dynamic]u8
     defer delete(buf)
 
     prefix_len := 2
-    if len(input) < prefix_len do return ""
+    if len(input) < prefix_len do return ParseResult{ctx = .Invalid}
 
     ctx: MothCtx
     switch input[:prefix_len] {
@@ -134,7 +147,7 @@ parseMothball :: proc(input: string) -> string {
         case ";y":
             ctx = .Ysim
         case:
-            return ""
+            return ParseResult{ctx = .Invalid}
     }
 
     prs := ParserState{
@@ -165,10 +178,22 @@ parseMothball :: proc(input: string) -> string {
     for lexerPeek(&prs.lex).type != .EOF {
         cmd := parseArg(&prs, &p, 0, .Default)
 
-        if !prs.ok do return fmt.tprintf("%s\n", prs.errMsg)
+        if !prs.ok {
+            return ParseResult{
+                output = strings.clone(fmt.tprintf("%s\n", prs.errMsg)),
+                ctx = prs.ctx,
+                ok = false,
+            }
+        }
 
         s, ok := exeArg(&prs, &p, cmd)
-        if !ok do return fmt.tprintf("%s\n", s)
+        if !ok {
+            return ParseResult{
+                output = strings.clone(fmt.tprintf("%s\n", s)),
+                ctx = prs.ctx,
+                ok = false,
+            }
+        }
 
         if(s != ""){
             append(&buf, s)
@@ -179,9 +204,25 @@ parseMothball :: proc(input: string) -> string {
     }
 
     result := strings.clone(string(buf[:]))
-    if result == "" do result = "ok\n"
+    if result == "" {
+        delete(result)
+        result = strings.clone("ok\n")
+    }
 
-    return result
+    return ParseResult{
+        output = result,
+        macro = cloneMacro(prs.macro),
+        ctx = prs.ctx,
+        ok = true,
+    }
+}
+
+parseMothball :: proc(input: string) -> string {
+    result := parseMothballResult(input)
+    output := result.output
+    result.output = ""
+    deleteParseResult(&result)
+    return output
 }
 
 parseArg :: proc(prs: ^ParserState, p: ^Player, minBP: int, argCtx := ArgContext.Default) -> Arg{
