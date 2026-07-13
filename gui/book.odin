@@ -94,6 +94,8 @@ drawBookUI :: proc(state: ^AppState){
         }
     }
     im.EndChild()
+
+    drawMacroExportPopup(state)
 }
 
 drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
@@ -198,6 +200,18 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     item_hovered := im.IsItemHovered(im.HoveredFlags_RectOnly)
     deactivated_after_edit := im.IsItemDeactivatedAfterEdit()
     popFontIf(pushed_MonoFont)
+
+    prompt := strings.trim_space(bufferString(msg.text[:]))
+    if strings.has_prefix(prompt, ";s") && im.IsItemClicked(.Right) {
+        bufferSet(state.ui.macroName[:], "macro")
+        bufferSet(state.ui.macroPrompt[:], prompt)
+        bufferSet(state.ui.macroExportStatus[:], "")
+        state.ui.macroExportStatusError = false
+        state.ui.confirmMacroOverwrite = false
+        state.ui.openMacroExportPopup = true
+        state.ui.showMacroExportPopup = true
+    }
+
     if changed {
         msg.dirty = true
         page.dirty = true
@@ -216,6 +230,170 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     im.Unindent(AVATAR_SIZE + AVATAR_GAP)
     drawReply(state, msg)
     im.PopID()
+}
+
+drawMacroExportPopup :: proc(state: ^AppState) {
+    if state.ui.openMacroExportPopup {
+        im.OpenPopup("Export Macro")
+        state.ui.openMacroExportPopup = false
+    }
+
+    viewport := im.GetMainViewport()
+    center := im.Vec2{
+        viewport.Pos.x + viewport.Size.x * 0.5,
+        viewport.Pos.y + viewport.Size.y * 0.5,
+    }
+    im.SetNextWindowPos(center, .Appearing, {0.5, 0.5})
+    im.SetNextWindowSize({480, 0}, .Appearing)
+
+    im.PushStyleColorImVec4(im.Col.PopupBg, macroPopupBgColor(state.settings.theme))
+    im.PushStyleColorImVec4(im.Col.Border, macroPopupBorderColor(state.settings.theme))
+    title_color := macroPopupTitleColor(state.settings.theme)
+    im.PushStyleColorImVec4(im.Col.TitleBg, title_color)
+    im.PushStyleColorImVec4(im.Col.TitleBgActive, title_color)
+    im.PushStyleColorImVec4(im.Col.TitleBgCollapsed, title_color)
+    im.PushStyleVarImVec2(im.StyleVar.WindowTitleAlign, {0.5, 0.5})
+    defer im.PopStyleVar()
+    defer im.PopStyleColor(5)
+
+    if !im.BeginPopupModal(
+        "Export Macro",
+        &state.ui.showMacroExportPopup,
+        {.NoResize},
+    ) {
+        return
+    }
+    defer im.EndPopup()
+
+    im.Text("Macro Name")
+    im.SetNextItemWidth(-1)
+    macro_name_changed := im.InputText(
+        "##macro-name",
+        cstring(&state.ui.macroName[0]),
+        c.size_t(len(state.ui.macroName)),
+    )
+
+    im.Text("Type")
+    im.SetNextItemWidth(-1)
+    macro_type_changed := im.Combo("##macro-type", &state.ui.macroType, "Mpk\x00Cyv\x00\x00")
+    if state.ui.confirmMacroOverwrite && (macro_name_changed || macro_type_changed) {
+        state.ui.confirmMacroOverwrite = false
+        state.ui.macroExportStatusError = false
+        bufferSet(state.ui.macroExportStatus[:], "")
+    }
+
+    char_width := max(im.CalcTextSize("M").x, 1)
+    preview_chars := min(
+        50,
+        max(int(im.GetContentRegionAvail().x / char_width), 0),
+    )
+    script_preview := macroScriptPreview(bufferString(state.ui.macroPrompt[:]), preview_chars)
+    defer delete(script_preview)
+    script_preview_c := strings.clone_to_cstring(script_preview)
+    defer delete(script_preview_c)
+    im.Text("Input")
+    im.SetNextItemWidth(-1)
+    im.InputText(
+        "##macro-input",
+        script_preview_c,
+        c.size_t(len(script_preview) + 1),
+        {.ReadOnly},
+    )
+
+    destination, destination_err := macrosDir(state, int(state.ui.macroType))
+    if destination_err == nil {
+        destination_c := strings.clone_to_cstring(destination)
+        im.Text("Destination")
+        im.SetNextItemWidth(-1)
+        im.InputText(
+            "##macro-destination",
+            destination_c,
+            c.size_t(len(destination) + 1),
+            {.ReadOnly},
+        )
+        delete(destination_c)
+        delete(destination)
+    }
+    status := bufferString(state.ui.macroExportStatus[:])
+    if status != "" {
+        status_c := strings.clone_to_cstring(status)
+        status_color := mutedColor(state.settings.theme)
+        if state.ui.macroExportStatusError {
+            status_color = {0.95, 0.36, 0.31, 1}
+        }
+        im.Text("Status")
+        im.SetNextItemWidth(-1)
+        im.PushStyleColorImVec4(im.Col.Text, status_color)
+        im.InputText(
+            "##macro-export-status",
+            status_c,
+            c.size_t(len(status) + 1),
+            {.ReadOnly},
+        )
+        im.PopStyleColor()
+        delete(status_c)
+    }
+
+    if im.Button("Cancel", {100, 34}) {
+        if state.ui.confirmMacroOverwrite {
+            state.ui.confirmMacroOverwrite = false
+            state.ui.macroExportStatusError = false
+            bufferSet(state.ui.macroExportStatus[:], "")
+        } else {
+            state.ui.showMacroExportPopup = false
+            im.CloseCurrentPopup()
+        }
+    }
+    im.SameLine()
+
+    macro_name := strings.trim_space(bufferString(state.ui.macroName[:]))
+    im.BeginDisabled(macro_name == "" && !state.ui.confirmMacroOverwrite)
+    action_label: cstring = "Overwrite" if state.ui.confirmMacroOverwrite else "Export"
+    if im.Button(action_label, {120, 34}) {
+        export_result := exportMacro(
+            state,
+            bufferString(state.ui.macroPrompt[:]),
+            macro_name,
+            int(state.ui.macroType),
+            state.ui.macroExportStatus[:],
+            overwrite = state.ui.confirmMacroOverwrite,
+        )
+        switch export_result {
+        case .Success:
+            state.ui.confirmMacroOverwrite = false
+            state.ui.macroExportStatusError = false
+        case .Exists:
+            state.ui.confirmMacroOverwrite = true
+            state.ui.macroExportStatusError = true
+        case .Failed:
+            state.ui.confirmMacroOverwrite = false
+            state.ui.macroExportStatusError = true
+        }
+    }
+    im.EndDisabled()
+}
+
+macroScriptPreview :: proc(script: string, max_chars: int) -> string {
+    builder := strings.builder_make()
+    defer strings.builder_destroy(&builder)
+
+    count := 0
+    truncated := false
+    for r in script {
+        if count >= max_chars {
+            truncated = true
+            break
+        }
+        if r == '\n' || r == '\r' || r == '\t' {
+            strings.write_byte(&builder, ' ')
+        } else {
+            strings.write_rune(&builder, r)
+        }
+        count += 1
+    }
+    if truncated do strings.write_string(&builder, "...")
+
+    return strings.clone(strings.to_string(builder))
 }
 
 

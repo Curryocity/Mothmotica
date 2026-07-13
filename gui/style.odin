@@ -56,6 +56,42 @@ popTextScale :: proc() {
     im.PopFont()
 }
 
+macroPopupBgColor :: proc(theme: Theme) -> im.Vec4 {
+    switch theme {
+    case .Light:
+        return {0.965, 0.975, 0.995, 1}
+    case .Soft:
+        return {0.135, 0.115, 0.150, 1}
+    case .Dark:
+        return {0.105, 0.120, 0.165, 1}
+    }
+    return {0.105, 0.120, 0.165, 1}
+}
+
+macroPopupBorderColor :: proc(theme: Theme) -> im.Vec4 {
+    switch theme {
+    case .Light:
+        return {0.410, 0.535, 0.760, 1}
+    case .Soft:
+        return {0.555, 0.390, 0.620, 1}
+    case .Dark:
+        return {0.385, 0.490, 0.720, 1}
+    }
+    return {0.385, 0.490, 0.720, 1}
+}
+
+macroPopupTitleColor :: proc(theme: Theme) -> im.Vec4 {
+    switch theme {
+    case .Light:
+        return {0.885, 0.910, 0.965, 1}
+    case .Soft:
+        return {0.185, 0.145, 0.205, 1}
+    case .Dark:
+        return {0.125, 0.150, 0.215, 1}
+    }
+    return {0.125, 0.150, 0.215, 1}
+}
+
 resolveAssetPath :: proc(path: string) -> string {
     if os.is_file(path) {
         return strings.clone(path)

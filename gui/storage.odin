@@ -14,6 +14,7 @@ BOT_AVATAR_PATH :: "asset/image/mothballpfp.png"
 USER_DATA_FOLDER :: "user_data"
 AVATAR_FOLDER :: "avatar"
 PLAYER_AVATAR_FILE :: "player_avatar.png"
+MACROS_FOLDER :: "Macros"
 
 // App data paths
 
@@ -45,6 +46,25 @@ booksDir :: proc() -> (string, os.Error) {
     defer delete(dir)
 
     return os.join_path({dir, BOOKS_FOLDER}, context.allocator)
+}
+
+defaultMacrosDir :: proc() -> (string, os.Error) {
+    dir, dir_err := appDataDir()
+    if dir_err != nil {
+        return "", dir_err
+    }
+    defer delete(dir)
+
+    return os.join_path({dir, MACROS_FOLDER}, context.allocator)
+}
+
+macrosDir :: proc(state: ^AppState, macro_type: int) -> (string, os.Error) {
+    configured := strings.trim_space(bufferString(state.settings.mpkExportPath[:]))
+    if macro_type != 0 {
+        configured = strings.trim_space(bufferString(state.settings.cyvExportPath[:]))
+    }
+    if configured != "" do return strings.clone(configured), nil
+    return defaultMacrosDir()
 }
 
 bookPagesDir :: proc(state: ^AppState) -> (string, os.Error) {
@@ -81,6 +101,9 @@ freeSavedSettings :: proc(settings: ^Settings) {
     delete(settings.player_name)
     delete(settings.bot_name)
     delete(settings.player_pfp_path)
+    delete(settings.macro_export_path)
+    delete(settings.mpk_export_path)
+    delete(settings.cyv_export_path)
 }
 
 loadSettings :: proc(state: ^AppState) {
@@ -105,6 +128,19 @@ loadSettings :: proc(state: ^AppState) {
     if strings.trim_space(saved.player_pfp_path) != "" {
         bufferSet(state.settings.playerAvatarPath[:], saved.player_pfp_path)
     }
+    legacy_macro_path := strings.trim_space(saved.macro_export_path)
+    mpk_path := strings.trim_space(saved.mpk_export_path)
+    cyv_path := strings.trim_space(saved.cyv_export_path)
+    if mpk_path != "" {
+        bufferSet(state.settings.mpkExportPath[:], mpk_path)
+    } else if legacy_macro_path != "" {
+        bufferSet(state.settings.mpkExportPath[:], legacy_macro_path)
+    }
+    if cyv_path != "" {
+        bufferSet(state.settings.cyvExportPath[:], cyv_path)
+    } else if legacy_macro_path != "" {
+        bufferSet(state.settings.cyvExportPath[:], legacy_macro_path)
+    }
     if saved.send_hotkey >= int(SendHotkey.Enter) && saved.send_hotkey <= int(SendHotkey.ShiftEnter) {
         state.settings.sendHotkey = SendHotkey(saved.send_hotkey)
     }
@@ -128,10 +164,12 @@ saveSettings :: proc(state: ^AppState) {
     defer delete(path)
 
     saved := Settings {
-        version = 1,
+        version = 2,
         player_name = bufferString(state.settings.playerName[:]),
         bot_name = bufferString(state.settings.botName[:]),
         player_pfp_path = bufferString(state.settings.playerAvatarPath[:]),
+        mpk_export_path = bufferString(state.settings.mpkExportPath[:]),
+        cyv_export_path = bufferString(state.settings.cyvExportPath[:]),
         send_hotkey = int(state.settings.sendHotkey),
         theme = int(state.settings.theme),
     }
@@ -703,6 +741,19 @@ openCurrentBookFolder :: proc(state: ^AppState) {
 
 openBooksFolder :: proc(state: ^AppState) {
     dir, dir_err := booksDir()
+    if dir_err != nil {
+        return
+    }
+    defer delete(dir)
+
+    if mkdir_err := os.make_directory_all(dir); mkdir_err != nil && !os.is_dir(dir) {
+        return
+    }
+    openExternal(dir)
+}
+
+openMacrosFolder :: proc(state: ^AppState, macro_type: int) {
+    dir, dir_err := macrosDir(state, macro_type)
     if dir_err != nil {
         return
     }

@@ -1,5 +1,6 @@
 package main
 
+import "core:c"
 import im "../third_party/odin-imgui"
 import "../third_party/odin-imgui/imgui_impl_glfw"
 import "../third_party/odin-imgui/imgui_impl_opengl3"
@@ -47,6 +48,14 @@ UIState :: struct {
     bookNameInput: [PAGE_TITLE_SIZE]byte,
     titleEdit: [PAGE_TITLE_SIZE]byte,
     editingTitlePage: int,
+    macroName: [PAGE_TITLE_SIZE]byte,
+    macroPrompt: [8192]byte,
+    macroType: c.int,
+    macroExportStatus: [PATH_SIZE]byte,
+    macroExportStatusError: bool,
+    openMacroExportPopup: bool,
+    showMacroExportPopup: bool,
+    confirmMacroOverwrite: bool,
 }
 
 UserSettings :: struct {
@@ -56,6 +65,8 @@ UserSettings :: struct {
     playerAvatarImportPath: [PATH_SIZE]byte,
     playerAvatarStatus: [256]byte,
     playerAvatarStatusError: bool,
+    mpkExportPath: [PATH_SIZE]byte,
+    cyvExportPath: [PATH_SIZE]byte,
     sendHotkey: SendHotkey,
     theme: Theme,
     dirty: bool,

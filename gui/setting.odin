@@ -10,6 +10,9 @@ Settings :: struct {
     player_name: string,
     bot_name: string,
     player_pfp_path: string,
+    macro_export_path: string,
+    mpk_export_path: string,
+    cyv_export_path: string,
     send_hotkey: int,
     theme: int,
 }
@@ -93,6 +96,74 @@ drawSettings :: proc(state: ^AppState) {
             im.PushTextWrapPos(0)
             im.TextColored(status_color, "%s", avatar_status_c)
             im.PopTextWrapPos()
+        }
+
+        im.SeparatorText("Macro Export")
+        default_macro_dir, default_macro_err := defaultMacrosDir()
+
+        im.Text("Mpk Directory")
+        im.SetNextItemWidth(-1)
+        if default_macro_err == nil {
+            default_macro_dir_c := strings.clone_to_cstring(default_macro_dir)
+            defer delete(default_macro_dir_c)
+            if im.InputTextWithHint(
+                "##mpk-export-path",
+                default_macro_dir_c,
+                cstring(&state.settings.mpkExportPath[0]),
+                c.size_t(len(state.settings.mpkExportPath)),
+            ) {
+                state.settings.dirty = true
+            }
+        } else {
+            if im.InputText(
+                "##mpk-export-path",
+                cstring(&state.settings.mpkExportPath[0]),
+                c.size_t(len(state.settings.mpkExportPath)),
+            ) {
+                state.settings.dirty = true
+            }
+        }
+        if im.Button("Default Mpk", {120, 34}) {
+            bufferSet(state.settings.mpkExportPath[:], "")
+            state.settings.dirty = true
+        }
+        im.SameLine()
+        if im.Button("Locate Mpk", {120, 34}) {
+            openMacrosFolder(state, 0)
+        }
+
+        im.Text("Cyv Directory")
+        im.SetNextItemWidth(-1)
+        if default_macro_err == nil {
+            default_macro_dir_c := strings.clone_to_cstring(default_macro_dir)
+            defer delete(default_macro_dir_c)
+            if im.InputTextWithHint(
+                "##cyv-export-path",
+                default_macro_dir_c,
+                cstring(&state.settings.cyvExportPath[0]),
+                c.size_t(len(state.settings.cyvExportPath)),
+            ) {
+                state.settings.dirty = true
+            }
+        } else {
+            if im.InputText(
+                "##cyv-export-path",
+                cstring(&state.settings.cyvExportPath[0]),
+                c.size_t(len(state.settings.cyvExportPath)),
+            ) {
+                state.settings.dirty = true
+            }
+        }
+        if im.Button("Default Cyv", {120, 34}) {
+            bufferSet(state.settings.cyvExportPath[:], "")
+            state.settings.dirty = true
+        }
+        im.SameLine()
+        if im.Button("Locate Cyv", {120, 34}) {
+            openMacrosFolder(state, 1)
+        }
+        if default_macro_err == nil {
+            delete(default_macro_dir)
         }
 
         im.SeparatorText("Send Hotkey")
