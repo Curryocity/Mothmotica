@@ -22,6 +22,13 @@ Like Odin, the language it is implemented in, Mothmotica emphasizes clarity, sim
 
 > Thank you.
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Exporting Macros](#exporting-macros)
+- [Modified Mothball](#modified-mothball-compared-to-anonnoobs-extended-mothball)
+
 ## Installation
 
 Download the latest release for your platform, then extract the archive.
@@ -54,6 +61,36 @@ On macOS:
 The macOS app is ad-hoc signed for packaging, not notarized, so the right-click **Open** step may be needed on first launch.
 
 For CLI use, run the bundled `mothmotica-cli` binary from a terminal.
+
+## Configuration
+
+Open **Settings** from the Mothmotica home screen. Changes are saved automatically in Mothmotica's application data directory.
+
+| Setting | Description |
+| --- | --- |
+| Name | The name shown for your messages. |
+| Bot Name | The name shown for Mothball responses. |
+| Profile Picture | Enter an image path and select **Use Image**, or select **Delete** to remove the current picture. |
+| Mpk Directory | The destination for Mpk (`.csv`) macro exports. Press **Default Mpk** restores the default directory and **Locate Mpk** opens the active folder. |
+| Cyv Directory | The destination for Cyv (`.json`) macro exports. Press **Default Cyv** restores the default directory and **Locate Cyv** opens the active folder. |
+| Send Hotkey | Choose whether Enter or Shift + Enter sends a message. The other key will create a newline instead.|
+| Theme | Choose the Dark, Soft, or Light theme. |
+
+When no custom macro directory is set, both formats use the shared `Mothmotica/Macros` folder inside the platform's application data directory.
+
+## Exporting Macros
+
+Macro export is only available for XZ simulations that begin with `;s`.
+
+To export from the GUI:
+
+1. Enter or open an `;s` simulation in a message box.
+2. Right-click the message box to open **Export Macro**.
+3. Enter the macro name and select **Mpk** or **Cyv**.
+4. Check the input and destination, then select **Export**.
+
+If the destination already contains a macro with the same name, choose **Cancel** to keep editing or **Overwrite** to replace it.
+
 
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
 
