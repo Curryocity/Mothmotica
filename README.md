@@ -80,11 +80,11 @@ When no custom macro directory is set, both formats use the shared `Mothmotica/M
 
 ## Exporting Macros
 
-Macro export is only available for XZ simulations that begin with `;s`.
+Macro export is available for XZ simulations beginning with `;s` and XYZ/Elytra simulations beginning with `;e`.
 
 To export from the GUI:
 
-1. Enter or open an `;s` simulation in a message box.
+1. Enter or open an `;s` or `;e` simulation in a message box.
 2. Right-click the message box to open **Export Macro**.
 3. Enter the macro name and select **Mpk** or **Cyv**.
 4. Check the input and destination, then select **Export**.
@@ -93,6 +93,40 @@ If the destination already contains a macro with the same name, choose **Cancel*
 
 
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
+
+### Elytra XYZ simulator (`;e`)
+
+Start a command with `;e` to keep the complete position and velocity state: `x`, `y`, `z`, `vx`, `vy`, and `vz`.
+
+| Command | What it does |
+| --- | --- |
+| `e()` / `elytra()` | Simulate one tick using the stored pitch and yaw. |
+| `e(ticks)` / `elytra(ticks)` | Simulate several ticks using the stored pitch and yaw. |
+| `e(ticks, pitch, yaw)` | Set pitch and yaw, then simulate that many ticks. |
+| `pitch(n)` / `p(n)` | Set the stored pitch. |
+| `outp([target])` | Output the stored pitch, optionally relative to a target. |
+| `getp` | Read the stored pitch inside an expression. |
+| `pitchqueue(...)` / `pq(...)` | Queue pitch values like `aq(...)` queues yaw values. |
+| `f(n)` | Set the stored yaw/facing. |
+| `aq(...)` | Queue yaw values for movement and Elytra ticks. |
+| `pos(x, y, z)` | Set the complete position. |
+| `vel(vx, vy, vz)` | Set the complete velocity. |
+| `x(n)`, `y(n)`, `z(n)` | Set one position component. |
+| `vx(n)`, `vy(n)`, `vz(n)` | Set one velocity component. |
+| `measure` / `mes` | Output all six position and velocity components. |
+| `outtick` | Output the number of simulated ticks. |
+
+Angles use Minecraft's convention: negative pitch looks upward, positive pitch looks downward, yaw `0` faces `+Z`, and yaw `90` faces `-X`.
+
+For example:
+
+```
+;e pos(0,100,0) vel(0.3,0,0) p(-20) f(45) e(20) measure outtick
+```
+
+This simulates unobstructed gliding. It does not yet apply collision, durability, firework boosts, or player-input acceleration.
+
+Existing movement functions also work in `;e`. Ground ticks use XZ movement, while jump and air ticks combine the existing XZ and Y simulators into one logical tick.
 
 ### Better `;y`
 

@@ -10,6 +10,8 @@ Player :: struct {
     vx: f64,
     vz: f64,
     f: f32,
+    pitch: f32,
+    prev_elytra: bool,
     ground_slip: f32,
     prev_slip: f32,
     prev_sprint: bool,
@@ -21,6 +23,7 @@ Player :: struct {
     posRec: bool,
     posStorage: [dynamic] vec2,
     angleQueue: Queue(f32),
+    pitchQueue: Queue(f32),
     offset45: f32,
     w45: f32,
     a45: f32,
@@ -69,13 +72,20 @@ makePlayer :: proc() -> Player {
     }
 }
 
-
-move :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false)
-{
-    // aq, tq overwrites f globally
-    if angle, ok := qPop(&p.angleQueue); ok {
-        p.f = angle
+consumeAngleQueues :: proc(p: ^Player) {
+    if pitch, ok := qPop(&p.pitchQueue); ok {
+        p.pitch = pitch
     }
+    if yaw, ok := qPop(&p.angleQueue); ok {
+        p.f = yaw
+    }
+}
+
+
+moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false)
+{
+    // aq/tq and pq overwrite the stored look angles globally.
+    consumeAngleQueues(p)
 
     forward: f32 = w
     strafe: f32 = a
@@ -89,7 +99,7 @@ move :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint: 
         strafe = p.a45
     }
 
-    recordMacroTick(macro, forward, strafe, jump, sprint, sneak, rot)
+    recordMacroTick(macro, forward, strafe, jump, sprint, sneak, rot, p.pitch)
     
     slip: f32 = airborne ? 1.0 : p.ground_slip
 
@@ -104,9 +114,14 @@ move :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint: 
 
     if p.prev_slip == -1 do p.prev_slip = slip
 
-    p.vx *= f64(f32(0.91) * p.prev_slip)
-    p.vz *= f64(f32(0.91) * p.prev_slip)
+    // BEGIN post-movement velocity update
+    if !p.prev_elytra {
+        p.vx *= f64(f32(0.91) * p.prev_slip)
+        p.vz *= f64(f32(0.91) * p.prev_slip)
+    }
+    // END post-movement velocity update
 
+    // Next-tick inertia preparation; not part of the post-movement update.
     if (abs(p.vx) < p.inertia_threshold && p.inertia_on) || p.forceInertiaX || p.prev_webQ do p.vx = 0
     if (abs(p.vz) < p.inertia_threshold && p.inertia_on) || p.forceInertiaZ || p.prev_webQ do p.vz = 0
 
@@ -198,6 +213,27 @@ move :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint: 
     p.tick += 1
 }
 
+// Run one logical movement tick. XYZ jump and air ticks combine the existing
+// horizontal and vertical simulators without making moveXZ context-aware.
+move :: proc(prs: ^ParserState, p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false) {
+    starting_tick := p.tick
+    previous_web := p.prev_webQ
+
+    moveXZ(&prs.macro, p, w, a, airborne, sprint, sneak, jump, tempRot, usedRot, temp45)
+
+    if prs.ctx == .XYZsim && (jump || airborne) {
+        // Both axis simulators must see the same previous-tick web state and
+        // together advance only one logical tick.
+        p.tick = starting_tick
+        p.prev_webQ = previous_web
+        moveY(p, jump)
+    }
+
+    // Both axis updates must observe the previous Elytra state before the
+    // regular movement mode becomes current.
+    p.prev_elytra = false
+}
+
 // Return (ceilq, bounceQ)
 moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){ 
 
@@ -234,9 +270,13 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
             }
         }
 
-        gravity := p.slow_falling ? widenf32(0.01) : widenf32(0.08)
-        p.vy = (p.vy - gravity) * widenf32(0.98)
-  
+        // BEGIN post-movement velocity update
+        if !p.prev_elytra {
+            gravity := p.slow_falling ? widenf32(0.01) : widenf32(0.08)
+            p.vy = (p.vy - gravity) * widenf32(0.98)
+        }
+        // END post-movement velocity update
+
     }
 
     if p.ladderQ {
@@ -318,7 +358,6 @@ ladderHold :: proc(p: ^Player) -> (bool, bool) {
     return false, true
 }
 
-
 prevGround :: proc(p: ^Player) {
     p.prev_slip = p.ground_slip
 }
@@ -330,6 +369,7 @@ prevAir :: proc(p: ^Player) {
 saveState :: proc(p: Player) -> Player {
     copy := p
     copy.angleQueue = cloneQueue(p.angleQueue)
+    copy.pitchQueue = cloneQueue(p.pitchQueue)
     copy.ceilQueue = cloneQueue(p.ceilQueue)
     copy.slimeQueue = cloneQueue(p.slimeQueue)
     copy.posStorage = nil
@@ -342,6 +382,7 @@ saveState :: proc(p: Player) -> Player {
 
 loadState :: proc(dst: ^Player, src: Player) {
     qDelete(&dst.angleQueue)
+    qDelete(&dst.pitchQueue)
     qDelete(&dst.ceilQueue)
     qDelete(&dst.slimeQueue)
     delete(dst.posStorage)
@@ -349,6 +390,7 @@ loadState :: proc(dst: ^Player, src: Player) {
     dst^ = src
 
     dst.angleQueue = cloneQueue(src.angleQueue)
+    dst.pitchQueue = cloneQueue(src.pitchQueue)
     dst.ceilQueue = cloneQueue(src.ceilQueue)
     dst.slimeQueue = cloneQueue(src.slimeQueue)
 
@@ -360,6 +402,7 @@ loadState :: proc(dst: ^Player, src: Player) {
 
 deletePlayerState :: proc(p: ^Player) {
     qDelete(&p.angleQueue)
+    qDelete(&p.pitchQueue)
     qDelete(&p.ceilQueue)
     qDelete(&p.slimeQueue)
     delete(p.posStorage)

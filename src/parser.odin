@@ -20,7 +20,7 @@ ParserState :: struct {
 }
 
 MothCtx :: enum {
-    XZsim, Ysim, Invalid,
+    XZsim, Ysim, XYZsim, Invalid,
 }
 
 ParseResult :: struct {
@@ -96,6 +96,9 @@ CmdType :: enum {
     SetWeb, SetLadder, SetBlock, SetSoulSand,
 
     JumpTo, CoastTo, tier,
+
+    // XYZ Elytra commands
+    Elytra, SetPitch, OutPitch, PitchQueue,
     
     CeilQueue, SlimeQueue,
 
@@ -146,6 +149,8 @@ parseMothballResult :: proc(input: string) -> ParseResult {
             ctx = .XZsim
         case ";y":
             ctx = .Ysim
+        case ";e":
+            ctx = .XYZsim
         case:
             return ParseResult{ctx = .Invalid}
     }
@@ -500,6 +505,8 @@ getCommandType :: proc(prs: ^ParserState, cmdName: string) -> CmdType {
             return getXZCommandType(cmdName)
         case .Ysim:
             return getYCommandType(cmdName)
+        case .XYZsim:
+            return getXYZCommandType(cmdName)
     }
 
     return .Invalid
@@ -703,6 +710,24 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .Invalid
     }
     return .Invalid
+}
+
+getXYZCommandType :: proc(cmdName: string) -> CmdType {
+    switch cmdName {
+        case "elytra", "e":
+            return .Elytra
+        case "pitch", "p":
+            return .SetPitch
+        case "outp":
+            return .OutPitch
+        case "pitchqueue", "pq":
+            return .PitchQueue
+    }
+
+    if cmd := getXZCommandType(cmdName); cmd != .Invalid {
+        return cmd
+    }
+    return getYCommandType(cmdName)
 }
 
 checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){

@@ -228,15 +228,16 @@ argMayOutput :: proc(arg: Arg) -> bool {
     #partial switch arg.expr.type {
     case .SetVar, .SetPrecision, .SetPrintSep, .SetSilent,
          .SetX, .SetZ, .SetPos, .SetVx, .SetVz, .SetVel,
-         .SetF, .SetTurn, .SetTick,
+         .SetF, .SetPitch, .SetTurn, .SetTick,
          .SetSlip, .SetSprintDelay, .SetInertia, .SetSlow, .SetSpeed,
          .PrevGround, .PrevAir,
          .ForceInertiaX, .ForceInertiaZ,
-         .AngleQueue, .TurnQueue,
+         .AngleQueue, .TurnQueue, .PitchQueue,
          .Save, .Load,
          .SetY, .SetVy, .SetPlayerHeight, .SetJumpBoost, .SetSlowFall, .SetYObserve,
          .CeilQueue, .SlimeQueue,
-         .SetWeb, .SetLadder, .SetBlock, .SetSoulSand:
+         .SetWeb, .SetLadder, .SetBlock, .SetSoulSand,
+         .Elytra:
         return false
     case:
         return true

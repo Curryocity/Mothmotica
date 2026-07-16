@@ -25,8 +25,8 @@ runMacroOutput :: proc(input, type_name: string) {
         fmt.eprint(result.output)
         os.exit(1)
     }
-    if result.ctx != .XZsim {
-        fmt.eprintln("Macro export is only supported for XZ simulation.")
+    if result.ctx != .XZsim && result.ctx != .XYZsim {
+        fmt.eprintln("Macro export is only supported for XZ and XYZ simulations.")
         os.exit(1)
     }
 
