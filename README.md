@@ -96,45 +96,7 @@ If the destination already contains a macro with the same name, choose **Cancel*
 
 ### Elytra XYZ simulator (`;e`)
 
-Start a command with `;e` to keep the complete position and velocity state: `x`, `y`, `z`, `vx`, `vy`, and `vz`.
-
-The `;e` simulator defaults to `inertia(0.003)` and `sdel(0)` for modern Minecraft movement. The legacy `;s` and `;y` defaults are unchanged.
-
-| Command | What it does |
-| --- | --- |
-| `e()` / `elytra()` | Simulate one tick using the stored pitch and yaw. |
-| `e(ticks)` / `elytra(ticks)` | Simulate several ticks using the stored pitch and yaw. |
-| `e([ticks = 1, pitch, yaw])` | Set pitch and yaw, then simulate that many ticks. |
-| `ej(floor_y)` / `ejump(floor_y)` | Land and jump during the stale Elytra transition tick. |
-| `ej(floor_y, pitch, yaw)` | Set pitch and yaw, then simulate the Elytra landing jump. |
-| `esj(floor_y)` / `esjump(floor_y)` | Simulate the same landing jump with the sprint-jump horizontal boost. |
-| `esj(floor_y, pitch, yaw)` | Set pitch and yaw, then simulate the sprint-boosted Elytra landing jump. |
-| `el(floor_y)` / `eland(floor_y)` | Set the landing height and vertical velocity to zero, then simulate one Elytra tick. |
-| `el(floor_y, pitch, yaw)` | Set pitch and yaw, then simulate the Elytra landing tick. |
-| `pitch(n)` / `p(n)` | Set the stored pitch. |
-| `outp([target])` | Output the stored pitch, optionally relative to a target. |
-| `getp` | Read the stored pitch inside an expression. |
-| `pitchqueue(...)` / `pq(...)` | Queue pitch values like `aq(...)` queues yaw values. |
-| `f(n)` | Set the stored yaw/facing. |
-| `aq(...)` | Queue yaw values for movement and Elytra ticks. |
-| `pos(x, y, z)` | Set the complete position. |
-| `vel(vx, vy, vz)` | Set the complete velocity. |
-| `x(n)`, `y(n)`, `z(n)` | Set one position component. |
-| `vx(n)`, `vy(n)`, `vz(n)` | Set one velocity component. |
-| `measure` / `mes` | Output all six position and velocity components. |
-| `outtick` | Output the number of simulated ticks. |
-
-Angles use Minecraft's convention: negative pitch looks upward, positive pitch looks downward, yaw `0` faces `+Z`, and yaw `90` faces `-X`.
-
-For example:
-
-```
-;e pos(0,100,0) vel(0.3,0,0) p(-20) f(45) e(20) measure outtick
-```
-
-This simulates unobstructed gliding. It does not yet apply collision, durability, firework boosts, or player-input acceleration.
-
-Existing movement functions also work in `;e`. Ground ticks use XZ movement, while jump and air ticks combine the existing XZ and Y simulators into one logical tick.
+See [Elytra.md](Elytra.md) for the complete `;e` simulator documentation, command reference, and examples.
 
 ### Better `;y`
 
