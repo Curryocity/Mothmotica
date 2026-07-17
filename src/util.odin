@@ -7,10 +7,6 @@ PId: f64 = 3.14159265358979323846264338327950288
 
 SIN_TABLE: [65536]f32
 
-widenf32 :: proc(x: f32) -> f64{
-    return f64(x)
-}
-
 bake_trig :: proc() {
     for i in 0..<65536 {
         SIN_TABLE[i] = f32(math.sin(f64(i) * PId * 2.0 / 65536.0))

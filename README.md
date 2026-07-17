@@ -94,6 +94,19 @@ If the destination already contains a macro with the same name, choose **Cancel*
 
 ## Modified Mothball (Compared to Anonnoob's extended mothball)
 
+### Minecraft versions
+
+Mothmotica supports exact movement profiles for Minecraft 1.8.9 and 1.21.3. The `;s` and `;y` simulators default to 1.8.9, while `;e` defaults to 1.21.3.
+
+| Command | What it does |
+| --- | --- |
+| `version()` / `v()` | Output the current version and all supported versions. |
+| `version("1.21.3")` / `v("1.21.3")` | Select a supported version and apply its movement defaults. |
+| `sdel(0/1)` | Disable or enable the one-tick airborne sprint delay. |
+| `sndel(0/1)` | Disable or enable the one-tick sneak-input delay. |
+
+Version 1.8.9 defaults to `inertia(0.005)`, `sdel(1)`, and `sndel(0)`. Version 1.21.3 defaults to `inertia(0.003)`, `sdel(0)`, and `sndel(1)`. Commands after `version(...)` can override those defaults.
+
 ### Elytra XYZ simulator (`;e`)
 
 See [Elytra.md](Elytra.md) for the complete `;e` simulator documentation, command reference, and examples.
@@ -113,7 +126,7 @@ By starting the command with `;y` instead of `;s`. The mothball context is set t
 | `ytop` | Output head/top Y, i.e. `y + height` |
 | `height(n)` | Set player height (default 1.8) |
 | `jb(n)` / `jumpboost(n)` | Set jump boost level |
-| `sf(0/1)` / `slowfall(0/1)` | Disable/enable slow falling |
+| `sf(0/1)` / `slowfall(0/1)` | Disable/enable Slow Falling for versions that support it. |
 | `obs(0/1)` / `observe(0/1)` | Disable/enable automatic peak, ceiling, and slime messages |
 | `jto(n)` / `jumpto(n)` | Jump, then simulate until landing on ground Y `n` |
 | `cto(n)` / `coastto(n)` | Coast until landing on ground Y `n` |

@@ -4,7 +4,7 @@
 
 Start a command with `;e` to keep the complete position and velocity state: `x`, `y`, `z`, `vx`, `vy`, and `vz`.
 
-The `;e` simulator defaults to `inertia(0.003)` and `sdel(0)` for modern Minecraft movement.
+The `;e` simulator defaults to Minecraft 1.21.3 movement: `inertia(0.003)`, `sdel(0)`, and `sndel(1)`.
 
 | Command | What it does |
 | --- | --- |

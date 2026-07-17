@@ -15,9 +15,11 @@ Player :: struct {
     ground_slip: f32,
     prev_slip: f32,
     prev_sprint: bool,
+    prev_sneak: bool,
     speed: u8,
     slow: u8,
     sprint_delay: bool,
+    sneak_delay: bool,
     forceInertiaX: bool,
     forceInertiaZ: bool,
     posRec: bool,
@@ -81,6 +83,34 @@ consumeAngleQueues :: proc(p: ^Player) {
     }
 }
 
+apply_modern_sprint_jump_boost :: proc(p: ^Player, yaw: f32) {
+	rad := yaw * f32(0.017453292)
+	p.vx -= f64(sinr(rad)) * 0.2
+	p.vz += f64(cosr(rad)) * 0.2
+}
+
+modern_jump_vy :: proc(jump_boost: u8) -> f64 {
+	jump_boost_level := transmute(i8)jump_boost
+	return f64(f32(0.42) + f32(0.1) * f32(jump_boost_level))
+}
+
+jump_vy :: proc(jump_boost: u8) -> f64 {
+	jump_boost_level := transmute(i8)jump_boost
+	jump_boost_velocity := f32(0.1) * f32(jump_boost_level)
+	return f64(f32(0.42)) + f64(jump_boost_velocity)
+}
+
+air_gravity :: proc(p: ^Player, version: MCVersion) -> f64 {
+	if version == .V1_21_3 && p.slow_falling && p.vy <= 0 {
+		return SLOW_FALL_GRAVITY
+	}
+	return GRAVITY
+}
+
+ladder_fall_limit :: proc(version: MCVersion) -> f64 {
+	return version == .V1_21_3 ? -f64(f32(0.15)) : -0.15
+}
+
 // Minecraft movement calculation order: Inertia -> Acceleration -> Update Position -> Apply Drag
 
 // Mothball: tried to maintain Vel[t] = Pos[t+1] - Pos[t] property
@@ -132,18 +162,14 @@ moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint
     p.forceInertiaX = false
     p.forceInertiaZ = false
 
-    // The magic number arise from f64(f32(x)) 
-    // Odin skips the inner f32()
-    // I had to resort to using the converted f32 value
-
     accel: f64
     if airborne {
-        accel = widenf32(0.02)
+        accel = f64(f32(0.02))
     } else {
-        accel = widenf32(0.1)
+        accel = f64(f32(0.1))
 
-        if p.speed > 0 do accel *= 1 + widenf32(0.2) * f64(p.speed)
-        if p.slow  > 0 do accel *= 1 + widenf32(-0.15)  * f64(p.slow)
+        if p.speed > 0 do accel *= 1 + f64(f32(0.2)) * f64(p.speed)
+        if p.slow  > 0 do accel *= 1 + f64(f32(-0.15)) * f64(p.slow)
         if accel < 0 do accel = 0
     }
 
@@ -152,7 +178,7 @@ moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint
     // Ground: accel *= 1 + 0.3f (!= 1.3f btw)
 
     if !airborne && sprint {
-        accel *= 1 + widenf32(0.3) // f64(1 + f32(0.3)))
+        accel *= 1 + f64(f32(0.3)) // f64(1 + f32(0.3)))
     }else if airborne && (p.prev_sprint && p.sprint_delay || sprint && !p.sprint_delay){
         accel += accel * 0.3
     }
@@ -177,7 +203,8 @@ moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint
         strafe  *= f32(0.2)
     }
 
-    if sneak {
+    effective_sneak := p.sneak_delay ? p.prev_sneak : sneak
+    if effective_sneak {
         forward *= f32(0.3)
         strafe  *= f32(0.3)
     }
@@ -208,6 +235,7 @@ moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint
 
     p.prev_slip = slip
     p.prev_sprint = sprint
+    p.prev_sneak = sneak
     p.prev_webQ = p.webQ
 
     if p.posRec {
@@ -216,25 +244,144 @@ moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint
     p.tick += 1
 }
 
+// Minecraft 1.21.3 keeps movement input as doubles after the client-side f32 scaling.
+moveXZModern :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false) {
+	consumeAngleQueues(p)
+
+	forward: f32 = w
+	strafe: f32 = a
+
+	rot := p.f
+	if usedRot do rot = tempRot
+	if temp45 {
+		rot += p.offset45
+		forward = p.w45
+		strafe = p.a45
+	}
+
+	recordMacroTick(macro, forward, strafe, jump, sprint, sneak, rot, p.pitch)
+
+	slip: f32 = airborne ? 1.0 : p.ground_slip
+
+	p.x += p.vx
+	p.z += p.vz
+
+	if p.soulSandQ {
+		p.vx *= 0.4
+		p.vz *= 0.4
+	}
+
+	if p.prev_slip == -1 do p.prev_slip = slip
+
+	if !p.prev_elytra {
+		p.vx *= f64(f32(0.91) * p.prev_slip)
+		p.vz *= f64(f32(0.91) * p.prev_slip)
+	}
+
+	if (abs(p.vx) < p.inertia_threshold && p.inertia_on) || p.forceInertiaX || p.prev_webQ do p.vx = 0
+	if (abs(p.vz) < p.inertia_threshold && p.inertia_on) || p.forceInertiaZ || p.prev_webQ do p.vz = 0
+	p.forceInertiaX = false
+	p.forceInertiaZ = false
+
+	accel: f64 = f64(f32(0.1))
+	if p.speed > 0 do accel *= 1 + f64(f32(0.2)) * f64(p.speed)
+	if p.slow > 0 do accel *= 1 + f64(f32(-0.15)) * f64(p.slow)
+	if accel < 0 do accel = 0
+	if sprint do accel *= 1 + f64(f32(0.3))
+
+	accelf := f32(accel)
+	if airborne {
+		if p.prev_sprint && p.sprint_delay || sprint && !p.sprint_delay {
+			accelf = f32(0.025999999)
+		} else {
+			accelf = f32(0.02)
+		}
+	} else {
+		drag_cubed := slip * slip * slip
+		accelf *= f32(0.21600002) / drag_cubed
+	}
+
+	if sprint && jump {
+		apply_modern_sprint_jump_boost(p, rot)
+	}
+
+	if p.blockQ {
+		forward *= f32(0.2)
+		strafe *= f32(0.2)
+	}
+	effective_sneak := p.sneak_delay ? p.prev_sneak : sneak
+	if effective_sneak {
+		forward *= f32(0.3)
+		strafe *= f32(0.3)
+	}
+
+	forward *= f32(0.98)
+	strafe *= f32(0.98)
+
+	input_x := f64(strafe)
+	input_z := f64(forward)
+	input_length_squared := input_x*input_x + input_z*input_z
+	if input_length_squared >= 1.0e-7 {
+		if input_length_squared > 1 {
+			input_length := math.sqrt(input_length_squared)
+			input_x /= input_length
+			input_z /= input_length
+		}
+
+		input_x *= f64(accelf)
+		input_z *= f64(accelf)
+
+		yaw_rad := rot * ELYTRA_DEG_TO_RAD
+		sin_yaw := f64(sinr(yaw_rad))
+		cos_yaw := f64(cosr(yaw_rad))
+		p.vx += input_x*cos_yaw - input_z*sin_yaw
+		p.vz += input_z*cos_yaw + input_x*sin_yaw
+	}
+
+	if p.webQ {
+		p.vx *= 0.25
+		p.vz *= 0.25
+	}
+	if p.ladderQ {
+		ladder_limit := f64(f32(0.15))
+		p.vx = clamp(p.vx, -ladder_limit, ladder_limit)
+		p.vz = clamp(p.vz, -ladder_limit, ladder_limit)
+	}
+
+	p.prev_slip = slip
+	p.prev_sprint = sprint
+	p.prev_sneak = sneak
+	p.prev_webQ = p.webQ
+
+	if p.posRec {
+		append(&p.posStorage, vec2{x = p.x, z = p.z})
+	}
+	p.tick += 1
+}
+
 // called by commands from ctx XZsim ELytraSim
 move :: proc(prs: ^ParserState, p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false) {
     starting_tick := p.tick
     previous_web := p.prev_webQ
 
-    moveXZ(&prs.macro, p, w, a, airborne, sprint, sneak, jump, tempRot, usedRot, temp45)
+	if prs.version == .V1_21_3 {
+		moveXZModern(&prs.macro, p, w, a, airborne, sprint, sneak, jump, tempRot, usedRot, temp45)
+	} else {
+		moveXZ(&prs.macro, p, w, a, airborne, sprint, sneak, jump, tempRot, usedRot, temp45)
+	}
 
     if prs.ctx == .ElytraSim && (jump || airborne) {
         // Simulate Y independently, revert the XZ sim state change
         p.tick = starting_tick
         p.prev_webQ = previous_web
-        moveY(p, jump)
+		moveY(p, jump, prs.version)
     }
 
     p.prev_elytra = false
 }
 
 // Return (ceilq, bounceQ)
-moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){ 
+moveY :: proc(p: ^Player, jump: bool, version := MCVersion.V1_8_9) -> (bool, bool) {
 
     ceilQ, bounceQ: bool
     originalY := p.y
@@ -256,8 +403,11 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
     if p.prev_webQ do p.vy = 0
 
     if jump {
-        jb_signed := transmute(i8)p.jump_boost
-        p.vy = widenf32(0.42) + widenf32(0.1) * f64(jb_signed)
+        if version == .V1_21_3 {
+            p.vy = max(p.vy, modern_jump_vy(p.jump_boost))
+        } else {
+            p.vy = jump_vy(p.jump_boost)
+        }
     } else {
         if !qEmpty(&p.slimeQueue) && !p.webQ{
             slimeH, _ := qPeek(&p.slimeQueue)
@@ -271,21 +421,20 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
 
         // post-movement velocity update
         if !p.prev_elytra {
-            gravity := p.slow_falling ? widenf32(0.01) : widenf32(0.08)
-            p.vy = (p.vy - gravity) * widenf32(0.98)
+            p.vy = (p.vy - air_gravity(p, version)) * f64(f32(0.98))
         }
         // END post-movement velocity update
 
     }
 
     if p.ladderQ {
-        p.vy = max(p.vy, -widenf32(0.15))
+        p.vy = max(p.vy, ladder_fall_limit(version))
     }
 
     if abs(p.vy) < p.inertia_threshold && p.inertia_on do p.vy = 0
 
     if p.webQ {
-        p.vy *= widenf32(0.05)
+        p.vy *= f64(f32(0.05))
     }
 
     p.prev_webQ = p.webQ
@@ -295,7 +444,7 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
 }
 
 // Return (ceilq, ok)
-moveUp :: proc(p: ^Player) -> (bool, bool) {
+moveUp :: proc(p: ^Player, version := MCVersion.V1_8_9) -> (bool, bool) {
     ceilQ, ok: bool
 
     originalY := p.y
@@ -316,7 +465,7 @@ moveUp :: proc(p: ^Player) -> (bool, bool) {
     if p.prev_webQ do p.vy = 0
 
     if p.ladderQ {
-        p.vy = (0.2 - widenf32(0.08)) * widenf32(0.98)
+        p.vy = (0.2 - air_gravity(p, version)) * f64(f32(0.98))
         ok = true
     } else {
         // invalid up action, unless water and lava is implemented
@@ -334,7 +483,7 @@ moveUp :: proc(p: ^Player) -> (bool, bool) {
 }
 
 // Return (ceilq, ok)
-ladderHold :: proc(p: ^Player) -> (bool, bool) {
+ladderHold :: proc(p: ^Player, version := MCVersion.V1_8_9) -> (bool, bool) {
     if !p.ladderQ {
         p.tick += 1
         return false, false
@@ -344,7 +493,7 @@ ladderHold :: proc(p: ^Player) -> (bool, bool) {
     if p.prev_webQ do p.vy = 0
 
     if p.vy > 0 {
-        ceilQ, _ := moveY(p, false)
+        ceilQ, _ := moveY(p, false, version)
         return ceilQ, true
     }
 

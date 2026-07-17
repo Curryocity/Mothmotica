@@ -27,7 +27,7 @@ exeArg :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
 exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, bool) {
     if cmd == nil do return "Error: null command", false
 
-    hitbox := widenf32(0.6)
+    hitbox := f64(f32(0.6))
 
     #partial switch cmd.type {
     case .Print, .Println:
@@ -74,6 +74,29 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !ok do return parserErrorOr(prs, evalBoolArgError("silent")), false
         prs.silent = silent
         return "", true
+
+	case .SetVersion:
+		msg, argsOK := expectPlainArgs(cmd, "version(...)", 0, 1)
+		if !argsOK do return msg, false
+		if len(cmd.args) == 0 {
+			return fmt.tprintf(
+				"Current version: %s\nSupported versions: 1.8.9, 1.21.3",
+				mcversion_name(prs.version),
+			), true
+		}
+
+		version: MCVersion
+		ok := false
+		arg := cmd.args[0]
+		#partial switch arg.type {
+		case .Text:
+			version, ok = parse_mcversion(arg.text)
+		}
+		if !ok do return "Error: version(...) supports 1.8.9 and 1.21.3", false
+
+		prs.version = version
+		apply_version_defaults(p, version)
+		return "", true
 
     case .Measure:
         msg, argsOK := expectPlainArgs(cmd, "measure(...)", 0, 65535)
@@ -454,6 +477,15 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         v, ok := evalBoolArg(prs, p, cmd.args[0], "sprintdelay")
         if !ok do return parserErrorOr(prs, evalBoolArgError("sprintdelay")), false
         p.sprint_delay = v
+        return "", true
+
+    case .SetSneakDelay:
+        msg, argsOK := expectPlainArgs(cmd, "sneakdelay(...)", 1, 1)
+        if !argsOK do return msg, false
+
+        v, ok := evalBoolArg(prs, p, cmd.args[0], "sneakdelay")
+        if !ok do return parserErrorOr(prs, evalBoolArgError("sneakdelay")), false
+        p.sneak_delay = v
         return "", true
 
     case .SetInertia:
@@ -918,13 +950,13 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         defer delete(buf)
 
         if cmd.type == .Jump && ticks > 0 {
-            hitCeil, hitSlime := moveY(p, true)
+            hitCeil, hitSlime := moveY(p, true, prs.version)
             yObserverOut(prs, p, &buf, hitCeil, hitSlime)
             ticks -= 1
         }
 
         for _ in 0..<ticks {
-            hitCeil, hitSlime := moveY(p, false)
+            hitCeil, hitSlime := moveY(p, false, prs.version)
             yObserverOut(prs, p, &buf, hitCeil, hitSlime)
         }
         return strings.clone(string(buf[:])), true
@@ -945,7 +977,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         defer delete(buf)
 
         for _ in 0..<ticks {
-            hitCeil, ok := moveUp(p)
+            hitCeil, ok := moveUp(p, prs.version)
             if !ok do return "Error: up(...) requires an active climb/swim state", false
             yObserverOut(prs, p, &buf, hitCeil, false)
         }
@@ -967,7 +999,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         defer delete(buf)
 
         for _ in 0..<ticks {
-            hitCeil, ok := ladderHold(p)
+            hitCeil, ok := ladderHold(p, prs.version)
             if !ok do return "Error: hold(...) requires an active ladder state", false
             yObserverOut(prs, p, &buf, hitCeil, false)
         }
@@ -1119,7 +1151,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         defer delete(buf)
 
         if cmd.type == .JumpTo {
-            hitCeil, hitSlime := moveY(p, true)
+            hitCeil, hitSlime := moveY(p, true, prs.version)
             yObserverOut(prs, p, &buf, hitCeil, hitSlime)
             ticks += 1
 
@@ -1130,7 +1162,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
 
         for _ in 0..<4096 {
-            hitCeil, hitSlime := moveY(p, false)
+            hitCeil, hitSlime := moveY(p, false, prs.version)
             yObserverOut(prs, p, &buf, hitCeil, hitSlime)
             ticks += 1
 
@@ -1157,7 +1189,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         px :: 0.0625
 
         maxPoss := px
-        offset := widenf32(0.6)
+        offset := f64(f32(0.6))
         maxMiss := 0.0
         has_miss := false
         tickOffset := 0
@@ -1483,7 +1515,7 @@ yObserverOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, hitCeil, 
 }
 
 measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64, bool) {
-    hitbox := widenf32(0.6)
+    hitbox := f64(f32(0.6))
 
     #partial switch arg.type {
     case .Variable:
@@ -1559,17 +1591,17 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
 }
 
 offsetMM :: proc(x: f64) -> f64 {
-    hitbox := widenf32(0.6)
+    hitbox := f64(f32(0.6))
     return x + ((x >= 0) ? hitbox : -hitbox)
 }
 
 offsetB :: proc(x: f64) -> f64 {
-    hitbox := widenf32(0.6)
+    hitbox := f64(f32(0.6))
     return x + ((x >= 0) ? -hitbox : hitbox)
 }
 
 offsetLD :: proc(x: f64) -> f64 {
-    hitbox := widenf32(0.6)
+    hitbox := f64(f32(0.6))
     return x + ((x >= 0) ? hitbox/2 : -hitbox/2)
 }
 

@@ -229,7 +229,7 @@ argMayOutput :: proc(arg: Arg) -> bool {
     case .SetVar, .SetPrecision, .SetPrintSep, .SetSilent,
          .SetX, .SetZ, .SetPos, .SetVx, .SetVz, .SetVel,
          .SetF, .SetPitch, .SetTurn, .SetTick,
-         .SetSlip, .SetSprintDelay, .SetInertia, .SetSlow, .SetSpeed,
+         .SetSlip, .SetSprintDelay, .SetSneakDelay, .SetInertia, .SetSlow, .SetSpeed,
          .PrevGround, .PrevAir,
          .ForceInertiaX, .ForceInertiaZ,
          .AngleQueue, .TurnQueue, .PitchQueue,

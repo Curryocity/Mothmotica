@@ -23,11 +23,12 @@ elytra_vel_update :: proc(p: ^Player, pitch: f32, yaw: f32) {
 
     // post movement update from non-elytra tick
     if !p.prev_elytra {
-        p.vx *= f64(f32(0.91) * p.prev_slip)
-        p.vz *= f64(f32(0.91) * p.prev_slip)
+        if p.prev_slip != -1 {
+            p.vx *= f64(f32(0.91) * p.prev_slip)
+            p.vz *= f64(f32(0.91) * p.prev_slip)
+        }
         
-        gravity := p.slow_falling ? widenf32(0.01) : widenf32(0.08)
-        p.vy = (p.vy - gravity) * widenf32(0.98)
+        p.vy = (p.vy - air_gravity(p, .V1_21_3)) * f64(f32(0.98))
     }
 
 	if math.abs(p.vx) < p.inertia_threshold do p.vx = 0
@@ -101,13 +102,10 @@ elytra_jump :: proc(p: ^Player, floor_y: f64, pitch: f32, yaw: f32, sprinting: b
 
     p.prev_vy = p.vy
 
-    jb_signed := transmute(i8)p.jump_boost
-    p.vy = widenf32(0.42) + widenf32(0.1) * f64(jb_signed)
+    p.vy = max(p.vy, modern_jump_vy(p.jump_boost))
 
     if sprinting {
-        rad := yaw * f32(0.017453292)
-        p.vx -= f64(sinr(rad) * f32(0.2))
-        p.vz += f64(cosr(rad) * f32(0.2))
+        apply_modern_sprint_jump_boost(p, yaw)
     }
 
     p.prev_elytra = true

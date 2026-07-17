@@ -17,6 +17,7 @@ ParserState :: struct {
     yObserve: bool,
     silent: bool,
     macro: Macro,
+	version: MCVersion,
 }
 
 MothCtx :: enum {
@@ -79,7 +80,7 @@ CmdType :: enum {
 
     ForceInertiaX, ForceInertiaZ,
 
-    SetPrecision, SetSlip, SetSprintDelay, SetInertia,
+    SetPrecision, SetSlip, SetSprintDelay, SetSneakDelay, SetInertia, SetVersion,
     SetSlow, SetSpeed,
 
     PrevGround, PrevAir,
@@ -170,18 +171,16 @@ parseMothballResult :: proc(input: string) -> ParseResult {
         printSep = strings.clone(" "),
         yObserve = true,
         silent = false,
+		version = default_mcversion(ctx),
     }
     defer deleteParserState(&prs)
 
-    map_insert(&prs.vars, "bx", widenf32(0.6))
+    map_insert(&prs.vars, "bx", f64(f32(0.6)))
     map_insert(&prs.vars, "px", 0.0625)
     map_insert(&prs.vars, "pi", PId)
 
     p := makePlayer()
-    if ctx == .ElytraSim {
-        p.inertia_threshold = 0.003
-        p.sprint_delay = false
-    }
+	apply_version_defaults(&p, prs.version)
     defer deletePlayerState(&p)
 
     for lexerPeek(&prs.lex).type != .EOF {
@@ -540,6 +539,8 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
             return .OutTick
         case "inertia":
             return .SetInertia
+		case "v", "ver", "version":
+			return .SetVersion
         case "web":
             return .SetWeb
         case "ld", "ladder":
@@ -632,6 +633,8 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
             return .PrevAir
         case "sdel":
             return .SetSprintDelay
+        case "sndel", "sneakdelay":
+            return .SetSneakDelay
         case "poss", "zposs":
             return .ZPoss
         case "xposs":
@@ -720,11 +723,11 @@ getXYZCommandType :: proc(cmdName: string) -> CmdType {
     switch cmdName {
         case "e":
             return .Elytra
-        case "ej":
+        case "ej", "ejump":
             return .ElytraJump
         case "esj":
             return .ElytraSprintJump
-        case "el":
+        case "el", "eland":
             return .ElytraLand
         case "pitch", "p":
             return .SetPitch
