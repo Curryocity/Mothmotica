@@ -98,11 +98,19 @@ If the destination already contains a macro with the same name, choose **Cancel*
 
 Start a command with `;e` to keep the complete position and velocity state: `x`, `y`, `z`, `vx`, `vy`, and `vz`.
 
+The `;e` simulator defaults to `inertia(0.003)` and `sdel(0)` for modern Minecraft movement. The legacy `;s` and `;y` defaults are unchanged.
+
 | Command | What it does |
 | --- | --- |
 | `e()` / `elytra()` | Simulate one tick using the stored pitch and yaw. |
 | `e(ticks)` / `elytra(ticks)` | Simulate several ticks using the stored pitch and yaw. |
-| `e(ticks, pitch, yaw)` | Set pitch and yaw, then simulate that many ticks. |
+| `e([ticks = 1, pitch, yaw])` | Set pitch and yaw, then simulate that many ticks. |
+| `ej(floor_y)` / `ejump(floor_y)` | Land and jump during the stale Elytra transition tick. |
+| `ej(floor_y, pitch, yaw)` | Set pitch and yaw, then simulate the Elytra landing jump. |
+| `esj(floor_y)` / `esjump(floor_y)` | Simulate the same landing jump with the sprint-jump horizontal boost. |
+| `esj(floor_y, pitch, yaw)` | Set pitch and yaw, then simulate the sprint-boosted Elytra landing jump. |
+| `el(floor_y)` / `eland(floor_y)` | Set the landing height and vertical velocity to zero, then simulate one Elytra tick. |
+| `el(floor_y, pitch, yaw)` | Set pitch and yaw, then simulate the Elytra landing tick. |
 | `pitch(n)` / `p(n)` | Set the stored pitch. |
 | `outp([target])` | Output the stored pitch, optionally relative to a target. |
 | `getp` | Read the stored pitch inside an expression. |

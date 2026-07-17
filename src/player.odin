@@ -81,6 +81,10 @@ consumeAngleQueues :: proc(p: ^Player) {
     }
 }
 
+// Minecraft movement calculation order: Inertia -> Acceleration -> Update Position -> Apply Drag
+
+// Mothball: tried to maintain Vel[t] = Pos[t+1] - Pos[t] property
+// It cycles the order: Update Position -> Apply Drag -> Inertia -> Acceleration
 
 moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false)
 {
@@ -114,14 +118,13 @@ moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint
 
     if p.prev_slip == -1 do p.prev_slip = slip
 
-    // BEGIN post-movement velocity update
+    // post-movement velocity update
     if !p.prev_elytra {
         p.vx *= f64(f32(0.91) * p.prev_slip)
         p.vz *= f64(f32(0.91) * p.prev_slip)
     }
-    // END post-movement velocity update
+    // END
 
-    // Next-tick inertia preparation; not part of the post-movement update.
     if (abs(p.vx) < p.inertia_threshold && p.inertia_on) || p.forceInertiaX || p.prev_webQ do p.vx = 0
     if (abs(p.vz) < p.inertia_threshold && p.inertia_on) || p.forceInertiaZ || p.prev_webQ do p.vz = 0
 
@@ -213,24 +216,20 @@ moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint
     p.tick += 1
 }
 
-// Run one logical movement tick. XYZ jump and air ticks combine the existing
-// horizontal and vertical simulators without making moveXZ context-aware.
+// called by commands from ctx XZsim ELytraSim
 move :: proc(prs: ^ParserState, p: ^Player, w: f32, a: f32, airborne: bool, sprint: bool, sneak: bool, jump: bool, tempRot: f32 = 0, usedRot: bool = false, temp45: bool = false) {
     starting_tick := p.tick
     previous_web := p.prev_webQ
 
     moveXZ(&prs.macro, p, w, a, airborne, sprint, sneak, jump, tempRot, usedRot, temp45)
 
-    if prs.ctx == .XYZsim && (jump || airborne) {
-        // Both axis simulators must see the same previous-tick web state and
-        // together advance only one logical tick.
+    if prs.ctx == .ElytraSim && (jump || airborne) {
+        // Simulate Y independently, revert the XZ sim state change
         p.tick = starting_tick
         p.prev_webQ = previous_web
         moveY(p, jump)
     }
 
-    // Both axis updates must observe the previous Elytra state before the
-    // regular movement mode becomes current.
     p.prev_elytra = false
 }
 
@@ -270,7 +269,7 @@ moveY :: proc(p: ^Player, jump: bool) -> (bool, bool){
             }
         }
 
-        // BEGIN post-movement velocity update
+        // post-movement velocity update
         if !p.prev_elytra {
             gravity := p.slow_falling ? widenf32(0.01) : widenf32(0.08)
             p.vy = (p.vy - gravity) * widenf32(0.98)

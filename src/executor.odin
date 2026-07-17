@@ -84,7 +84,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
                 return fmt.tprintf("(x, z, vx, vz) = (%s, %s, %s, %s)", formatNum(prs, p.x), formatNum(prs, p.z), formatNum(prs, p.vx), formatNum(prs, p.vz)), true
             }else if prs.ctx == .Ysim {
                 return fmt.tprintf("(y, vy) = (%s, %s)", formatNum(prs, p.y), formatNum(prs, p.vy)), true
-            }else if prs.ctx == .XYZsim {
+            }else if prs.ctx == .ElytraSim {
                 return fmt.tprintf(
                     "(x, y, z, vx, vy, vz) = (%s, %s, %s, %s, %s, %s)",
                     formatNum(prs, p.x),
@@ -177,14 +177,14 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return "", true
 
     case .SetPos:
-        arg_count := prs.ctx == .XYZsim ? 3 : 2
+        arg_count := prs.ctx == .ElytraSim ? 3 : 2
         msg, argsOK := expectPlainArgs(cmd, "pos(...)", arg_count, arg_count)
         if !argsOK do return msg, false
 
         x, ok1 := eval(prs, p, cmd.args[0])
         if !ok1 do return parserErrorOr(prs, "Error: first argument of pos(...) is not a valid number"), false
 
-        if prs.ctx == .XYZsim {
+        if prs.ctx == .ElytraSim {
             y, ok2 := eval(prs, p, cmd.args[1])
             if !ok2 do return parserErrorOr(prs, "Error: second argument of pos(...) is not a valid number"), false
 
@@ -221,14 +221,14 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         return "", true
 
     case .SetVel:
-        arg_count := prs.ctx == .XYZsim ? 3 : 2
+        arg_count := prs.ctx == .ElytraSim ? 3 : 2
         msg, argsOK := expectPlainArgs(cmd, "vel(...)", arg_count, arg_count)
         if !argsOK do return msg, false
 
         vx, ok1 := eval(prs, p, cmd.args[0])
         if !ok1 do return parserErrorOr(prs, "Error: first argument of vel(...) is not a valid number"), false
 
-        if prs.ctx == .XYZsim {
+        if prs.ctx == .ElytraSim {
             vy, ok2 := eval(prs, p, cmd.args[1])
             if !ok2 do return parserErrorOr(prs, "Error: second argument of vel(...) is not a valid number"), false
 
@@ -277,7 +277,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !argsOK do return msg, false
         p.x = 0
         p.z = 0
-        if prs.ctx == .XYZsim do p.y = 0
+        if prs.ctx == .ElytraSim do p.y = 0
         return "", true
 
     case .ResetPosVel:
@@ -287,7 +287,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         p.z = 0
         p.vx = 0
         p.vz = 0
-        if prs.ctx == .XYZsim {
+        if prs.ctx == .ElytraSim {
             p.y = 0
             p.vy = 0
         }
@@ -855,6 +855,49 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             if p.posRec {
                 append(&p.posStorage, vec2{x = p.x, z = p.z})
             }
+        }
+        return "", true
+
+    case .ElytraJump, .ElytraSprintJump, .ElytraLand:
+        cmdName := "eland"
+        if cmd.type == .ElytraJump {
+            cmdName = "ejump"
+        } else if cmd.type == .ElytraSprintJump {
+            cmdName = "esjump"
+        }
+        msg, argsOK := expectPlainArgs(cmd, fmt.tprintf("%s(floor_y[, pitch, yaw])", cmdName), 1, 3)
+        if !argsOK do return msg, false
+        if len(cmd.args) == 2 do return fmt.tprintf("Error: %s(...) expects 1 or 3 arguments", cmdName), false
+
+        floor_y, floor_ok := eval(prs, p, cmd.args[0])
+        if !floor_ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) floor_y is not a valid number", cmdName)), false
+
+        if len(cmd.args) == 3 {
+            pitch, pitch_ok := eval(prs, p, cmd.args[1])
+            if !pitch_ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) pitch is not a valid number", cmdName)), false
+
+            yaw, yaw_ok := eval(prs, p, cmd.args[2])
+            if !yaw_ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) yaw is not a valid number", cmdName)), false
+
+            p.pitch = f32(pitch)
+            p.f = f32(yaw)
+        }
+
+        consumeAngleQueues(p)
+
+        is_jump := cmd.type != .ElytraLand
+        is_sprint_jump := cmd.type == .ElytraSprintJump
+        recordMacroTick(&prs.macro, 0, 0, is_jump, is_sprint_jump, false, p.f, p.pitch)
+
+        if is_jump {
+            elytra_jump(p, floor_y, p.pitch, p.f, is_sprint_jump)
+        } else {
+            elytra_land(p, floor_y, p.pitch, p.f)
+        }
+        p.tick += 1
+
+        if p.posRec {
+            append(&p.posStorage, vec2{x = p.x, z = p.z})
         }
         return "", true
 
@@ -1718,7 +1761,6 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
 }
 
 exeMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: MoveFunc){
-
     if mf.strafe45 {
         if mf.jump {
             // jump tick

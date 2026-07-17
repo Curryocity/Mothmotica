@@ -20,7 +20,7 @@ ParserState :: struct {
 }
 
 MothCtx :: enum {
-    XZsim, Ysim, XYZsim, Invalid,
+    XZsim, Ysim, ElytraSim, Invalid,
 }
 
 ParseResult :: struct {
@@ -98,7 +98,7 @@ CmdType :: enum {
     JumpTo, CoastTo, tier,
 
     // XYZ Elytra commands
-    Elytra, SetPitch, OutPitch, PitchQueue,
+    Elytra, ElytraJump, ElytraSprintJump, ElytraLand, SetPitch, OutPitch, PitchQueue,
     
     CeilQueue, SlimeQueue,
 
@@ -150,7 +150,7 @@ parseMothballResult :: proc(input: string) -> ParseResult {
         case ";y":
             ctx = .Ysim
         case ";e":
-            ctx = .XYZsim
+            ctx = .ElytraSim
         case:
             return ParseResult{ctx = .Invalid}
     }
@@ -178,6 +178,10 @@ parseMothballResult :: proc(input: string) -> ParseResult {
     map_insert(&prs.vars, "pi", PId)
 
     p := makePlayer()
+    if ctx == .ElytraSim {
+        p.inertia_threshold = 0.003
+        p.sprint_delay = false
+    }
     defer deletePlayerState(&p)
 
     for lexerPeek(&prs.lex).type != .EOF {
@@ -505,7 +509,7 @@ getCommandType :: proc(prs: ^ParserState, cmdName: string) -> CmdType {
             return getXZCommandType(cmdName)
         case .Ysim:
             return getYCommandType(cmdName)
-        case .XYZsim:
+        case .ElytraSim:
             return getXYZCommandType(cmdName)
     }
 
@@ -714,8 +718,14 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
 
 getXYZCommandType :: proc(cmdName: string) -> CmdType {
     switch cmdName {
-        case "elytra", "e":
+        case "e":
             return .Elytra
+        case "ej":
+            return .ElytraJump
+        case "esj":
+            return .ElytraSprintJump
+        case "el":
+            return .ElytraLand
         case "pitch", "p":
             return .SetPitch
         case "outp":
@@ -769,7 +779,7 @@ checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){
 }
 
 parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) -> Arg {
-        if lexerPeek(&prs.lex).type == .Dot{
+    if lexerPeek(&prs.lex).type == .Dot{
         if mf.stop {
             failParse(prs, "Error: stop movement functions cannot have appended inputs")
             return Arg{}

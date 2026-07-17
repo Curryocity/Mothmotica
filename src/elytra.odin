@@ -15,6 +15,12 @@ elytra_tick :: proc(p: ^Player, pitch: f32, yaw: f32) {
 	p.y += p.vy
 	p.z += p.vz
 
+    elytra_vel_update(p, pitch, yaw)
+}
+
+// Modelled from Minecraft 1.21.3
+elytra_vel_update :: proc(p: ^Player, pitch: f32, yaw: f32) {
+
     // post movement update from non-elytra tick
     if !p.prev_elytra {
         p.vx *= f64(f32(0.91) * p.prev_slip)
@@ -33,19 +39,18 @@ elytra_tick :: proc(p: ^Player, pitch: f32, yaw: f32) {
 	pitch_rad := clamped_pitch * ELYTRA_DEG_TO_RAD
 	yaw_rad   := -yaw * ELYTRA_DEG_TO_RAD
 
-	// Minecraft 1.21.3 uses the float Mth lookup-table trig here.
 	cos_yaw   := cosr(yaw_rad)
 	sin_yaw   := sinr(yaw_rad)
 	cos_pitch := cosr(pitch_rad)
 	sin_pitch := sinr(pitch_rad)
 
-	look_x := f64(sin_yaw * cos_pitch)
-	look_z := f64(cos_yaw * cos_pitch)
+	proj_x := f64(sin_yaw * cos_pitch)
+	proj_z := f64(cos_yaw * cos_pitch)
 
-	look_h  := math.sqrt(look_x*look_x + look_z*look_z)
-	speed_h := math.sqrt(p.vx*p.vx + p.vz*p.vz)
+	proj_xznorm  := math.sqrt(proj_x*proj_x + proj_z*proj_z)
+	speed_xz := math.sqrt(p.vx*p.vx + p.vz*p.vz)
 
-	// Minecraft 1.21.3 uses Math.cos here, not the lookup-table cosine.
+	// Minecraft 1.21.3 uses Math.cos here, not the lookup-table
 	cos_lift := math.cos(f64(pitch_rad))
 	lift := cos_lift * cos_lift
 	gravity := GRAVITY
@@ -57,28 +62,28 @@ elytra_tick :: proc(p: ^Player, pitch: f32, yaw: f32) {
 	vy := p.vy + gravity*(-1.0 + lift*0.75)
 	vz := p.vz
 
-	// Falling generates speed in the horizontal look direction.
-	if vy < 0 && look_h > 0 {
-		change := vy * -0.1 * lift
+	// Falling generates speed in the proj_xz direction.
+	if vy < 0 && proj_xznorm > 0 {
+		yConvert := vy * -0.1 * lift
 
-		vx += look_x * change / look_h
-		vy += change
-		vz += look_z * change / look_h
+		vx += proj_x * yConvert / proj_xznorm
+		vy += yConvert
+		vz += proj_z * yConvert / proj_xznorm
 	}
 
-	// Looking upward converts horizontal speed into climb.
-	if pitch_rad < 0 && look_h > 0 {
-		change := speed_h * -f64(sin_pitch) * 0.04
+	// Upward pitch converts horizontal speed into climb.
+	if pitch_rad < 0 && proj_xznorm > 0 {
+		climb := speed_xz * -f64(sin_pitch) * 0.04
 
-		vx -= look_x * change / look_h
-		vy += change * 3.2
-		vz -= look_z * change / look_h
+		vx -= proj_x * climb / proj_xznorm
+		vy += climb * 3.2
+		vz -= proj_z * climb / proj_xznorm
 	}
 
-	// Turn the horizontal velocity toward the horizontal look direction.
-	if look_h > 0 {
-		vx += (look_x/look_h*speed_h - vx) * 0.1
-		vz += (look_z/look_h*speed_h - vz) * 0.1
+	// Accelerate in proj_xz direction
+	if proj_xznorm > 0 {
+		vx += (proj_x/proj_xznorm*speed_xz - vx) * 0.1
+		vz += (proj_z/proj_xznorm*speed_xz - vz) * 0.1
 	}
 
 	p.vx = vx * HORIZONTAL_DRAG
@@ -86,4 +91,32 @@ elytra_tick :: proc(p: ^Player, pitch: f32, yaw: f32) {
 	p.vz = vz * HORIZONTAL_DRAG
 
 	p.prev_elytra = true
+}
+
+elytra_jump :: proc(p: ^Player, floor_y: f64, pitch: f32, yaw: f32, sprinting: bool) {
+    p.x += p.vx
+    p.y += p.vy
+    p.z += p.vz
+    if p.y < floor_y do p.y = floor_y
+
+    p.prev_vy = p.vy
+
+    jb_signed := transmute(i8)p.jump_boost
+    p.vy = widenf32(0.42) + widenf32(0.1) * f64(jb_signed)
+
+    if sprinting {
+        rad := yaw * f32(0.017453292)
+        p.vx -= f64(sinr(rad) * f32(0.2))
+        p.vz += f64(cosr(rad) * f32(0.2))
+    }
+
+    p.prev_elytra = true
+    elytra_vel_update(p, pitch, yaw)
+}
+
+elytra_land :: proc(p: ^Player, floor_y: f64, pitch: f32, yaw: f32) {
+    p.y = floor_y
+    p.vy = 0
+    p.prev_vy = 0
+    elytra_tick(p, pitch, yaw)
 }
