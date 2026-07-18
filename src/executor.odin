@@ -875,10 +875,11 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             p.f = f32(yaw)
         }
 
-        for _ in 0..<ticks {
-            consumeAngleQueues(p)
+		for _ in 0..<ticks {
+			consumeAngleQueues(p)
 
-            recordMacroTick(&prs.macro, 0, 0, false, false, false, p.f, p.pitch)
+			activating_elytra := !p.prev_elytra
+			recordMacroTick(&prs.macro, 1, 0, activating_elytra, true, false, p.f, p.pitch)
 
             p.prev_vy = p.vy
             elytra_tick(p, p.pitch, p.f)
@@ -917,9 +918,19 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 
         consumeAngleQueues(p)
 
-        is_jump := cmd.type != .ElytraLand
-        is_sprint_jump := cmd.type == .ElytraSprintJump
-        recordMacroTick(&prs.macro, 0, 0, is_jump, is_sprint_jump, false, p.f, p.pitch)
+		is_jump := cmd.type != .ElytraLand
+		is_sprint_jump := cmd.type == .ElytraSprintJump
+		hold_sprint_forward := is_sprint_jump || cmd.type == .ElytraLand
+		recordMacroTick(
+			&prs.macro,
+			hold_sprint_forward ? 1 : 0,
+			0,
+			is_jump,
+			hold_sprint_forward,
+			false,
+			p.f,
+			p.pitch,
+		)
 
         if is_jump {
             elytra_jump(p, floor_y, p.pitch, p.f, is_sprint_jump)

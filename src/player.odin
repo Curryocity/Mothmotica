@@ -364,6 +364,11 @@ move :: proc(prs: ^ParserState, p: ^Player, w: f32, a: f32, airborne: bool, spri
     starting_tick := p.tick
     previous_web := p.prev_webQ
 
+	if prs.ctx == .ElytraSim && !airborne {
+		p.vy = 0
+		p.prev_vy = 0
+	}
+
 	if prs.version == .V1_21_3 {
 		moveXZModern(&prs.macro, p, w, a, airborne, sprint, sneak, jump, tempRot, usedRot, temp45)
 	} else {
