@@ -900,19 +900,21 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         }
         msg, argsOK := expectPlainArgs(cmd, fmt.tprintf("%s(floor_y[, pitch, yaw])", cmdName), 1, 3)
         if !argsOK do return msg, false
-        if len(cmd.args) == 2 do return fmt.tprintf("Error: %s(...) expects 1 or 3 arguments", cmdName), false
 
         floor_y, floor_ok := eval(prs, p, cmd.args[0])
         if !floor_ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) floor_y is not a valid number", cmdName)), false
 
-        if len(cmd.args) == 3 {
+        if len(cmd.args) >= 2 {
             pitch, pitch_ok := eval(prs, p, cmd.args[1])
             if !pitch_ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) pitch is not a valid number", cmdName)), false
 
+            p.pitch = f32(pitch)
+        }
+
+        if len(cmd.args) == 3 {
             yaw, yaw_ok := eval(prs, p, cmd.args[2])
             if !yaw_ok do return parserErrorOr(prs, fmt.tprintf("Error: %s(...) yaw is not a valid number", cmdName)), false
 
-            p.pitch = f32(pitch)
             p.f = f32(yaw)
         }
 
