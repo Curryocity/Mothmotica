@@ -875,6 +875,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             p.f = f32(yaw)
         }
 
+		buf: [dynamic]u8
+		defer delete(buf)
+
 		for _ in 0..<ticks {
 			consumeAngleQueues(p)
 
@@ -884,12 +887,13 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
             p.prev_vy = p.vy
             elytra_tick(p, p.pitch, p.f)
             p.tick += 1
+            peakObserverOut(prs, p, &buf, false)
 
             if p.posRec {
                 append(&p.posStorage, vec2{x = p.x, z = p.z})
             }
         }
-        return "", true
+        return strings.clone(string(buf[:])), true
 
     case .ElytraJump, .ElytraSprintJump, .ElytraLand:
         cmdName := "eland"
@@ -1510,6 +1514,14 @@ evalBoolArgError :: proc(name: string) -> string {
     return fmt.tprintf("Error: %s(...) argument should be 0 or 1", name)
 }
 
+peakObserverOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, blocked: bool) {
+    if prs.silent || !prs.yObserve || blocked do return
+
+    if p.vy <= 0 && p.prev_vy > 0 {
+        append(buf, fmt.tprintf("Peak y = %s (t = %d)\n", formatNum(prs, p.y), p.tick))
+    }
+}
+
 yObserverOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, hitCeil, hitSlime: bool) {
     if prs.silent do return
     if !prs.yObserve do return
@@ -1521,10 +1533,7 @@ yObserverOut :: proc(prs: ^ParserState, p: ^Player, buf: ^[dynamic]u8, hitCeil, 
         append(buf, fmt.tprintf("Slime y = %s (t = %d)\n", formatNum(prs, p.y), p.tick))
     }
 
-    peaked := !hitCeil && p.vy <= 0 && p.prev_vy > 0
-    if peaked {
-        append(buf, fmt.tprintf("Peak y = %s (t = %d)\n", formatNum(prs, p.y), p.tick))
-    }
+    peakObserverOut(prs, p, buf, hitCeil)
 }
 
 measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64, bool) {

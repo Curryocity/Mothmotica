@@ -15,6 +15,7 @@ The `;e` simulator defaults to Minecraft 1.21.3 movement: `inertia(0.003)`, `sde
 | `pitch(n)` / `p(n)` | Set the stored pitch. |
 | `outp([target])` | Output the stored pitch, optionally relative to a target. |
 | `pitchqueue(...)` / `pq(...)` | Queue pitch values like `aq(...)` queues yaw values, applies to non-elytra ticks too. |
+| `obs(0/1)` / `observe(0/1)` | Disable or enable automatic peak messages. |
 
 
 Existing movement functions also work in `;e`. Ground ticks use XZ movement, while jump and air ticks combine the existing XZ and Y simulators into one tick.
