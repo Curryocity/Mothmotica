@@ -17,10 +17,11 @@ ParserState :: struct {
     yObserve: bool,
     silent: bool,
     macro: Macro,
+	version: MCVersion,
 }
 
 MothCtx :: enum {
-    XZsim, Ysim, Invalid,
+    XZsim, Ysim, ElytraSim, Invalid,
 }
 
 ParseResult :: struct {
@@ -79,7 +80,7 @@ CmdType :: enum {
 
     ForceInertiaX, ForceInertiaZ,
 
-    SetPrecision, SetSlip, SetSprintDelay, SetInertia,
+    SetPrecision, SetSlip, SetSprintDelay, SetSneakDelay, SetInertia, SetVersion,
     SetSlow, SetSpeed,
 
     PrevGround, PrevAir,
@@ -96,6 +97,9 @@ CmdType :: enum {
     SetWeb, SetLadder, SetBlock, SetSoulSand,
 
     JumpTo, CoastTo, tier,
+
+    // XYZ Elytra commands
+    Elytra, ElytraJump, ElytraSprintJump, ElytraLand, SetPitch, OutPitch, PitchQueue,
     
     CeilQueue, SlimeQueue,
 
@@ -146,6 +150,8 @@ parseMothballResult :: proc(input: string) -> ParseResult {
             ctx = .XZsim
         case ";y":
             ctx = .Ysim
+        case ";e":
+            ctx = .ElytraSim
         case:
             return ParseResult{ctx = .Invalid}
     }
@@ -165,14 +171,16 @@ parseMothballResult :: proc(input: string) -> ParseResult {
         printSep = strings.clone(" "),
         yObserve = true,
         silent = false,
+		version = default_mcversion(ctx),
     }
     defer deleteParserState(&prs)
 
-    map_insert(&prs.vars, "bx", widenf32(0.6))
+    map_insert(&prs.vars, "bx", f64(f32(0.6)))
     map_insert(&prs.vars, "px", 0.0625)
     map_insert(&prs.vars, "pi", PId)
 
     p := makePlayer()
+	apply_version_defaults(&p, prs.version)
     defer deletePlayerState(&p)
 
     for lexerPeek(&prs.lex).type != .EOF {
@@ -500,6 +508,8 @@ getCommandType :: proc(prs: ^ParserState, cmdName: string) -> CmdType {
             return getXZCommandType(cmdName)
         case .Ysim:
             return getYCommandType(cmdName)
+        case .ElytraSim:
+            return getXYZCommandType(cmdName)
     }
 
     return .Invalid
@@ -529,6 +539,8 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
             return .OutTick
         case "inertia":
             return .SetInertia
+		case "v", "ver", "version":
+			return .SetVersion
         case "web":
             return .SetWeb
         case "ld", "ladder":
@@ -621,6 +633,8 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
             return .PrevAir
         case "sdel":
             return .SetSprintDelay
+        case "sndel", "sneakdelay":
+            return .SetSneakDelay
         case "poss", "zposs":
             return .ZPoss
         case "xposs":
@@ -705,6 +719,38 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
     return .Invalid
 }
 
+getXYZCommandType :: proc(cmdName: string) -> CmdType {
+    switch cmdName {
+        case "e":
+            return .Elytra
+        case "ej", "ejump":
+            return .ElytraJump
+        case "esj":
+            return .ElytraSprintJump
+        case "el", "eland":
+            return .ElytraLand
+        case "pitch", "p":
+            return .SetPitch
+        case "outp":
+            return .OutPitch
+        case "pitchqueue", "pq":
+            return .PitchQueue
+    }
+
+	if cmd := getXZCommandType(cmdName); cmd != .Invalid {
+		return cmd
+	}
+
+	#partial switch getYCommandType(cmdName) {
+	case .SetY, .OutY, .SetVy, .OutVy, .OutYTop,
+	     .SetPlayerHeight, .SetJumpBoost, .SetSlowFall, .SetYObserve,
+	     .CeilQueue, .SlimeQueue, .tier:
+		return getYCommandType(cmdName)
+	case:
+		return .Invalid
+	}
+}
+
 checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){
     mf := MoveFunc{name = name}
     s := name
@@ -744,7 +790,7 @@ checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){
 }
 
 parseMoveFunc :: proc(prs: ^ParserState, p: ^Player, mf: ^MoveFunc, tok: Token) -> Arg {
-        if lexerPeek(&prs.lex).type == .Dot{
+    if lexerPeek(&prs.lex).type == .Dot{
         if mf.stop {
             failParse(prs, "Error: stop movement functions cannot have appended inputs")
             return Arg{}

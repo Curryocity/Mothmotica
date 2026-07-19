@@ -202,7 +202,7 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     popFontIf(pushed_MonoFont)
 
     prompt := strings.trim_space(bufferString(msg.text[:]))
-    if strings.has_prefix(prompt, ";s") && im.IsItemClicked(.Right) {
+    if (strings.has_prefix(prompt, ";s") || strings.has_prefix(prompt, ";e")) && im.IsItemClicked(.Right) {
         bufferSet(state.ui.macroName[:], "macro")
         bufferSet(state.ui.macroPrompt[:], prompt)
         bufferSet(state.ui.macroExportStatus[:], "")

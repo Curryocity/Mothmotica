@@ -17,6 +17,7 @@ MacroTick :: struct {
     sprint: bool,
     sneak: bool,
     rotation: f32,
+    pitch: f32,
 }
 
 Macro :: struct {
@@ -28,6 +29,7 @@ recordMacroTick :: proc(
     forward, strafe: f32,
     jump, sprint, sneak: bool,
     rotation: f32,
+    pitch: f32,
 ) {
     append(&macro.ticks, MacroTick{
         w = forward > 0,
@@ -38,6 +40,7 @@ recordMacroTick :: proc(
         sprint = sprint,
         sneak = sneak,
         rotation = rotation,
+        pitch = pitch,
     })
 }
 
@@ -48,6 +51,11 @@ boolToString :: proc(value: bool) -> string {
 macroTurn :: proc(macro: Macro, tick_index: int) -> f32 {
     if tick_index == 0 do return 0
     return macro.ticks[tick_index].rotation - macro.ticks[tick_index - 1].rotation
+}
+
+macroPitchTurn :: proc(macro: Macro, tick_index: int) -> f32 {
+    if tick_index == 0 do return 0
+    return macro.ticks[tick_index].pitch - macro.ticks[tick_index - 1].pitch
 }
 
 makeMpkMacro :: proc(macro: Macro) -> string {
@@ -62,8 +70,9 @@ makeMpkMacro :: proc(macro: Macro) -> string {
     for tick, i in macro.ticks {
         fmt.sbprintf(
             &builder,
-            "\n0.0,0.0,0.0,0.0,0.0,%v,0.0,%s,%s,%s,%s,%s,%s,%s,false,false,0.0,0.0,0.0",
+            "\n0.0,0.0,0.0,0.0,0.0,%v,%v,%s,%s,%s,%s,%s,%s,%s,false,false,0.0,0.0,0.0",
             macroTurn(macro, i),
+            macroPitchTurn(macro, i),
             boolToString(tick.w),
             boolToString(tick.a),
             boolToString(tick.s),
@@ -86,7 +95,7 @@ makeCyvMacro :: proc(macro: Macro) -> string {
         separator := i == 0 ? "\n" : ",\n"
         fmt.sbprintf(
             &builder,
-            "%s[\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%v\", \"0.0\"]",
+            "%s[\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%v\", \"%v\"]",
             separator,
             boolToString(tick.w),
             boolToString(tick.a),
@@ -96,6 +105,7 @@ makeCyvMacro :: proc(macro: Macro) -> string {
             boolToString(tick.sprint),
             boolToString(tick.sneak),
             macroTurn(macro, i),
+            macroPitchTurn(macro, i),
         )
     }
     if len(macro.ticks) > 0 do strings.write_string(&builder, "\n")
