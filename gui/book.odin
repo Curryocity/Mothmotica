@@ -568,9 +568,13 @@ avatarLabel :: proc(name: string) -> [2]byte {
 }
 
 drawAvatar :: proc(label: cstring, bg, ring, text_col: im.Vec4) {
+    drawAvatarSized(label, bg, ring, text_col, AVATAR_SIZE)
+}
+
+drawAvatarSized :: proc(label: cstring, bg, ring, text_col: im.Vec4, size: f32) {
     pos := im.GetCursorScreenPos()
-    center := im.Vec2{pos.x + AVATAR_SIZE * 0.5, pos.y + AVATAR_SIZE * 0.5}
-    radius := AVATAR_SIZE * 0.5
+    center := im.Vec2{pos.x + size * 0.5, pos.y + size * 0.5}
+    radius := size * 0.5
     draw_list := im.GetWindowDrawList()
 
     im.DrawList_AddCircleFilled(draw_list, center, radius, im.GetColorU32ImVec4(bg), 36)
@@ -600,10 +604,14 @@ drawAvatar :: proc(label: cstring, bg, ring, text_col: im.Vec4) {
 }
 
 drawAvatarImage :: proc(texture: u32) {
+    drawAvatarImageSized(texture, AVATAR_SIZE)
+}
+
+drawAvatarImageSized :: proc(texture: u32, size: f32) {
     pos := im.GetCursorScreenPos()
     p_min := pos
-    p_max := im.Vec2{pos.x + AVATAR_SIZE, pos.y + AVATAR_SIZE}
-    radius := AVATAR_SIZE * 0.5
+    p_max := im.Vec2{pos.x + size, pos.y + size}
+    radius := size * 0.5
     draw_list := im.GetWindowDrawList()
 
     im.DrawList_AddImageRounded(

@@ -153,6 +153,24 @@ drawSettings :: proc(state: ^AppState) {
 
         im.Dummy({0, 12})
         im.SeparatorText("Profile Picture")
+        preview_size :: f32(72)
+        im.SetCursorPosX(max((im.GetWindowWidth() - preview_size) * 0.5, 0))
+        if user_pfpTex != 0 {
+            drawAvatarImageSized(user_pfpTex, preview_size)
+        } else {
+            player_avatar := avatarLabel(bufferString(state.settings.playerName[:]))
+            pushTextScale(1.7)
+            drawAvatarSized(
+                cstring(&player_avatar[0]),
+                {0.78, 0.53, 0.16, 1},
+                {1.0, 0.79, 0.32, 1},
+                {0.07, 0.06, 0.04, 1},
+                preview_size,
+            )
+            popTextScale()
+        }
+        im.Dummy({preview_size, preview_size})
+        im.Spacing()
         im.AlignTextToFramePadding()
         im.Text("Source Path:")
         im.SameLine()
