@@ -79,6 +79,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 		msg, argsOK := expectPlainArgs(cmd, "version(...)", 0, 1)
 		if !argsOK do return msg, false
 		if len(cmd.args) == 0 {
+			if prs.ctx == .ElytraSim {
+				return "Current version: 1.21.3 (forced)", true
+			}
 			return fmt.tprintf(
 				"Current version: %s\nSupported versions: 1.8.9, 1.21.3",
 				mcversion_name(prs.version),
@@ -93,9 +96,15 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
 			version, ok = parse_mcversion(arg.text)
 		}
 		if !ok do return "Error: version(...) supports 1.8.9 and 1.21.3", false
+		if prs.ctx == .ElytraSim && version == .V1_8_9 {
+			return "Error: Minecraft 1.8.9 is not supported in Elytra simulations", false
+		}
 
 		prs.version = version
 		apply_version_defaults(p, version)
+		if prs.ctx == .ElytraSim && version == .V1_21_3 {
+			return "Hint: v(\"1.21.3\") is already enforced in `;e` simulations.", true
+		}
 		return "", true
 
     case .Measure:
@@ -1078,6 +1087,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     case .SetSlowFall:
         msg, argsOK := expectPlainArgs(cmd, "slowfall(...)", 1, 1)
         if !argsOK do return msg, false
+		if prs.version == .V1_8_9 {
+			return "Error: slowfall(...) is not supported in Minecraft 1.8.9", false
+		}
 
         slowFall, ok := evalBoolArg(prs, p, cmd.args[0], "slowfall")
         if !ok do return parserErrorOr(prs, evalBoolArgError("slowfall")), false

@@ -38,6 +38,7 @@ apply_version_defaults :: proc(p: ^Player, version: MCVersion) {
 		p.inertia_threshold = 0.005
 		p.sprint_delay = true
 		p.sneak_delay = false
+		p.slow_falling = false
 	case .V1_21_3:
 		p.inertia_threshold = 0.003
 		p.sprint_delay = false

@@ -27,7 +27,7 @@ elytra_vel_update :: proc(p: ^Player, pitch: f32, yaw: f32) {
             p.vx *= f64(f32(0.91) * p.prev_slip)
             p.vz *= f64(f32(0.91) * p.prev_slip)
         }
-        
+
         p.vy = (p.vy - air_gravity(p, .V1_21_3)) * f64(f32(0.98))
     }
 
