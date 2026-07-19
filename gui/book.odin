@@ -208,6 +208,7 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
         bufferSet(state.ui.macroExportStatus[:], "")
         state.ui.macroExportStatusError = false
         state.ui.confirmMacroOverwrite = false
+        state.ui.macroDirectory = c.int(state.settings.lastMacroDirectory)
         state.ui.openMacroExportPopup = true
         state.ui.showMacroExportPopup = true
     }
@@ -276,7 +277,41 @@ drawMacroExportPopup :: proc(state: ^AppState) {
     im.Text("Type")
     im.SetNextItemWidth(-1)
     macro_type_changed := im.Combo("##macro-type", &state.ui.macroType, "Mpk\x00Cyv\x00\x00")
-    if state.ui.confirmMacroOverwrite && (macro_name_changed || macro_type_changed) {
+
+    directory_index := clamp(
+        int(state.ui.macroDirectory),
+        0,
+        state.settings.macroDirectoryCount - 1,
+    )
+    state.ui.macroDirectory = c.int(directory_index)
+    directory_name := strings.trim_space(bufferString(state.settings.macroDirectories[directory_index].name[:]))
+    if directory_name == "" do directory_name = fmt.tprintf("Directory %d", directory_index + 1)
+    directory_name_c := strings.clone_to_cstring(directory_name)
+    defer delete(directory_name_c)
+
+    im.Text("Directory")
+    im.SetNextItemWidth(-1)
+    macro_directory_changed := false
+    if im.BeginCombo("##macro-directory", directory_name_c) {
+        for i in 0..<state.settings.macroDirectoryCount {
+            im.PushIDInt(c.int(i))
+            option_name := strings.trim_space(bufferString(state.settings.macroDirectories[i].name[:]))
+            if option_name == "" do option_name = fmt.tprintf("Directory %d", i + 1)
+            option_name_c := strings.clone_to_cstring(option_name)
+            selected := i == directory_index
+            if im.Selectable(option_name_c, selected) {
+                state.ui.macroDirectory = c.int(i)
+                directory_index = i
+                macro_directory_changed = true
+            }
+            if selected do im.SetItemDefaultFocus()
+            delete(option_name_c)
+            im.PopID()
+        }
+        im.EndCombo()
+    }
+
+    if state.ui.confirmMacroOverwrite && (macro_name_changed || macro_type_changed || macro_directory_changed) {
         state.ui.confirmMacroOverwrite = false
         state.ui.macroExportStatusError = false
         bufferSet(state.ui.macroExportStatus[:], "")
@@ -300,7 +335,7 @@ drawMacroExportPopup :: proc(state: ^AppState) {
         {.ReadOnly},
     )
 
-    destination, destination_err := macrosDir(state, int(state.ui.macroType))
+    destination, destination_err := macrosDir(state, directory_index)
     if destination_err == nil {
         destination_c := strings.clone_to_cstring(destination)
         im.Text("Destination")
@@ -355,6 +390,7 @@ drawMacroExportPopup :: proc(state: ^AppState) {
             bufferString(state.ui.macroPrompt[:]),
             macro_name,
             int(state.ui.macroType),
+            directory_index,
             state.ui.macroExportStatus[:],
             overwrite = state.ui.confirmMacroOverwrite,
         )
@@ -362,6 +398,8 @@ drawMacroExportPopup :: proc(state: ^AppState) {
         case .Success:
             state.ui.confirmMacroOverwrite = false
             state.ui.macroExportStatusError = false
+            state.settings.lastMacroDirectory = directory_index
+            state.settings.dirty = true
         case .Exists:
             state.ui.confirmMacroOverwrite = true
             state.ui.macroExportStatusError = true

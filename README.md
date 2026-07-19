@@ -71,12 +71,11 @@ Open **Settings** from the Mothmotica home screen. Changes are saved automatical
 | Name | The name shown for your messages. |
 | Bot Name | The name shown for Mothball responses. |
 | Profile Picture | Enter an image path and select **Use Image**, or select **Delete** to remove the current picture. |
-| Mpk Directory | The destination for Mpk (`.csv`) macro exports. Press **Default Mpk** restores the default directory and **Locate Mpk** opens the active folder. |
-| Cyv Directory | The destination for Cyv (`.json`) macro exports. Press **Default Cyv** restores the default directory and **Locate Cyv** opens the active folder. |
+| Macro Export | Manage named export directories in a scrollable list. Use **Add Directory** to create one, or **Edit** to change its name/path, locate it, or delete it. |
 | Send Hotkey | Choose whether Enter or Shift + Enter sends a message. The other key will create a newline instead.|
 | Theme | Choose the Dark, Soft, or Light theme. |
 
-When no custom macro directory is set, both formats use the shared `Mothmotica/Macros` folder inside the platform's application data directory.
+The permanent **Default** destination points to the `Mothmotica/Macros` folder inside the platform's application data directory. Existing Mpk and Cyv directory settings are migrated into named custom destinations.
 
 ## Exporting Macros
 
@@ -86,10 +85,10 @@ To export from the GUI:
 
 1. Enter or open an `;s` or `;e` simulation in a message box.
 2. Right-click the message box to open **Export Macro**.
-3. Enter the macro name and select **Mpk** or **Cyv**.
+3. Enter the macro name, select **Mpk** or **Cyv**, and choose a named directory.
 4. Check the input and destination, then select **Export**.
 
-If the destination already contains a macro with the same name, choose **Cancel** to keep editing or **Overwrite** to replace it.
+The directory defaults to the destination used for the most recent successful export. If it already contains a macro with the same name, choose **Cancel** to keep editing or **Overwrite** to replace it.
 
 
 ## Modified Mothball (Compared to Anonnoob's extended mothball)

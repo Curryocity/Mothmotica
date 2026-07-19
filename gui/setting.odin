@@ -5,6 +5,11 @@ import "core:os"
 import "core:strings"
 import im "../third_party/odin-imgui"
 
+SavedMacroDirectory :: struct {
+    name: string,
+    path: string,
+}
+
 Settings :: struct {
     version: int,
     player_name: string,
@@ -13,6 +18,8 @@ Settings :: struct {
     macro_export_path: string,
     mpk_export_path: string,
     cyv_export_path: string,
+    macro_directories: []SavedMacroDirectory,
+    last_macro_directory: int,
     send_hotkey: int,
     theme: int,
 }
@@ -30,6 +37,89 @@ SubmitState :: struct {
 setAvatarStatus :: proc(state: ^AppState, message: string, is_error: bool) {
     bufferSet(state.settings.playerAvatarStatus[:], message)
     state.settings.playerAvatarStatusError = is_error
+}
+
+drawMacroDirectoryEditorPopup :: proc(state: ^AppState) {
+    editing := state.ui.macroDirectoryEditIndex >= 0
+    popup_title: cstring = "Edit Macro Directory" if editing else "Add Macro Directory"
+
+    if state.ui.openMacroDirectoryEditorPopup {
+        im.OpenPopup(popup_title)
+        state.ui.openMacroDirectoryEditorPopup = false
+    }
+
+    viewport := im.GetMainViewport()
+    center := im.Vec2{
+        viewport.Pos.x + viewport.Size.x * 0.5,
+        viewport.Pos.y + viewport.Size.y * 0.5,
+    }
+    im.SetNextWindowPos(center, .Appearing, {0.5, 0.5})
+    im.SetNextWindowSize({480, 0}, .Appearing)
+    if !im.BeginPopupModal(popup_title, nil, {.NoResize}) do return
+    defer im.EndPopup()
+
+    protected := editing && state.ui.macroDirectoryEditIndex == 0
+
+    im.Text("Display Name")
+    im.SetNextItemWidth(-1)
+    im.InputText(
+        "##new-macro-directory-name",
+        cstring(&state.ui.macroDirectoryNameInput[0]),
+        c.size_t(len(state.ui.macroDirectoryNameInput)),
+        protected ? im.InputTextFlags{.ReadOnly} : {},
+    )
+
+    im.Text("Directory Path")
+    im.SetNextItemWidth(-1)
+    im.InputText(
+        "##new-macro-directory-path",
+        cstring(&state.ui.macroDirectoryPathInput[0]),
+        c.size_t(len(state.ui.macroDirectoryPathInput)),
+        protected ? im.InputTextFlags{.ReadOnly} : {},
+    )
+
+    name := strings.trim_space(bufferString(state.ui.macroDirectoryNameInput[:]))
+    path := strings.trim_space(bufferString(state.ui.macroDirectoryPathInput[:]))
+
+    if editing {
+        if im.Button("Locate Directory", {150, 34}) {
+            if protected {
+                openMacrosFolder(state, 0)
+            } else {
+                openMacroDirectoryPath(path)
+            }
+        }
+    }
+
+    if editing && !protected {
+        im.SameLine()
+        if im.Button("Delete", {100, 34}) {
+            removeMacroDirectory(state, state.ui.macroDirectoryEditIndex)
+            im.CloseCurrentPopup()
+            return
+        }
+    }
+
+    if editing do im.Spacing()
+    if im.Button("Cancel", {100, 34}) {
+        im.CloseCurrentPopup()
+    }
+    im.SameLine()
+    im.BeginDisabled((name == "" || path == "") && !protected)
+    if im.Button("OK", {100, 34}) {
+        if !editing {
+            if addMacroDirectory(state, name, path) do im.CloseCurrentPopup()
+        } else if protected {
+            im.CloseCurrentPopup()
+        } else {
+            directory := &state.settings.macroDirectories[state.ui.macroDirectoryEditIndex]
+            bufferSet(directory.name[:], name)
+            bufferSet(directory.path[:], path)
+            state.settings.dirty = true
+            im.CloseCurrentPopup()
+        }
+    }
+    im.EndDisabled()
 }
 
 drawSettings :: proc(state: ^AppState) {
@@ -61,6 +151,7 @@ drawSettings :: proc(state: ^AppState) {
             state.settings.dirty = true
         }
 
+        im.Dummy({0, 12})
         im.SeparatorText("Profile Picture")
         im.AlignTextToFramePadding()
         im.Text("Source Path:")
@@ -98,74 +189,50 @@ drawSettings :: proc(state: ^AppState) {
             im.PopTextWrapPos()
         }
 
+        im.Dummy({0, 12})
         im.SeparatorText("Macro Export")
         default_macro_dir, default_macro_err := defaultMacrosDir()
+        if im.BeginChild("MacroDirectories", {0, 200}, {.Borders}, {}) {
+            for i in 0..<state.settings.macroDirectoryCount {
+                directory := &state.settings.macroDirectories[i]
+                im.PushIDInt(c.int(i))
 
-        im.Text("Mpk Directory")
-        im.SetNextItemWidth(-1)
-        if default_macro_err == nil {
-            default_macro_dir_c := strings.clone_to_cstring(default_macro_dir)
-            defer delete(default_macro_dir_c)
-            if im.InputTextWithHint(
-                "##mpk-export-path",
-                default_macro_dir_c,
-                cstring(&state.settings.mpkExportPath[0]),
-                c.size_t(len(state.settings.mpkExportPath)),
-            ) {
-                state.settings.dirty = true
-            }
-        } else {
-            if im.InputText(
-                "##mpk-export-path",
-                cstring(&state.settings.mpkExportPath[0]),
-                c.size_t(len(state.settings.mpkExportPath)),
-            ) {
-                state.settings.dirty = true
+                name := strings.trim_space(bufferString(directory.name[:]))
+                name_c := strings.clone_to_cstring(name)
+                im.AlignTextToFramePadding()
+                im.Text("%s", name_c)
+                delete(name_c)
+                im.SameLine(max(im.GetWindowWidth() - 88, 16))
+                if im.Button("Edit", {70, 28}) {
+                    bufferSet(state.ui.macroDirectoryNameInput[:], name)
+                    path := strings.trim_space(bufferString(directory.path[:]))
+                    if i == 0 {
+                        path = default_macro_dir if default_macro_err == nil else "Unavailable"
+                    }
+                    bufferSet(state.ui.macroDirectoryPathInput[:], path)
+                    state.ui.macroDirectoryEditIndex = i
+                    state.ui.openMacroDirectoryEditorPopup = true
+                }
+                im.PopID()
+                if i + 1 < state.settings.macroDirectoryCount do im.Separator()
             }
         }
-        if im.Button("Default Mpk", {120, 34}) {
-            bufferSet(state.settings.mpkExportPath[:], "")
-            state.settings.dirty = true
-        }
-        im.SameLine()
-        if im.Button("Locate Mpk", {120, 34}) {
-            openMacrosFolder(state, 0)
-        }
+        im.EndChild()
 
-        im.Text("Cyv Directory")
-        im.SetNextItemWidth(-1)
-        if default_macro_err == nil {
-            default_macro_dir_c := strings.clone_to_cstring(default_macro_dir)
-            defer delete(default_macro_dir_c)
-            if im.InputTextWithHint(
-                "##cyv-export-path",
-                default_macro_dir_c,
-                cstring(&state.settings.cyvExportPath[0]),
-                c.size_t(len(state.settings.cyvExportPath)),
-            ) {
-                state.settings.dirty = true
-            }
-        } else {
-            if im.InputText(
-                "##cyv-export-path",
-                cstring(&state.settings.cyvExportPath[0]),
-                c.size_t(len(state.settings.cyvExportPath)),
-            ) {
-                state.settings.dirty = true
-            }
+        im.BeginDisabled(state.settings.macroDirectoryCount >= MAX_MACRO_DIRECTORIES)
+        if im.Button("Add Directory", {140, 34}) {
+            bufferSet(state.ui.macroDirectoryNameInput[:], "")
+            bufferSet(state.ui.macroDirectoryPathInput[:], "")
+            state.ui.macroDirectoryEditIndex = -1
+            state.ui.openMacroDirectoryEditorPopup = true
         }
-        if im.Button("Default Cyv", {120, 34}) {
-            bufferSet(state.settings.cyvExportPath[:], "")
-            state.settings.dirty = true
-        }
-        im.SameLine()
-        if im.Button("Locate Cyv", {120, 34}) {
-            openMacrosFolder(state, 1)
-        }
+        im.EndDisabled()
+        drawMacroDirectoryEditorPopup(state)
         if default_macro_err == nil {
             delete(default_macro_dir)
         }
 
+        im.Dummy({0, 12})
         im.SeparatorText("Send Hotkey")
         if im.RadioButton("Enter", state.settings.sendHotkey == .Enter) {
             state.settings.sendHotkey = .Enter
@@ -176,6 +243,7 @@ drawSettings :: proc(state: ^AppState) {
             state.settings.dirty = true
         }
 
+        im.Dummy({0, 12})
         im.SeparatorText("Theme")
         if im.RadioButton("Dark", state.settings.theme == .Dark) {
             state.settings.theme = .Dark
@@ -190,6 +258,7 @@ drawSettings :: proc(state: ^AppState) {
             state.settings.dirty = true
         }
 
+        im.Dummy({0, 12})
         im.Separator()
         if im.Button("Back", {120, 36}) {
             state.ui.scene = .Home

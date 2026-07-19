@@ -58,13 +58,57 @@ defaultMacrosDir :: proc() -> (string, os.Error) {
     return os.join_path({dir, MACROS_FOLDER}, context.allocator)
 }
 
-macrosDir :: proc(state: ^AppState, macro_type: int) -> (string, os.Error) {
-    configured := strings.trim_space(bufferString(state.settings.mpkExportPath[:]))
-    if macro_type != 0 {
-        configured = strings.trim_space(bufferString(state.settings.cyvExportPath[:]))
+macrosDir :: proc(state: ^AppState, directory_index: int) -> (string, os.Error) {
+    if directory_index < 0 || directory_index >= state.settings.macroDirectoryCount {
+        return defaultMacrosDir()
     }
+
+    configured := strings.trim_space(bufferString(state.settings.macroDirectories[directory_index].path[:]))
     if configured != "" do return strings.clone(configured), nil
     return defaultMacrosDir()
+}
+
+addMacroDirectory :: proc(state: ^AppState, name, path: string) -> bool {
+    if state.settings.macroDirectoryCount >= MAX_MACRO_DIRECTORIES do return false
+
+    index := state.settings.macroDirectoryCount
+    display_name := strings.trim_space(name)
+    if display_name == "" {
+        display_name = fmt.tprintf("Directory %d", index + 1)
+    }
+    bufferSet(state.settings.macroDirectories[index].name[:], display_name)
+    bufferSet(state.settings.macroDirectories[index].path[:], strings.trim_space(path))
+    state.settings.macroDirectoryCount += 1
+    state.settings.dirty = true
+    return true
+}
+
+removeMacroDirectory :: proc(state: ^AppState, index: int) {
+    if index <= 0 || index >= state.settings.macroDirectoryCount do return
+
+    for i in index..<state.settings.macroDirectoryCount - 1 {
+        state.settings.macroDirectories[i] = state.settings.macroDirectories[i + 1]
+    }
+    state.settings.macroDirectoryCount -= 1
+    state.settings.macroDirectories[state.settings.macroDirectoryCount] = {}
+
+    if state.settings.lastMacroDirectory > index {
+        state.settings.lastMacroDirectory -= 1
+    } else if state.settings.lastMacroDirectory >= state.settings.macroDirectoryCount {
+        state.settings.lastMacroDirectory = state.settings.macroDirectoryCount - 1
+    }
+    state.settings.dirty = true
+}
+
+ensureMacroDirectories :: proc(state: ^AppState) {
+    if state.settings.macroDirectoryCount == 0 {
+        _ = addMacroDirectory(state, "Default", "")
+    }
+    state.settings.lastMacroDirectory = clamp(
+        state.settings.lastMacroDirectory,
+        0,
+        state.settings.macroDirectoryCount - 1,
+    )
 }
 
 bookPagesDir :: proc(state: ^AppState) -> (string, os.Error) {
@@ -104,6 +148,11 @@ freeSavedSettings :: proc(settings: ^Settings) {
     delete(settings.macro_export_path)
     delete(settings.mpk_export_path)
     delete(settings.cyv_export_path)
+    for &directory in settings.macro_directories {
+        delete(directory.name)
+        delete(directory.path)
+    }
+    delete(settings.macro_directories)
 }
 
 loadSettings :: proc(state: ^AppState) {
@@ -128,26 +177,40 @@ loadSettings :: proc(state: ^AppState) {
     if strings.trim_space(saved.player_pfp_path) != "" {
         bufferSet(state.settings.playerAvatarPath[:], saved.player_pfp_path)
     }
-    legacy_macro_path := strings.trim_space(saved.macro_export_path)
-    mpk_path := strings.trim_space(saved.mpk_export_path)
-    cyv_path := strings.trim_space(saved.cyv_export_path)
-    if mpk_path != "" {
-        bufferSet(state.settings.mpkExportPath[:], mpk_path)
-    } else if legacy_macro_path != "" {
-        bufferSet(state.settings.mpkExportPath[:], legacy_macro_path)
+    _ = addMacroDirectory(state, "Default", "")
+
+    if len(saved.macro_directories) > 0 {
+        for directory in saved.macro_directories {
+            if state.settings.macroDirectoryCount >= MAX_MACRO_DIRECTORIES do break
+            if directory.name == "Default" && strings.trim_space(directory.path) == "" do continue
+            _ = addMacroDirectory(state, directory.name, directory.path)
+        }
+    } else {
+        legacy_macro_path := strings.trim_space(saved.macro_export_path)
+        mpk_path := strings.trim_space(saved.mpk_export_path)
+        cyv_path := strings.trim_space(saved.cyv_export_path)
+        if mpk_path == "" do mpk_path = legacy_macro_path
+        if cyv_path == "" do cyv_path = legacy_macro_path
+
+        if mpk_path != "" && mpk_path == cyv_path {
+            _ = addMacroDirectory(state, "Macros", mpk_path)
+        } else {
+            if mpk_path != "" do _ = addMacroDirectory(state, "Mpk", mpk_path)
+            if cyv_path != "" do _ = addMacroDirectory(state, "Cyv", cyv_path)
+        }
     }
-    if cyv_path != "" {
-        bufferSet(state.settings.cyvExportPath[:], cyv_path)
-    } else if legacy_macro_path != "" {
-        bufferSet(state.settings.cyvExportPath[:], legacy_macro_path)
-    }
+    state.settings.lastMacroDirectory = clamp(
+        saved.last_macro_directory,
+        0,
+        state.settings.macroDirectoryCount - 1,
+    )
     if saved.send_hotkey >= int(SendHotkey.Enter) && saved.send_hotkey <= int(SendHotkey.ShiftEnter) {
         state.settings.sendHotkey = SendHotkey(saved.send_hotkey)
     }
     if saved.theme >= int(Theme.Dark) && saved.theme <= int(Theme.Light) {
         state.settings.theme = Theme(saved.theme)
     }
-    state.settings.dirty = false
+    state.settings.dirty = saved.version < 3 || len(saved.macro_directories) == 0
 }
 
 saveSettings :: proc(state: ^AppState) {
@@ -163,13 +226,22 @@ saveSettings :: proc(state: ^AppState) {
     if path_err != nil do return
     defer delete(path)
 
+    directories: [dynamic]SavedMacroDirectory
+    defer delete(directories)
+    for i in 0..<state.settings.macroDirectoryCount {
+        append(&directories, SavedMacroDirectory{
+            name = bufferString(state.settings.macroDirectories[i].name[:]),
+            path = bufferString(state.settings.macroDirectories[i].path[:]),
+        })
+    }
+
     saved := Settings {
-        version = 2,
+        version = 3,
         player_name = bufferString(state.settings.playerName[:]),
         bot_name = bufferString(state.settings.botName[:]),
         player_pfp_path = bufferString(state.settings.playerAvatarPath[:]),
-        mpk_export_path = bufferString(state.settings.mpkExportPath[:]),
-        cyv_export_path = bufferString(state.settings.cyvExportPath[:]),
+        macro_directories = directories[:],
+        last_macro_directory = state.settings.lastMacroDirectory,
         send_hotkey = int(state.settings.sendHotkey),
         theme = int(state.settings.theme),
     }
@@ -752,13 +824,22 @@ openBooksFolder :: proc(state: ^AppState) {
     openExternal(dir)
 }
 
-openMacrosFolder :: proc(state: ^AppState, macro_type: int) {
-    dir, dir_err := macrosDir(state, macro_type)
+openMacrosFolder :: proc(state: ^AppState, directory_index: int) {
+    dir, dir_err := macrosDir(state, directory_index)
     if dir_err != nil {
         return
     }
     defer delete(dir)
 
+    if mkdir_err := os.make_directory_all(dir); mkdir_err != nil && !os.is_dir(dir) {
+        return
+    }
+    openExternal(dir)
+}
+
+openMacroDirectoryPath :: proc(path: string) {
+    dir := strings.trim_space(path)
+    if dir == "" do return
     if mkdir_err := os.make_directory_all(dir); mkdir_err != nil && !os.is_dir(dir) {
         return
     }

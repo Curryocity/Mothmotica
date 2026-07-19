@@ -16,6 +16,7 @@ AVATAR_GAP :: f32(12)
 MESSAGE_BOX_RIGHT_PAD :: f32(72)
 MAX_PAGES :: 32
 MAX_MSGS :: 1024
+MAX_MACRO_DIRECTORIES :: 32
 PAGE_TITLE_SIZE :: 128
 PATH_SIZE :: 1024
 APP_NAME :: "Mothmotica"
@@ -51,11 +52,21 @@ UIState :: struct {
     macroName: [PAGE_TITLE_SIZE]byte,
     macroPrompt: [8192]byte,
     macroType: c.int,
+    macroDirectory: c.int,
+    macroDirectoryNameInput: [PAGE_TITLE_SIZE]byte,
+    macroDirectoryPathInput: [PATH_SIZE]byte,
+    macroDirectoryEditIndex: int,
+    openMacroDirectoryEditorPopup: bool,
     macroExportStatus: [PATH_SIZE]byte,
     macroExportStatusError: bool,
     openMacroExportPopup: bool,
     showMacroExportPopup: bool,
     confirmMacroOverwrite: bool,
+}
+
+MacroDirectory :: struct {
+    name: [PAGE_TITLE_SIZE]byte,
+    path: [PATH_SIZE]byte,
 }
 
 UserSettings :: struct {
@@ -65,8 +76,9 @@ UserSettings :: struct {
     playerAvatarImportPath: [PATH_SIZE]byte,
     playerAvatarStatus: [256]byte,
     playerAvatarStatusError: bool,
-    mpkExportPath: [PATH_SIZE]byte,
-    cyvExportPath: [PATH_SIZE]byte,
+    macroDirectories: [MAX_MACRO_DIRECTORIES]MacroDirectory,
+    macroDirectoryCount: int,
+    lastMacroDirectory: int,
     sendHotkey: SendHotkey,
     theme: Theme,
     dirty: bool,
@@ -173,6 +185,7 @@ init :: proc() -> ^AppState{
     bufferSet(state.settings.playerName[:], "Me")
     bufferSet(state.settings.botName[:], "Mothball")
     loadSettings(state)
+    ensureMacroDirectories(state)
     loadPlayerpfpTex(state)
     applyTheme(state.settings.theme)
     state.runtime.lastTheme = state.settings.theme

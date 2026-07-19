@@ -118,6 +118,7 @@ exportMacro :: proc(
     state: ^AppState,
     input, name: string,
     macro_type: int,
+    macro_directory: int,
     status: []byte,
     overwrite := false,
 ) -> MacroExportResult {
@@ -146,7 +147,7 @@ exportMacro :: proc(
     }
     filename = fmt.tprintf("%s%s", filename, extension)
 
-    dir, dir_err := macrosDir(state, macro_type)
+    dir, dir_err := macrosDir(state, macro_directory)
     if dir_err != nil {
         bufferSet(status, "Could not resolve the macro export directory.")
         return .Failed
