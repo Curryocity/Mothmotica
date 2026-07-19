@@ -117,54 +117,79 @@ jobs:
         run: |
           set -euo pipefail
           odin_root="$(odin root)"
-          stb_source="${odin_root}/vendor/stb/src/stb_image.c"
+          stb_source_dir="${odin_root}/vendor/stb/src"
+          stb_libraries=(
+            stb_image
+            stb_image_write
+            stb_image_resize
+            stb_truetype
+            stb_rect_pack
+            stb_vorbis
+            stb_sprintf
+          )
 
           if [[ "${RUNNER_OS}" == "macOS" ]]; then
-            stb_library="${odin_root}/vendor/stb/lib/darwin/stb_image.a"
+            stb_library_dir="${odin_root}/vendor/stb/lib/darwin"
           else
-            stb_library="${odin_root}/vendor/stb/lib/stb_image.a"
+            stb_library_dir="${odin_root}/vendor/stb/lib"
           fi
 
-          if [[ -f "${stb_library}" ]]; then
-            echo "Using packaged ${stb_library}"
-            exit 0
-          fi
-          if [[ ! -f "${stb_source}" ]]; then
-            echo "Could not find ${stb_source}" >&2
-            exit 1
-          fi
+          mkdir -p "${stb_library_dir}"
+          for name in "${stb_libraries[@]}"; do
+            stb_source="${stb_source_dir}/${name}.c"
+            stb_library="${stb_library_dir}/${name}.a"
+            if [[ -f "${stb_library}" ]]; then
+              echo "Using packaged ${stb_library}"
+              continue
+            fi
+            if [[ ! -f "${stb_source}" ]]; then
+              echo "Could not find ${stb_source}" >&2
+              exit 1
+            fi
 
-          mkdir -p "$(dirname "${stb_library}")"
-          object_file="${RUNNER_TEMP}/stb_image.o"
-          cc -c -O2 -Os -fPIC "${stb_source}" -o "${object_file}"
-          ar rcs "${stb_library}" "${object_file}"
+            object_file="${RUNNER_TEMP}/${name}.o"
+            cc -c -O2 -Os -fPIC "${stb_source}" -o "${object_file}"
+            ar rcs "${stb_library}" "${object_file}"
+          done
 
       - name: Build Odin STB libraries
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $odinRoot = odin root
-          $stbSource = Join-Path $odinRoot "vendor/stb/src/stb_image.c"
-          $stbLibrary = Join-Path $odinRoot "vendor/stb/lib/stb_image.lib"
-
-          if (Test-Path $stbLibrary) {
-            Write-Host "Using packaged $stbLibrary"
-            exit 0
-          }
-          if (-not (Test-Path $stbSource)) {
-            throw "Could not find $stbSource"
-          }
-
-          $stbLibDir = Split-Path $stbLibrary -Parent
+          $stbSourceDir = Join-Path $odinRoot "vendor/stb/src"
+          $stbLibDir = Join-Path $odinRoot "vendor/stb/lib"
+          $stbLibraries = @(
+            "stb_image",
+            "stb_image_write",
+            "stb_image_resize",
+            "stb_truetype",
+            "stb_rect_pack",
+            "stb_vorbis",
+            "stb_sprintf"
+          )
           New-Item -ItemType Directory -Force -Path $stbLibDir | Out-Null
-          $objectFile = Join-Path $env:RUNNER_TEMP "stb_image.obj"
-          & cl.exe /nologo /MT /TC /O2 /c $stbSource "/Fo$objectFile"
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-          }
-          & lib.exe /nologo "/OUT:$stbLibrary" $objectFile
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
+
+          foreach ($name in $stbLibraries) {
+            $stbSource = Join-Path $stbSourceDir "$name.c"
+            $stbLibrary = Join-Path $stbLibDir "$name.lib"
+            if (Test-Path $stbLibrary) {
+              Write-Host "Using packaged $stbLibrary"
+              continue
+            }
+            if (-not (Test-Path $stbSource)) {
+              throw "Could not find $stbSource"
+            }
+
+            $objectFile = Join-Path $env:RUNNER_TEMP "$name.obj"
+            & cl.exe /nologo /MT /TC /O2 /c $stbSource "/Fo$objectFile"
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+            & lib.exe /nologo "/OUT:$stbLibrary" $objectFile
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
           }
 
       - name: Build GUI
