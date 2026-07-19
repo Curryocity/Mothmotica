@@ -737,10 +737,18 @@ getXYZCommandType :: proc(cmdName: string) -> CmdType {
             return .PitchQueue
     }
 
-    if cmd := getXZCommandType(cmdName); cmd != .Invalid {
-        return cmd
-    }
-    return getYCommandType(cmdName)
+	if cmd := getXZCommandType(cmdName); cmd != .Invalid {
+		return cmd
+	}
+
+	#partial switch getYCommandType(cmdName) {
+	case .SetY, .OutY, .SetVy, .OutVy, .OutYTop,
+	     .SetPlayerHeight, .SetJumpBoost, .SetSlowFall, .SetYObserve,
+	     .CeilQueue, .SlimeQueue, .tier:
+		return getYCommandType(cmdName)
+	case:
+		return .Invalid
+	}
 }
 
 checkMoveFunc :: proc(name: string) -> (MoveFunc, bool){

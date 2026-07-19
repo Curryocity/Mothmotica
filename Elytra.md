@@ -20,4 +20,5 @@ Minecraft 1.8.9 is not supported in this context, so `version("1.8.9")` returns 
 
 
 Existing movement functions also work in `;e`. Ground ticks use XZ movement, while jump and air ticks combine the existing XZ and Y simulators into one tick.
-Grounded movement and jump commands reset vertical velocity to zero before their tick.
+Grounded movement functions reset vertical velocity to zero before their tick.
+Pure Y movement commands such as `j`, `c`, `up`, `hold`, `jto`, and `cto` are unavailable in `;e`.
