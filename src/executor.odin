@@ -1594,10 +1594,10 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
         case. SetTick:
             value := f64(p.tick)
             return name, value, true
-        case .SetY, .OutY:
+        case .SetY:
             value := p.y
             return name, value, true
-        case .SetVy, .OutVy:
+        case .SetVy:
             value := p.vy
             return name, value, true
         case .OutYTop:
