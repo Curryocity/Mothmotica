@@ -106,6 +106,8 @@ Mothmotica supports exact movement profiles for Minecraft 1.8.9 and 1.21.3. The 
 
 Version 1.8.9 defaults to `inertia(0.005)`, `sdel(1)`, and `sndel(0)`. Version 1.21.3 defaults to `inertia(0.003)`, `sdel(0)`, and `sndel(1)`. Commands after `version(...)` can override those defaults.
 
+Numeric arguments support scientific notation, including forms such as `1e6`, `2.5E-3`, and `4e+2`.
+
 Elytra simulations require Minecraft 1.21.3, so `version("1.8.9")` is rejected in `;e`. Slow Falling is unavailable in Minecraft 1.8.9, and `sf(...)` returns an error when that version is selected.
 
 ### Elytra XYZ simulator (`;e`)

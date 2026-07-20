@@ -52,6 +52,10 @@ isSpace :: proc(ch: byte) -> bool {
     return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }
 
+isDigit :: proc(ch: byte) -> bool {
+    return ch >= '0' && ch <= '9'
+}
+
 updateNext :: proc(lex : ^Lexer) {
     skipSpace(lex)
 
@@ -65,16 +69,26 @@ updateNext :: proc(lex : ^Lexer) {
 
     c := lex.data[lex.pos]
 
-    if c >= '0' && c <= '9' {
+    if isDigit(c) {
         start := lex.pos
 
-        for lex.pos < n && lex.data[lex.pos] >= '0' && lex.data[lex.pos] <= '9' {
+        for lex.pos < n && isDigit(lex.data[lex.pos]) {
             lex.pos += 1
         }
 
         if lex.pos < n && lex.data[lex.pos] == '.' {
             lex.pos += 1
-            for lex.pos < n && lex.data[lex.pos] >= '0' && lex.data[lex.pos] <= '9' {
+            for lex.pos < n && isDigit(lex.data[lex.pos]) {
+                lex.pos += 1
+            }
+        }
+
+        if lex.pos < n && (lex.data[lex.pos] == 'e' || lex.data[lex.pos] == 'E') {
+            lex.pos += 1
+            if lex.pos < n && (lex.data[lex.pos] == '+' || lex.data[lex.pos] == '-') {
+                lex.pos += 1
+            }
+            for lex.pos < n && isDigit(lex.data[lex.pos]) {
                 lex.pos += 1
             }
         }
