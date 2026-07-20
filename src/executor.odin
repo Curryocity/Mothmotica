@@ -330,6 +330,16 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         if !argsOK do return msg, false
         return formatOutValue(prs, p, "X", p.x, cmd.args[:], "xr")
 
+    case .OutGlobalX:
+        msg, argsOK := expectPlainArgs(cmd, "outgx(...)", 0, 1)
+        if !argsOK do return msg, false
+        return formatOutValue(prs, p, "GlobalX", p.globalX, cmd.args[:], "outgx")
+
+    case .OutGlobalZ:
+        msg, argsOK := expectPlainArgs(cmd, "outgz(...)", 0, 1)
+        if !argsOK do return msg, false
+        return formatOutValue(prs, p, "GlobalZ", p.globalZ, cmd.args[:], "outgz")
+
     case .OutXBlock:
         msg, argsOK := expectPlainArgs(cmd, "xb(...)", 0, 1)
         if !argsOK do return msg, false
@@ -574,8 +584,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         cos_val := f64(cos(f32(facing)))
 
         for _ in 0..<t{
-            p.x += p.vx
-            p.z += p.vz
+            updateXZ(p)
 
             p.vx *= slip
             p.vz *= slip
@@ -1054,6 +1063,11 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         msg, argsOK := expectPlainArgs(cmd, "outy(...)", 0, 1)
         if !argsOK do return msg, false
         return formatOutValue(prs, p, "Y", p.y, cmd.args[:], "outy")
+
+    case .OutGlobalY:
+        msg, argsOK := expectPlainArgs(cmd, "outgy(...)", 0, 1)
+        if !argsOK do return msg, false
+        return formatOutValue(prs, p, "GlobalY", p.globalY, cmd.args[:], "outgy")
 
     case .OutVy:
         msg, argsOK := expectPlainArgs(cmd, "outvy(...)", 0, 1)
@@ -1575,8 +1589,12 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
         #partial switch cmd.type {
         case .SetX:
             return name, p.x, true
+        case .OutGlobalX:
+            return name, p.globalX, true
         case .SetZ:
             return name, p.z, true
+        case .OutGlobalZ:
+            return name, p.globalZ, true
         case .SetF:
             return name, f64(p.f), true
         case .SetPitch:
@@ -1609,6 +1627,8 @@ measureArgValue :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, f64
         case .SetY:
             value := p.y
             return name, value, true
+        case .OutGlobalY:
+            return name, p.globalY, true
         case .SetVy:
             value := p.vy
             return name, value, true
@@ -1677,8 +1697,12 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
         switch expr.text {
         case "getx":
             return p.x, true
+        case "getgx":
+            return p.globalX, true
         case "getz":
             return p.z, true
+        case "getgz":
+            return p.globalZ, true
         case "getvx":
             return p.vx, true
         case "getvz":
@@ -1698,6 +1722,8 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
             return f64(p.tick), true
         case "gety":
             return p.y, true
+        case "getgy":
+            return p.globalY, true
         case "getvy":
             return p.vy, true
         case "getytop":

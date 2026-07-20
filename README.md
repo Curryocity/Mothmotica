@@ -123,6 +123,7 @@ By starting the command with `;y` instead of `;s`. The mothball context is set t
 | `y(n)` | Set feet Y |
 | `vy(n)` | Set vertical velocity |
 | `outy` / `yr` | Output feet Y |
+| `gy` / `outgy` | Output global Y (accumulated vertical movement, unaffected by position setters) |
 | `outvy` | Output vertical velocity |
 | `ytop` | Output head/top Y, i.e. `y + height` |
 | `height(n)` | Set player height (default 1.8) |
@@ -317,6 +318,8 @@ But there is so much more you can do with savestates.
 | `tu(n)` | Turn facing by `n` degrees |
 | `xr` / `outx` | Output `X` |
 | `zr` / `outz` | Output `Z` |
+| `gx` / `outgx` | Output global X (accumulated movement, unaffected by position setters) |
+| `gz` / `outgz` | Output global Z (accumulated movement, unaffected by position setters) |
 | `xb` | Output `X` offset outward by `bx` |
 | `zb` | Output `Z` offset outward by `bx` |
 | `xmm` | Output `X` offset inward by `bx` |
@@ -329,6 +332,8 @@ But there is so much more you can do with savestates.
 | `outa` | Output movement angle |
 | `outf` | Output facing |
 | `outtu` | Output turn/facing |
+
+Global coordinates are read-only. Use `getgx`, `getgy`, and `getgz` in expressions, or `mes(gx, gy, gz)` to inspect them together.
 
 ### `print()/println()`, `sep()`, `silent()`, and `mes()`
 

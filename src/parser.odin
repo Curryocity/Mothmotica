@@ -64,6 +64,7 @@ CmdType :: enum {
 
     OutXRaw, OutXBlock, OutXMM, OutXLadder,
     OutZRaw, OutZBlock, OutZMM, OutZLadder,
+    OutGlobalX, OutGlobalY, OutGlobalZ,
 
     OutVx, OutVz, OutAngle, OutVec,
 
@@ -589,6 +590,8 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
             return .SetVel
         case "xr", "outx":
             return .OutXRaw
+        case "outgx":
+            return .OutGlobalX
         case "xb":
             return .OutXBlock
         case "xmm":
@@ -597,6 +600,8 @@ getXZCommandType :: proc(cmdName: string) -> CmdType {
             return .OutXLadder
         case "zr", "outz":
             return .OutZRaw
+        case "outgz":
+            return .OutGlobalZ
         case "zb":
             return .OutZBlock
         case "zmm":
@@ -689,6 +694,8 @@ getYCommandType :: proc(cmdName: string) -> CmdType {
             return .SetY
         case "outy", "yr":
             return .OutY
+        case "outgy":
+            return .OutGlobalY
         case "vy":
             return .SetVy
         case "outvy":
@@ -742,7 +749,7 @@ getXYZCommandType :: proc(cmdName: string) -> CmdType {
 	}
 
 	#partial switch getYCommandType(cmdName) {
-	case .SetY, .OutY, .SetVy, .OutVy, .OutYTop,
+	case .SetY, .OutY, .OutGlobalY, .SetVy, .OutVy, .OutYTop,
 	     .SetPlayerHeight, .SetJumpBoost, .SetSlowFall, .SetYObserve,
 	     .CeilQueue, .SlimeQueue, .tier:
 		return getYCommandType(cmdName)

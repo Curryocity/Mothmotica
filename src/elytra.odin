@@ -11,9 +11,8 @@ SLOW_FALL_GRAVITY :: 0.01
 
 elytra_tick :: proc(p: ^Player, pitch: f32, yaw: f32) {
 
-    p.x += p.vx
-	p.y += p.vy
-	p.z += p.vz
+    updateXZ(p)
+	updateY(p)
 
     elytra_vel_update(p, pitch, yaw)
 }
@@ -95,9 +94,8 @@ elytra_vel_update :: proc(p: ^Player, pitch: f32, yaw: f32) {
 }
 
 elytra_jump :: proc(p: ^Player, floor_y: f64, pitch: f32, yaw: f32, sprinting: bool) {
-    p.x += p.vx
-    p.y += p.vy
-    p.z += p.vz
+    updateXZ(p)
+    updateY(p)
     if p.y < floor_y do p.y = floor_y
 
     p.prev_vy = p.vy

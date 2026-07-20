@@ -4,6 +4,11 @@ import "core:math"
 
 
 Player :: struct {
+    // Unmodified position: accumulated movement, unaffected by position setters.
+    globalX: f64,
+    globalY: f64,
+    globalZ: f64,
+
     // xz states
     x: f64,
     z: f64,
@@ -57,6 +62,18 @@ Player :: struct {
         It is confusing to see the webbed player constantly moving with 0 velocity.
     */
     
+}
+
+updateXZ :: proc(p: ^Player) {
+    p.x += p.vx
+    p.z += p.vz
+    p.globalX += p.vx
+    p.globalZ += p.vz
+}
+
+updateY :: proc(p: ^Player) {
+    p.y += p.vy
+    p.globalY += p.vy
 }
 
 
@@ -137,8 +154,7 @@ moveXZ :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, sprint
     
     slip: f32 = airborne ? 1.0 : p.ground_slip
 
-    p.x += p.vx
-    p.z += p.vz
+    updateXZ(p)
 
     // I don't know if it is accurate
     if p.soulSandQ {
@@ -263,8 +279,7 @@ moveXZModern :: proc(macro: ^Macro, p: ^Player, w: f32, a: f32, airborne: bool, 
 
 	slip: f32 = airborne ? 1.0 : p.ground_slip
 
-	p.x += p.vx
-	p.z += p.vz
+	updateXZ(p)
 
 	if p.soulSandQ {
 		p.vx *= 0.4
@@ -390,7 +405,7 @@ moveY :: proc(p: ^Player, jump: bool, version := MCVersion.V1_8_9) -> (bool, boo
 
     ceilQ, bounceQ: bool
     originalY := p.y
-    p.y += p.vy
+    updateY(p)
 
     p.prev_vy = p.vy
 
@@ -453,7 +468,7 @@ moveUp :: proc(p: ^Player, version := MCVersion.V1_8_9) -> (bool, bool) {
     ceilQ, ok: bool
 
     originalY := p.y
-    p.y += p.vy
+    updateY(p)
     p.prev_vy = p.vy
 
     if !qEmpty(&p.ceilQueue) {
@@ -502,7 +517,7 @@ ladderHold :: proc(p: ^Player, version := MCVersion.V1_8_9) -> (bool, bool) {
         return ceilQ, true
     }
 
-    p.y += p.vy
+    updateY(p)
     p.prev_vy = p.vy
 
     p.vy = 0
