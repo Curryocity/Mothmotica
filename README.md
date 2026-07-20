@@ -493,9 +493,13 @@ Zb: 8.00006
 
 Sometimes you hate movement branching or just want to test what if next tick hits inertia. Use this. 
 
-### Handy math functions: `abs()`,`sqrt()`,`sin()`,`cos()`,`tan()`,`atan()`
+### Handy math functions: `abs()`, `min()`, `max()`, `sign()`, `sqrt()`, `floor()`, `ceil()`, `round()`, `sin()`, `cos()`, `tan()`, `atan()`
 
 Notes:
 1. **the unit of angle is always in degrees.**
 
 2. **`abs(...)`** can take in multiple values and treat it as the **norm** of the vector.
+
+3. **`min(...)` and `max(...)`** take one or more values and return the smallest or largest one.
+
+4. **`sign(x)`** returns `-1` for negative values, `0` for zero, and `1` for positive values.

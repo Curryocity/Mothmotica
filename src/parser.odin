@@ -54,7 +54,7 @@ MoveFunc :: struct {
 
 CmdType :: enum {
     Plus, Minus, Mul, Div, 
-    Abs, Sqrt, Sin, Cos, Tan, Atan, ArgAngle,
+    Abs, Min, Max, Sign, Sqrt, Floor, Ceil, Round, Sin, Cos, Tan, Atan, ArgAngle,
 
     Print, Println, SetPrintSep, SetSilent, Measure, Polar,
 
@@ -333,7 +333,7 @@ canContinueExpr :: proc(arg: Arg) -> bool {
     case .Call:
         if arg.expr == nil do return false
         #partial switch arg.expr.type {
-        case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
+        case .Plus, .Minus, .Mul, .Div, .Abs, .Min, .Max, .Sign, .Sqrt, .Floor, .Ceil, .Round, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
             return true
         case:
             return false
@@ -548,8 +548,20 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
             return .SetLadder
         case "abs":
             return .Abs
+        case "min":
+            return .Min
+        case "max":
+            return .Max
+        case "sign":
+            return .Sign
         case "sqrt":
             return .Sqrt
+        case "floor":
+            return .Floor
+        case "ceil":
+            return .Ceil
+        case "round":
+            return .Round
         case "sin":
             return .Sin
         case "cos":

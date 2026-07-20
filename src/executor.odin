@@ -1406,7 +1406,7 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
     case .Define:
         return "Error: define(...) not implemented yet", false
 
-    case .Plus, .Minus, .Mul, .Div, .Abs, .Sqrt, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
+    case .Plus, .Minus, .Mul, .Div, .Abs, .Min, .Max, .Sign, .Sqrt, .Floor, .Ceil, .Round, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
         return "Error: operator/computation call cannot be executed as a top-level statement", false
 
     case .Invalid:
@@ -1795,6 +1795,26 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
                 sum += arg * arg
             }
             return math.sqrt(sum), true
+        }else if cmd.type == .Min || cmd.type == .Max {
+            if len(cmd.args) < 1 {
+                name := cmd.type == .Min ? "min" : "max"
+                failParse(prs, fmt.tprintf("Error: %s(...) should have at least one parameter", name))
+                return 0, false
+            }
+
+            result, ok := eval(prs, p, cmd.args[0])
+            if !ok do return 0, false
+
+            for argExpr in cmd.args[1:] {
+                arg, argOK := eval(prs, p, argExpr)
+                if !argOK do return 0, false
+                if cmd.type == .Min {
+                    result = min(result, arg)
+                } else {
+                    result = max(result, arg)
+                }
+            }
+            return result, true
         }else if cmd.type == .ArgAngle {
             if len(cmd.args) != 2 {
                 failParse(prs, "Error: arg(...) should have exactly two parameters")
@@ -1808,7 +1828,7 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
             if !ok2 do return 0, false
 
             return math.atan2(-x, z) * 180 / PId, true
-        }else if cmd.type == .Sqrt || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
+        }else if cmd.type == .Sign || cmd.type == .Sqrt || cmd.type == .Floor || cmd.type == .Ceil || cmd.type == .Round || cmd.type == .Sin || cmd.type == .Cos || cmd.type == .Tan || cmd.type == .Atan {
             if len(cmd.args) != 1 {
                 failParse(prs, "Error: computing function should have exactly one parameter")
                 return 0, false
@@ -1818,6 +1838,10 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
             if !ok do return 0, false
 
             #partial switch cmd.type {
+                case .Sign:
+                    if arg < 0 do return -1, true
+                    if arg > 0 do return 1, true
+                    return 0, true
                 case .Sqrt:
                     if arg >= 0 {
                         return math.sqrt(arg), true
@@ -1825,6 +1849,12 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
                         failParse(prs, "Error: Sqrt(...) cannot take in a negative number.")
                         return 0, false
                     }
+                case .Floor:
+                    return math.floor(arg), true
+                case .Ceil:
+                    return math.ceil(arg), true
+                case .Round:
+                    return math.round(arg), true
                 case .Sin:
                     rad := arg * PId/180
                     return math.sin(rad), true
