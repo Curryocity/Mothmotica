@@ -10,6 +10,7 @@ import "core:unicode"
 BOOKS_FOLDER :: "books"
 SETTINGS_FILE :: "mothmotica-settings.json"
 PAGE_ORDER_FILE:: "order.txt"
+ACTIVE_PAGE_PREFIX :: "@active-page="
 BOT_AVATAR_PATH :: "asset/image/mothballpfp.png"
 USER_DATA_FOLDER :: "user_data"
 AVATAR_FOLDER :: "avatar"
@@ -547,6 +548,19 @@ savePagesOrder :: proc(state: ^AppState) -> bool {
     b := strings.builder_make()
     defer strings.builder_destroy(&b)
 
+    if state.book.activePage >= 0 && state.book.activePage < state.book.pageCount {
+        active_page := state.book.pages[state.book.activePage]
+        if active_page != nil {
+            active_path := bufferString(active_page.path[:])
+            if active_path != "" {
+                active_filename := filepath.base(active_path)
+                if active_filename != "" && active_filename != PAGE_ORDER_FILE {
+                    strings.write_string(&b, fmt.tprintf("%s%s\n", ACTIVE_PAGE_PREFIX, active_filename))
+                }
+            }
+        }
+    }
+
     for i in 0..<state.book.pageCount {
         page := state.book.pages[i]
         if page == nil {
@@ -586,10 +600,15 @@ loadPagesOrder :: proc(state: ^AppState, dir: string) -> bool {
     defer delete(lines)
 
     loaded := false
+    active_filename := ""
 
     for line in lines {
         filename := strings.trim_space(line)
         if filename == "" {
+            continue
+        }
+        if strings.has_prefix(filename, ACTIVE_PAGE_PREFIX) {
+            active_filename = strings.trim_space(filename[len(ACTIVE_PAGE_PREFIX):])
             continue
         }
         if !strings.has_suffix(filename, ".json") {
@@ -624,6 +643,16 @@ loadPagesOrder :: proc(state: ^AppState, dir: string) -> bool {
         delete(page_path)
 
         loaded = true
+    }
+
+    if active_filename != "" {
+        for page, i in state.book.pages[:state.book.pageCount] {
+            if page == nil do continue
+            if filepath.base(bufferString(page.path[:])) == active_filename {
+                state.book.activePage = i
+                break
+            }
+        }
     }
 
     return loaded
@@ -674,8 +703,6 @@ loadBookPages :: proc(state: ^AppState, dir: string) -> bool {
     if loaded {
         savePagesOrder(state)
     }
-
-    state.book.activePage = 0
 
     return loaded
 }

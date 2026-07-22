@@ -518,6 +518,7 @@ drawSidebar :: proc(state: ^AppState, size: im.Vec2) {
 
             if im.Selectable(label_c, i == state.book.activePage, {}, {item_w, 0}) {
                 state.book.activePage = i
+                savePagesOrder(state)
             }
         }
 
