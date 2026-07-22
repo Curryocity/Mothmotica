@@ -72,14 +72,15 @@ drawBookUI :: proc(state: ^AppState){
 
         im.Indent(SIDE_PAD)
         if state.ui.showStarred {
-            drawStarredMsg(state, page)
+            drawStarredMsg(state, page, pinned_to_bottom)
         } else {
             for i in 0..<page.msgCount {
                 is_draft := (i == msgCount(page))
-                drawAllMsg(state, page, i, is_draft)
+                drawAllMsg(state, page, i, is_draft, pinned_to_bottom)
             }
         }
         im.Unindent(SIDE_PAD)
+        im.Dummy({0, CHAT_BOTTOM_PAD})
 
         if state.runtime.newMsgQ {
             state.runtime.scrollBottomFrames = 3
@@ -128,6 +129,9 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
     reply_w := max(im.GetContentRegionAvail().x - MESSAGE_BOX_RIGHT_PAD, 1)
     wrap_w := max(reply_w - style.FramePadding.x * 2 - 16, 1)
     text_size := im.CalcTextSize(reply_c, nil, false, wrap_w)
+    if len(reply) > 0 && reply[len(reply) - 1] == '\n' {
+        text_size.y += im.GetTextLineHeight()
+    }
     height := max(text_size.y + style.FramePadding.y * 2, 30)
 
     im.InputTextMultiline(
@@ -142,7 +146,7 @@ drawReply :: proc(state: ^AppState, msg: ^ChatMsg) {
     im.Unindent(AVATAR_SIZE + AVATAR_GAP)
 }
 
-drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
+drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft, pinned_to_bottom: bool) {
     msg := &page.msgs[idx]
     im.PushIDInt(c.int(idx))
 
@@ -179,12 +183,16 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     style := im.GetStyle()
     text_w := max(im.GetContentRegionAvail().x - MESSAGE_BOX_RIGHT_PAD, 1)
     wrap_w := max(text_w - style.FramePadding.x * 2 - 16, 1)
-    text_size := im.CalcTextSize(cstring(&msg.text[0]), nil, false, wrap_w)
-    height := max(text_size.y + style.FramePadding.y * 2, 36)
     im.PushStyleColorImVec4(im.Col.FrameBg, msgBoxBgColor(state.settings.theme, is_draft))
     im.PushStyleColorImVec4(im.Col.Border, msgBoxBorderColor(state.settings.theme, is_draft))
     im.PushStyleColorImVec4(im.Col.Text, msgBoxTextColor(state.settings.theme))
     pushed_MonoFont := pushMonoFont()
+    message := bufferString(msg.text[:])
+    text_size := im.CalcTextSize(cstring(&msg.text[0]), nil, false, wrap_w)
+    if len(message) > 0 && message[len(message) - 1] == '\n' {
+        text_size.y += im.GetTextLineHeight()
+    }
+    height := max(text_size.y + style.FramePadding.y * 2, 36)
     submit := false
     cb_data := SubmitState{state = state, submitted = &submit}
     changed := im.InputTextMultiline(
@@ -216,6 +224,9 @@ drawAllMsg :: proc(state: ^AppState, page: ^Page, idx: int, is_draft: bool) {
     if changed {
         msg.dirty = true
         page.dirty = true
+        if item_active && pinned_to_bottom {
+            state.runtime.scrollBottomFrames = 3
+        }
     }
     im.PopStyleColor(3)
 
@@ -544,12 +555,12 @@ moveActivePage :: proc(state: ^AppState, offset: int) {
     savePagesOrder(state)
 }
 
-drawStarredMsg :: proc(state: ^AppState, page: ^Page) {
+drawStarredMsg :: proc(state: ^AppState, page: ^Page, pinned_to_bottom: bool) {
     found := false
     for i in 0..<msgCount(page) {
         if !page.msgs[i].starred do continue
         found = true
-        drawAllMsg(state, page, i, false)
+        drawAllMsg(state, page, i, false, pinned_to_bottom)
     }
 
     if !found {
