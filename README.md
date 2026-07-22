@@ -230,6 +230,17 @@ r(50){
 }
 ```
 
+Use `break(expression)` inside `r(...){...}` to immediately exit the nearest repeat loop when the expression is greater than zero. When it is zero or negative, execution continues normally:
+
+```text
+set(end, 1)
+r(100){
+    println("runs once")
+    break(end)
+    set(end, 1)
+}
+```
+
 ### Explicit `inv()`:
 
 Mothmotica uses `inv(n){...}` as the base inverse command. It also keeps `bwmm(n){...}` as a historical Mothball shortcut:
@@ -493,7 +504,7 @@ Zb: 8.00006
 
 Sometimes you hate movement branching or just want to test what if next tick hits inertia. Use this. 
 
-### Handy math functions: `abs()`, `min()`, `max()`, `sign()`, `sqrt()`, `floor()`, `ceil()`, `round()`, `sin()`, `cos()`, `tan()`, `atan()`
+### Handy math functions: `abs()`, `min()`, `max()`, `sign()`, `rng()`, `sqrt()`, `floor()`, `ceil()`, `round()`, `sin()`, `cos()`, `tan()`, `atan()`
 
 Notes:
 1. **the unit of angle is always in degrees.**
@@ -501,5 +512,7 @@ Notes:
 2. **`abs(...)`** can take in multiple values and treat it as the **norm** of the vector.
 
 3. **`min(...)` and `max(...)`** take one or more values and return the smallest or largest one.
+
+4. **`rng()`** takes no parameters and returns a uniformly distributed random number in `[0, 1)`. 
 
 4. **`sign(x)`** returns `-1` for negative values, `0` for zero, and `1` for positive values.

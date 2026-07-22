@@ -15,7 +15,9 @@ ParserState :: struct {
     precision: u8,
     printSep: string,
     yObserve: bool,
-    silent: bool,
+	silent: bool,
+	loopDepth: int,
+	tryToBreak: bool,
     macro: Macro,
 	version: MCVersion,
 }
@@ -54,7 +56,7 @@ MoveFunc :: struct {
 
 CmdType :: enum {
     Plus, Minus, Mul, Div, 
-    Abs, Min, Max, Sign, Sqrt, Floor, Ceil, Round, Sin, Cos, Tan, Atan, ArgAngle,
+    Abs, Min, Max, Sign, Rand, Sqrt, Floor, Ceil, Round, Sin, Cos, Tan, Atan, ArgAngle,
 
     Print, Println, SetPrintSep, SetSilent, Measure, Polar,
 
@@ -88,7 +90,7 @@ CmdType :: enum {
 
     AngleQueue, TurnQueue,
 
-    Loop, SetVar, Define, Save, Load,
+    Loop, Break, SetVar, Define, Save, Load,
 
     // Y commands
 
@@ -333,7 +335,7 @@ canContinueExpr :: proc(arg: Arg) -> bool {
     case .Call:
         if arg.expr == nil do return false
         #partial switch arg.expr.type {
-        case .Plus, .Minus, .Mul, .Div, .Abs, .Min, .Max, .Sign, .Sqrt, .Floor, .Ceil, .Round, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
+        case .Plus, .Minus, .Mul, .Div, .Abs, .Min, .Max, .Sign, .Rand, .Sqrt, .Floor, .Ceil, .Round, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
             return true
         case:
             return false
@@ -554,6 +556,8 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
             return .Max
         case "sign":
             return .Sign
+        case "rng":
+            return .Rand
         case "sqrt":
             return .Sqrt
         case "floor":
@@ -574,6 +578,8 @@ getCommonCommandType :: proc(cmdName: string) -> CmdType {
             return .ArgAngle
         case "r", "loop", "repeat":
             return .Loop
+        case "break":
+            return .Break
         case "def", "define":
             return .Define
         case "save":

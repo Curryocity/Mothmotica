@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:math"
+import "core:math/rand"
 import "core:strings"
 
 exeArg :: proc(prs: ^ParserState, p: ^Player, arg: Arg) -> (string, bool) {
@@ -1388,6 +1389,9 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
         buf: [dynamic]u8
         defer delete(buf)
 
+        prs.loopDepth += 1
+        defer prs.loopDepth -= 1
+
         for times > 0 {
             s, codeOK := exeCode(prs, p, cmd.code[:], false)
             if !codeOK do return s, false
@@ -1398,15 +1402,32 @@ exeCommand :: proc(prs: ^ParserState, p: ^Player, cmd: ^Command) -> (string, boo
                     append(&buf, "\n")
                 }
             }
+
+            if prs.tryToBreak {
+                prs.tryToBreak = false
+                break
+            }
             times -= 1
         }
 
         return strings.clone(string(buf[:])), true
 
+    case .Break:
+        msg, argsOK := expectPlainArgs(cmd, "break(...)", 1, 1)
+        if !argsOK do return msg, false
+        if prs.loopDepth <= 0 {
+            return "Error: break(...) can only be used inside r(...){...}", false
+        }
+
+        condition, ok := eval(prs, p, cmd.args[0])
+        if !ok do return parserErrorOr(prs, "Error: break(...) argument is not a valid number"), false
+        if condition > 0 do prs.tryToBreak = true
+        return "", true
+
     case .Define:
         return "Error: define(...) not implemented yet", false
 
-    case .Plus, .Minus, .Mul, .Div, .Abs, .Min, .Max, .Sign, .Sqrt, .Floor, .Ceil, .Round, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
+    case .Plus, .Minus, .Mul, .Div, .Abs, .Min, .Max, .Sign, .Rand, .Sqrt, .Floor, .Ceil, .Round, .Sin, .Cos, .Tan, .Atan, .ArgAngle:
         return "Error: operator/computation call cannot be executed as a top-level statement", false
 
     case .Invalid:
@@ -1431,6 +1452,9 @@ exeCode :: proc(prs: ^ParserState, p: ^Player, code: []Arg, silent: bool) -> (st
                 append(&buf, "\n")
             }
         }
+
+
+        if prs.tryToBreak do break
     }
 
     if silent do return "", true
@@ -1795,6 +1819,12 @@ evalRaw :: proc(prs: ^ParserState, p: ^Player, expr: Arg) -> (f64, bool) {
                 sum += arg * arg
             }
             return math.sqrt(sum), true
+        }else if cmd.type == .Rand {
+            if len(cmd.args) != 0 {
+                failParse(prs, "Error: rng() does not accept parameters")
+                return 0, false
+            }
+            return rand.float64(), true
         }else if cmd.type == .Min || cmd.type == .Max {
             if len(cmd.args) < 1 {
                 name := cmd.type == .Min ? "min" : "max"
